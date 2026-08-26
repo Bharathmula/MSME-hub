@@ -26,12 +26,15 @@ def bundled_application(public_config: dict[str, str]) -> str:
         return f"<script data-source='{name}'>\n{source}\n</script>"
 
     html = re.sub(r'<link rel="stylesheet" href="([^"]+)"\s*/?>', inline_css, html)
+    # Inline only the local script tags that came from index.html. External
+    # scripts are injected afterwards so their URLs are never opened as files.
+    html = re.sub(r'<script src="([^"]+)"></script>', inline_js, html)
     adapter = (STATIC_DIR / "public-adapter.js").read_text(encoding="utf-8").replace("</script>", "<\\/script>")
     config_script = f"<script>window.MSME_CONFIG={json.dumps(public_config)};</script>\n"
     supabase_script = '<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>\n'
-    first_script = html.find("<script src=")
+    first_script = html.find("<script data-source=")
     html = html[:first_script] + config_script + supabase_script + f"<script data-source='public-adapter.js'>\n{adapter}\n</script>\n" + html[first_script:]
-    return re.sub(r'<script src="([^"]+)"></script>', inline_js, html)
+    return html
 
 
 st.set_page_config(
