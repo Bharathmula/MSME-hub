@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MSME Hub Streamlit Project</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="login.css" />
+  <link rel="stylesheet" href="admin.css" />
+  <link rel="stylesheet" href="v3.css" />
+  <link rel="stylesheet" href="v4.css" />
+  <link rel="stylesheet" href="v5.css" />
+  <link rel="stylesheet" href="v6.css" />
+  <link rel="stylesheet" href="v9.css" />
+  <link rel="stylesheet" href="v12.css" />
+  <link rel="stylesheet" href="v15.css" />
+  <link rel="stylesheet" href="v20.css" />
+  <link rel="stylesheet" href="v21.css" />
+  <link rel="stylesheet" href="v22.css" />
+  <link rel="stylesheet" href="v23.css" />
+  <link rel="stylesheet" href="v24.css" />
+  <link rel="stylesheet" href="v25.css" />
+  <link rel="stylesheet" href="v7.css" />
+  <link rel="stylesheet" href="v26.css" />
+  <link rel="stylesheet" href="v27.css" />
+  <link rel="stylesheet" href="v28.css" />
+  <link rel="stylesheet" href="custom.css" />
+</head>
+<body>
+  <section class="login-screen" id="login-screen">
+    <div class="login-art">
+      <div class="os-logo"><span class="os-icon">▥</span> MSME OS</div>
+      <div class="art-copy"><h2>MSME<br><i>MULTI SKILL</i><br><i>PLANNER</i></h2><span class="blue-line"></span><p>A smart workforce management system for Indian MSMEs to plan, manage, and optimize multi-skills of employees, ensure better attendance, and improve overall efficiency.</p></div>
+    </div>
+    <div class="login-panel-wrap"><div class="login-panel">
+      <p class="eyebrow login-badge">▣ &nbsp; MANAGER LOGIN</p>
+      <h1>Sign in to your workspace</h1>
+      <p class="login-copy">Only the designated manager can access and edit employee data.</p>
+      <form id="login-form"><label>EMAIL<input type="email" id="login-email" placeholder="Enter your registered email" required></label><label class="password-label">PASSWORD<span class="password-field"><input type="password" id="login-password" placeholder="Enter password" required><button class="password-toggle" type="button" id="toggle-password" aria-label="Show password">◉</button></span></label><a class="forgot-link" href="#" id="forgot-link">Forgot password?</a><p class="login-error" id="login-error"></p><button class="primary login-submit">Sign in</button><p class="signup-prompt">New entrepreneur? <a href="#" id="signup-link">Create account</a></p></form>
+      <form id="forgot-form" class="forgot-form"><button class="back-link" type="button" id="back-to-login">← Back to sign in</button><h3>Reset your password</h3><p>Enter the manager email and choose a new password.</p><label>MANAGER EMAIL<input type="email" id="reset-email" required></label><label>NEW PASSWORD<input type="password" id="reset-password" minlength="6" required></label><p class="login-error" id="reset-error"></p><button class="primary login-submit">Update password</button></form>
+      <form id="signup-form" class="forgot-form"><button class="back-link" type="button" id="back-from-signup">← Back to sign in</button><h3>Create entrepreneur account</h3><p>Create a private workspace for your MSME. Your employee details will be stored separately in this browser.</p><label>ENTREPRENEUR NAME<input id="signup-name" required></label><label>PHONE NUMBER<input id="signup-phone" required></label><label>EMAIL<input type="email" id="signup-email" required></label><label>PASSWORD<input type="password" id="signup-password" minlength="6" required></label><p class="login-error" id="signup-error"></p><button class="primary login-submit">Create account</button></form>
+      <div class="credentials"><b>ACCOUNT REQUIRED</b><p>Create an account before signing in.</p></div>
+    </div></div>
+  </section>
+  <div class="app-shell" id="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#dashboard"><span class="brand-mark">M</span><span>MSME <b>PLANNER</b></span></a>
+      <p class="workspace-label">WORKSPACE</p>
+      <nav id="side-nav">
+        <button class="nav-link active" data-view="dashboard"><span>▦</span> Overview</button>
+        <button class="nav-link" data-view="reminders"><span>◷</span> Reminders <em id="reminder-count"></em></button>
+        <button class="nav-link" data-view="temporary"><span>◷</span> Temporary workers <em id="temporary-worker-count"></em></button>
+        <button class="nav-link" data-view="workers"><span>◉</span> Workers <em id="worker-count"></em></button>
+        <button class="nav-link" data-view="staff"><span>◈</span> Staff <em id="staff-count"></em></button>
+        <button class="nav-link" data-view="entrepreneurs"><span>♔</span> Entrepreneur <em id="entrepreneur-count"></em></button>
+        <button class="nav-link" data-view="coverage"><span>✦</span> Worker replacement</button>
+        <button class="nav-link" data-view="attendance"><span>▦</span> Attendance calendar</button>
+        <button class="nav-link" data-view="contractors"><span>▤</span> Contractors</button>
+        <button class="nav-link" data-view="exemployees"><span>▤</span> Ex-employees</button>
+        <button class="nav-link" data-view="recycle"><span>♲</span> Recycle bin <em id="recycle-count"></em></button>
+      </nav>
+      <div class="sidebar-footer" id="admin-access"><div class="admin-avatar" id="admin-initials">AR</div><div><strong id="admin-name">Admin access</strong><small>Open account controls</small></div></div>
+      <button class="logout-button" id="sign-out">↗ &nbsp; Log out</button>
+    </aside>
+    <main>
+      <header class="topbar"><div class="mobile-brand">MSME PLANNER</div><label class="search"><span>⌕</span><input id="global-search" placeholder="Search people, skills, department..." /></label><div class="today" id="today"></div><button class="bell" data-view="reminders">♧<i id="alert-dot"></i></button><button class="primary" id="add-person">+ Add profile</button></header>
+      <section id="view-root"></section>
+    </main>
+  </div>
+  <div id="modal-root"></div>
+  <script src="app-v2.js"></script>
+  <script src="app-v3.js"></script>
+  <script src="app-v4.js"></script>
+  <script src="app-v5.js"></script>
+  <script src="app-v6.js"></script>
+  <script src="app-v7.js"></script>
+  <script src="app-v8.js"></script>
+  <script src="app-v9.js"></script>
+  <script src="app-v10.js"></script>
+  <script src="app-v11.js"></script>
+  <script src="app-v12.js"></script>
+  <script src="app-v13.js"></script>
+  <script src="app-v14.js"></script>
+  <script src="app-v15.js"></script>
+  <script src="app-v16.js"></script>
+  <script src="app-v17.js"></script>
+  <script src="app-v18.js"></script>
+  <script src="app-v19.js"></script>
+  <script src="app-v20.js"></script>
+  <script src="app-v21.js"></script>
+  <script src="app-v22.js"></script>
+  <script src="app-v23.js"></script>
+  <script src="app-v24.js"></script>
+  <script src="app-v25.js"></script>
+  <script src="app-v26.js"></script>
+  <script src="app-v27.js"></script>
+  <script src="app-v28.js"></script>
+  <script src="app-v29.js"></script>
+  <script src="app-v30.js"></script>
+  <script src="app-v31.js"></script>
+  <script src="custom.js"></script>
+</body>
+</html>

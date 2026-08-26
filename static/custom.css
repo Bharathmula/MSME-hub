@@ -1,0 +1,587 @@
+/*
+  YOUR EDITABLE STYLES
+  --------------------
+  This file loads after every project stylesheet. Add your VS Code styling
+  changes below, save the file, and refresh http://127.0.0.1:5000/.
+
+  Example:
+  .page-heading h1 { 
+    color: #174f78;
+  }
+*/
+
+/*
+  FESTIVAL-CALENDAR THEME FOR REMINDERS
+  -------------------------------------
+  The page heading remains uncoloured. Only the reminder content uses the
+  Festival Calendar's white panel, dark text and subtle border treatment.
+*/
+body:has(.nav-link[data-view="reminders"].active) #view-root .page-heading {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: #18231f !important;
+}
+
+body:has(.nav-link[data-view="reminders"].active) #view-root .page-heading h1 {
+  color: #18231f !important;
+}
+
+body:has(.nav-link[data-view="reminders"].active) #view-root .page-heading p {
+  color: #708078 !important;
+}
+
+body:has(.nav-link[data-view="reminders"].active) #view-root .page-heading .eyebrow {
+  color: #6d8075 !important;
+}
+
+body:has(.nav-link[data-view="reminders"].active) #view-root .panel,
+body:has(.nav-link[data-view="reminders"].active) #view-root .reminder-card {
+  background: #ffffff !important;
+  border-color: #ffffff !important;
+  border-radius: 12px !important;
+  color: #18231f !important;
+}
+
+body:has(.nav-link[data-view="reminders"].active) #view-root .panel h2,
+body:has(.nav-link[data-view="reminders"].active) #view-root .reminder-card h3,
+body:has(.nav-link[data-view="reminders"].active) #view-root .notice strong {
+  color: #18231f !important;
+}
+
+body:has(.nav-link[data-view="reminders"].active) #view-root .reminder-card p,
+body:has(.nav-link[data-view="reminders"].active) #view-root .notice span,
+body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
+  color: #708078 !important;
+}
+
+#add-person,
+#add-temporary,
+#add-contractor,
+[data-overflow-add] {
+  background: linear-gradient(135deg, #092a5d, #0b4f9a) !important;
+  border: 2px solid #ffffff !important;
+  color: #ffffff !important;
+  box-shadow: 0 5px 14px rgba(9, 42, 93, 0.22) !important;
+}
+
+#add-person:hover,
+#add-temporary:hover,
+#add-contractor:hover,
+[data-overflow-add]:hover {
+  background: #123f75 !important;
+}
+
+/* Ex-employee bulk selection and deletion controls. */
+.ex-employee-bulk-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+  padding: 13px 15px;
+  border: 2px solid #ffffff;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #092a5d, #0b4f9a);
+  color: #ffffff;
+}
+
+.ex-employee-select-all,
+.ex-employee-row-select {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ex-employee-select-all input,
+.ex-employee-row-select input {
+  width: 17px;
+  height: 17px;
+  accent-color: #0b4f9a;
+  cursor: pointer;
+}
+
+#ex-employee-selected-count {
+  color: #e9f3ff;
+  font-size: 11px;
+}
+
+#delete-selected-ex-employees {
+  margin-left: auto;
+  padding: 9px 13px;
+  border: 1px solid #ffffff;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #9b2020;
+  font: 700 10px 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+
+#delete-selected-ex-employees:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+@media (max-width: 650px) {
+  #delete-selected-ex-employees {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
+/* Recycle Bin: the same navy, white and soft-grey workspace theme. */
+.recycle-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.recycle-sector {
+  padding: 0 !important;
+  overflow: hidden;
+  border: 2px solid #ffffff !important;
+  background: #ffffff !important;
+  box-shadow: 0 7px 22px rgba(9, 42, 93, 0.08);
+}
+
+.recycle-sector-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 16px 18px;
+  background: linear-gradient(135deg, #092a5d, #0b4f9a);
+  color: #ffffff;
+}
+
+.recycle-sector-head h2,
+.recycle-sector-head p {
+  margin: 0;
+  color: #ffffff !important;
+}
+
+.recycle-sector-head p {
+  margin-top: 3px;
+  font-size: 10px;
+  opacity: 0.78;
+}
+
+.recycle-sector-head label,
+.recycle-record {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.recycle-sector input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  accent-color: #0b4f9a;
+}
+
+.recycle-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 11px 18px;
+  border-bottom: 1px solid #dce7f0;
+  background: #f5f8fb;
+}
+
+.recycle-toolbar strong {
+  margin-right: auto;
+  color: #34536d;
+  font-size: 11px;
+}
+
+.recycle-delete {
+  padding: 9px 13px;
+  border: 1px solid #a92f2f;
+  border-radius: 7px;
+  background: #a92f2f;
+  color: #ffffff;
+  font: 700 11px 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+
+.recycle-delete:disabled,
+.recycle-toolbar button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.recycle-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 10px;
+  padding: 15px 18px 18px;
+}
+
+.recycle-record {
+  padding: 12px;
+  border: 1px solid #d5e0e9;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #102a43;
+}
+
+.recycle-record:hover {
+  border-color: #0b4f9a;
+  background: #f7faff;
+}
+
+.recycle-record small {
+  display: block;
+  margin-top: 3px;
+  color: #64798b;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.recycle-confirm {
+  width: min(560px, 100%) !important;
+  border: 2px solid #092a5d !important;
+}
+
+.recycle-confirm .modal-head {
+  border-color: #b9cada !important;
+}
+
+.recycle-row-delete {
+  color: #9b2020 !important;
+}
+
+/* OTP-protected administrator account controls. */
+.admin-otp-form {
+  border: 2px solid #092a5d !important;
+}
+
+.admin-email-verification {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px 12px;
+  align-items: end;
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid #b7cddd;
+  border-radius: 10px;
+  background: #f2f7fb;
+}
+
+.admin-email-verification[hidden] {
+  display: none;
+}
+
+.admin-email-verification p {
+  margin: 4px 0 0;
+  color: #63798a;
+  font-size: 10px;
+}
+
+.admin-email-verification label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #102a43;
+}
+
+.admin-email-verification input {
+  width: 100%;
+  margin-top: 5px;
+  padding: 9px;
+  border: 1px solid #174f78;
+  border-radius: 6px;
+}
+
+.admin-otp-message {
+  grid-column: 1 / -1;
+  min-height: 16px;
+  margin: 0 !important;
+}
+
+.admin-otp-message.success { color: #27724b !important; }
+.admin-otp-message.error { color: #b12d2d !important; }
+.admin-otp-message.dev-code {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #fff4cd;
+  color: #725300 !important;
+  font-weight: 800;
+}
+
+.admin-password-field {
+  position: relative;
+  margin-top: 5px;
+}
+
+#modal-root #admin-form .admin-password-field input {
+  margin-top: 0 !important;
+  padding-right: 43px !important;
+}
+
+.admin-password-eye {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #174f78;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.admin-password-eye:hover,
+.admin-password-eye:focus-visible {
+  background: #e4edf5;
+  outline: none;
+}
+
+#admin-form input:disabled {
+  background: #edf2f6 !important;
+  color: #8293a1 !important;
+  cursor: not-allowed;
+}
+
+/* Dynamic Overview date. */
+.overview-current-date {
+  display: grid;
+  min-width: 235px;
+  gap: 5px;
+  padding: 13px 16px;
+  border: 1px solid #c8d7e3;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #102a43;
+  text-align: right;
+}
+
+.overview-current-date span {
+  color: #64798b;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.overview-current-date b {
+  font-size: 13px;
+}
+
+/* Three differently coloured role attendance dashboards. */
+.role-attendance-dashboard {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 18px 0;
+}
+
+.attendance-health-role-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 5px;
+  color: #ffffff;
+}
+
+.attendance-health-role-heading b { font-size: 12px; }
+.attendance-health-role-heading span {
+  color: rgba(255, 255, 255, .76);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.attendance-health-role-dashboard { margin: 12px 0 18px; }
+
+.attendance-health-role-dashboard .role-attendance-sector {
+  border: 1px solid rgba(255, 255, 255, .34);
+  box-shadow: 0 8px 18px rgba(0, 15, 45, .2);
+}
+
+.religion-form-field select { width: 100%; }
+
+.role-attendance-sector {
+  overflow: hidden;
+  border-radius: 12px;
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(9, 42, 93, .12);
+}
+
+.worker-attendance { background: linear-gradient(135deg, #092a5d, #0b4f9a); }
+.staff-attendance { background: linear-gradient(135deg, #174f78, #267ca8); }
+.entrepreneur-attendance { background: linear-gradient(135deg, #4b356e, #76559d); }
+
+.role-attendance-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 15px 17px;
+  border-bottom: 1px solid rgba(255, 255, 255, .2);
+}
+
+.role-attendance-head span,
+.role-attendance-head b {
+  display: block;
+}
+
+.role-attendance-head span {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.role-attendance-head b {
+  margin-top: 3px;
+  color: rgba(255, 255, 255, .78);
+  font-size: 10px;
+}
+
+.role-attendance-head button {
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  font: 700 10px 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+
+.role-attendance-progress {
+  height: 7px;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .25);
+}
+
+.role-attendance-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #ffffff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, .42);
+  transition: width .35s ease;
+}
+
+.role-attendance-progress-row {
+  display: grid;
+  grid-template-columns: minmax(70px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 17px 3px;
+}
+
+.role-attendance-progress-counts {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: rgba(255, 255, 255, .82);
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.role-attendance-progress-counts span,
+.role-attendance-progress-counts b { display: inline; }
+.role-attendance-progress-counts b { color: #ffffff; font-size: 10px; }
+
+.role-attendance-values {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.role-attendance-values div {
+  padding: 14px 7px;
+  border-right: 1px solid rgba(255, 255, 255, .16);
+  text-align: center;
+}
+
+.role-attendance-values div:last-child { border-right: 0; }
+.role-attendance-values b,
+.role-attendance-values span { display: block; }
+.role-attendance-values b { font-size: 19px; }
+.role-attendance-values span { margin-top: 4px; color: rgba(255, 255, 255, .75); font-size: 9px; }
+
+/* Monthly and three-month habitual leave report. */
+.habitual-leave-panel {
+  margin-top: 18px;
+  border-color: #ffffff !important;
+}
+
+.habitual-leave-panel .panel-header p {
+  margin: 4px 0 0;
+  color: #6b7f8f;
+  font-size: 10px;
+}
+
+.habitual-leave-panel .panel-header label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #405a6f;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.habitual-leave-panel select {
+  padding: 7px 9px;
+  border: 1px solid #b7c9d8;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #102a43;
+}
+
+.habitual-leave-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 6px 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e2e9ef;
+}
+
+.habitual-leave-row:last-child { border-bottom: 0; }
+.habitual-leave-row b,
+.habitual-leave-row span { display: block; }
+.habitual-leave-row span,
+.habitual-leave-row small { color: #6b7f8f; font-size: 10px; }
+.habitual-leave-row strong { color: #a26418; font-size: 11px; }
+.habitual-leave-row small { grid-column: 1 / -1; }
+
+.exit-details-grid {
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid #b9ccdc;
+  border-radius: 9px;
+  background: #f5f8fb;
+}
+
+@media (max-width: 900px) {
+  .role-attendance-dashboard { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 650px) {
+  .overview-current-date { min-width: 0; text-align: left; }
+  .habitual-leave-row { grid-template-columns: 1fr; }
+  .habitual-leave-row small { grid-column: auto; }
+}
+
+@media (max-width: 650px) {
+  .recycle-sector-head,
+  .recycle-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .admin-email-verification {
+    grid-template-columns: 1fr;
+  }
+  .admin-otp-message {
+    grid-column: auto;
+  }
+}
