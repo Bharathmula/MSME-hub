@@ -29,4 +29,28 @@ python -m streamlit run streamlit_app.py
 4. Set the main file path to `streamlit_app.py`.
 5. Deploy and share the generated public HTTPS link.
 
-The public build uses only Streamlit's exposed port. No Flask sidecar, localhost address, proxy, environment variable, or secret is required. The displayed verification code is intentionally a browser-local development code; connect an external email service and shared database before using the application for production-sensitive or cross-device records.
+The public build uses only Streamlit's exposed port and needs no Flask sidecar, localhost address, or proxy. It can run without secrets in browser-local development mode; hosted Google sign-in and real email OTP require the Supabase and Google secrets below.
+
+## Google sign-in and real email OTP
+
+Hosted authentication uses Supabase Auth. Create a Supabase project, then add these four values in **Streamlit Community Cloud → App settings → Secrets**:
+
+```toml
+SUPABASE_URL = "https://YOUR_PROJECT.supabase.co"
+SUPABASE_PUBLISHABLE_KEY = "sb_publishable_YOUR_KEY"
+GOOGLE_CLIENT_ID = "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
+PUBLIC_APP_URL = "https://YOUR_APP.streamlit.app"
+```
+
+In Supabase:
+
+1. Open **Authentication → URL Configuration** and set the Site URL to the public Streamlit URL.
+2. Open **Authentication → Email Templates → Magic Link** and make the message contain `{{ .Token }}` so Supabase sends a six-digit OTP instead of only a link.
+3. Enable the Google provider and enter the Google Web Client ID and Client Secret.
+4. Copy Supabase's Google callback URL into the Google Cloud OAuth client's authorized redirect URIs.
+
+In Google Cloud, add the public Streamlit origin (for example, `https://YOUR_APP.streamlit.app`) under **Authorized JavaScript origins**. The same Google Web Client ID must be placed in Streamlit Secrets.
+
+After saving secrets, reboot the Streamlit app. The Google button will become active and email registration/reset codes will be delivered by Supabase. Without these secrets, the app intentionally falls back to browser-local development authentication.
+
+The shareable link is the value shown under the app name in Streamlit Community Cloud and is also the `PUBLIC_APP_URL` value above. Copy that complete `https://...streamlit.app` address to share the project.

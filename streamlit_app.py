@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import json
 from pathlib import Path
 
 import streamlit as st
@@ -11,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
 
-def bundled_application() -> str:
+def bundled_application(public_config: dict[str, str]) -> str:
     """Inline every asset so public visitors never depend on localhost."""
     html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
 
@@ -26,8 +27,10 @@ def bundled_application() -> str:
 
     html = re.sub(r'<link rel="stylesheet" href="([^"]+)"\s*/?>', inline_css, html)
     adapter = (STATIC_DIR / "public-adapter.js").read_text(encoding="utf-8").replace("</script>", "<\\/script>")
+    config_script = f"<script>window.MSME_CONFIG={json.dumps(public_config)};</script>\n"
+    supabase_script = '<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>\n'
     first_script = html.find("<script src=")
-    html = html[:first_script] + f"<script data-source='public-adapter.js'>\n{adapter}\n</script>\n" + html[first_script:]
+    html = html[:first_script] + config_script + supabase_script + f"<script data-source='public-adapter.js'>\n{adapter}\n</script>\n" + html[first_script:]
     return re.sub(r'<script src="([^"]+)"></script>', inline_js, html)
 
 
@@ -48,4 +51,16 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-components.html(bundled_application(), height=900, scrolling=True)
+def secret(name: str) -> str:
+    try:
+        return str(st.secrets.get(name, ""))
+    except Exception:
+        return ""
+
+
+components.html(bundled_application({
+    "supabase_url": secret("SUPABASE_URL"),
+    "supabase_publishable_key": secret("SUPABASE_PUBLISHABLE_KEY"),
+    "google_client_id": secret("GOOGLE_CLIENT_ID"),
+    "public_app_url": secret("PUBLIC_APP_URL"),
+}), height=900, scrolling=True)
