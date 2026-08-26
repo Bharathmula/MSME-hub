@@ -10,9 +10,6 @@
       <section class="auth-card active" id="signup-card">
         <button class="auth-card-title" type="button" data-focus-card="signup-card"><h2>Sign up / Sign in</h2><small>Access an existing workspace</small></button>
         <div class="signin-pane" id="signin-pane">
-          <div class="google-slot" id="google-signup-button"><button class="google-placeholder" type="button" disabled>G &nbsp; Continue with Google</button></div>
-          <p class="auth-note" id="google-note">Loading Google sign-up…</p>
-          <div class="auth-divider">OR SIGN IN WITH EMAIL</div>
           <form id="login-form-v27">
             <label>EMAIL<input type="email" id="login-email-v27" placeholder="Enter your registered email" required></label>
             <label>PASSWORD<div class="password-box"><input type="password" id="login-password-v27" placeholder="Enter password" required><button class="password-eye" type="button" data-eye="login-password-v27" aria-label="Show password">◉</button></div></label>
@@ -31,7 +28,6 @@
           <div class="auth-step" id="reset-step-password"><label>NEW PASSWORD<div class="password-box"><input type="password" id="reset-password-v27" minlength="8"><button class="password-eye" type="button" data-eye="reset-password-v27">◉</button></div></label><button class="auth-button" id="reset-save-v27" type="button">Save new password</button></div>
           <p class="auth-message" id="reset-message-v27"></p>
         </div>
-        <div class="credentials compact"><b>ACCOUNT REQUIRED</b><p>Create an account before signing in.</p></div>
       </section>
       <section class="auth-card auth-card-hidden" id="create-card">
         <button class="auth-link auth-back" id="back-to-signin-v27" type="button">← Back to sign in</button>
@@ -80,6 +76,4 @@
   q('#reset-verify-v27').onclick=async()=>{try{const data=await api('/api/auth/verify-otp',{email:q('#reset-email-v27').value,purpose:'reset',otp:q('#reset-otp-v27').value});resetToken=data.verification_token;q('#reset-step-password').classList.add('visible');message('#reset-message-v27','OTP verified. Enter a new password.','success')}catch(e){message('#reset-message-v27',e.message,'error')}};
   q('#reset-save-v27').onclick=async()=>{const email=q('#reset-email-v27').value.trim().toLowerCase(),password=q('#reset-password-v27').value;try{await api('/api/auth/reset-password',{email,password,verification_token:resetToken});const account=tenantAccounts.find(a=>String(a.email||'').toLowerCase()===email);if(account){account.password=password;localStorage.setItem('msme-accounts',JSON.stringify(tenantAccounts))}message('#reset-message-v27','Password updated. You can now sign in.','success')}catch(e){message('#reset-message-v27',e.message,'error')}};
 
-  async function loadGoogle(){try{const config=await fetch('/api/auth/config').then(r=>r.json());if(!config.google_client_id){q('#google-note').textContent='Google sign-up is ready after adding your Google Client ID in the server settings.';return}const script=document.createElement('script');script.src='https://accounts.google.com/gsi/client';script.async=true;script.onload=()=>{q('#google-signup-button').innerHTML='';google.accounts.id.disableAutoSelect();google.accounts.id.initialize({client_id:config.google_client_id,auto_select:false,callback:async result=>{try{const data=await api('/api/auth/google',{credential:result.credential});enterWorkspace(data.account)}catch(e){message('#login-message-v27',e.message,'error')}}});google.accounts.id.renderButton(q('#google-signup-button'),{theme:'outline',size:'large',width:330,text:'continue_with'});q('#google-note').textContent='Use Google to create or access your workspace.'};document.head.appendChild(script)}catch(e){q('#google-note').textContent='Google sign-up configuration could not be loaded.'}}
-  loadGoogle();
 })();

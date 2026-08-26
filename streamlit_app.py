@@ -64,6 +64,5 @@ def secret(name: str) -> str:
 components.html(bundled_application({
     "supabase_url": secret("SUPABASE_URL"),
     "supabase_publishable_key": secret("SUPABASE_PUBLISHABLE_KEY"),
-    "google_client_id": secret("GOOGLE_CLIENT_ID"),
     "public_app_url": secret("PUBLIC_APP_URL"),
 }), height=900, scrolling=True)
