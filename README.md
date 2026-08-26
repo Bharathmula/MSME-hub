@@ -1,6 +1,6 @@
 # MSME Hub Streamlit Project
 
-This is a separate Streamlit-hosted edition of the authoritative MSME project. The original HTML, CSS, JavaScript, navigation, forms, calendar, and Flask JSON backend are preserved. Streamlit starts the backend as an internal companion service and displays the unchanged application in a full-width frame.
+This is a public-host-compatible Streamlit edition of the authoritative MSME project. The original HTML, CSS, JavaScript, navigation, forms, and calendar are bundled directly into the Streamlit page. It does not depend on a localhost iframe or a second server port.
 
 ## Run from the Desktop
 
@@ -10,7 +10,7 @@ This is a separate Streamlit-hosted edition of the authoritative MSME project. T
 4. Your browser opens at `http://localhost:8501`.
 5. Create an administrator account in the application, then sign in with that account.
 
-Data is stored in this project's `data` folder and browser local storage. There is no default administrator login; every administrator must create an account first.
+There is no default administrator login; every administrator must create an account first. In this public-ready edition, accounts and workspace data are stored privately in each visitor's browser. They persist when that visitor returns in the same browser, but they are not shared between devices.
 
 ## Manual command
 
@@ -21,8 +21,12 @@ python -m pip install -r requirements.txt
 python -m streamlit run streamlit_app.py
 ```
 
-## Later public deployment
+## Public deployment on Streamlit Community Cloud
 
-The repository already has `requirements.txt`, `streamlit_app.py`, and `.streamlit/config.toml`. Before internet deployment, set a strong `MSME_SECRET_KEY`, configure the SMTP variables from `.env.example`, and place the Flask companion service behind the same public HTTPS origin (or move its API routes to a managed HTTPS API). Set `MSME_BACKEND_PORT` only for local port conflicts. Do not publish development OTPs or the default password.
+1. Upload this project to a GitHub repository.
+2. Open `share.streamlit.io` and select **Create app**.
+3. Choose the repository and branch.
+4. Set the main file path to `streamlit_app.py`.
+5. Deploy and share the generated public HTTPS link.
 
-Because Streamlit Community Cloud exposes one public service port, the companion backend needs a same-origin reverse proxy or separate HTTPS deployment before public use. Local Desktop operation needs no proxy.
+The public build uses only Streamlit's exposed port. No Flask sidecar, localhost address, proxy, environment variable, or secret is required. The displayed verification code is intentionally a browser-local development code; connect an external email service and shared database before using the application for production-sensitive or cross-device records.

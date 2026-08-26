@@ -1,44 +1,34 @@
-"""Streamlit hosting shell for the preserved MSME web application."""
+"""Public-host-compatible Streamlit shell for the preserved MSME frontend."""
 from __future__ import annotations
 
-import os
-import socket
-import threading
-import time
+import re
+from pathlib import Path
 
 import streamlit as st
-from werkzeug.serving import make_server
+import streamlit.components.v1 as components
 
-from backend import app as web_app
-
-
-BACKEND_HOST = "127.0.0.1"
-BACKEND_PORT = int(os.environ.get("MSME_BACKEND_PORT", "5051"))
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
 
 
-class BackendServer(threading.Thread):
-    daemon = True
+def bundled_application() -> str:
+    """Inline every asset so public visitors never depend on localhost."""
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
 
-    def __init__(self) -> None:
-        super().__init__(name="msme-backend")
-        self.server = make_server(BACKEND_HOST, BACKEND_PORT, web_app, threaded=True)
+    def inline_css(match: re.Match[str]) -> str:
+        name = match.group(1)
+        return f"<style data-source='{name}'>\n{(STATIC_DIR / name).read_text(encoding='utf-8')}\n</style>"
 
-    def run(self) -> None:
-        self.server.serve_forever()
+    def inline_js(match: re.Match[str]) -> str:
+        name = match.group(1)
+        source = (STATIC_DIR / name).read_text(encoding="utf-8").replace("</script>", "<\\/script>")
+        return f"<script data-source='{name}'>\n{source}\n</script>"
 
-
-@st.cache_resource
-def start_backend() -> BackendServer:
-    server = BackendServer()
-    server.start()
-    deadline = time.monotonic() + 5
-    while time.monotonic() < deadline:
-        try:
-            with socket.create_connection((BACKEND_HOST, BACKEND_PORT), timeout=0.2):
-                return server
-        except OSError:
-            time.sleep(0.05)
-    raise RuntimeError("The MSME application backend did not start.")
+    html = re.sub(r'<link rel="stylesheet" href="([^"]+)"\s*/?>', inline_css, html)
+    adapter = (STATIC_DIR / "public-adapter.js").read_text(encoding="utf-8").replace("</script>", "<\\/script>")
+    first_script = html.find("<script src=")
+    html = html[:first_script] + f"<script data-source='public-adapter.js'>\n{adapter}\n</script>\n" + html[first_script:]
+    return re.sub(r'<script src="([^"]+)"></script>', inline_js, html)
 
 
 st.set_page_config(
@@ -47,8 +37,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
-start_backend()
-
 st.markdown(
     """
     <style>
@@ -60,7 +48,4 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-st.iframe(
-    f"http://{BACKEND_HOST}:{BACKEND_PORT}/",
-    height=900,
-)
+components.html(bundled_application(), height=900, scrolling=True)
