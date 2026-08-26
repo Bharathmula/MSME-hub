@@ -5,6 +5,9 @@ const cfg=window.MSME_CONFIG||{};
 const cloud=cfg.supabase_url&&cfg.supabase_publishable_key&&window.supabase
  ? window.supabase.createClient(cfg.supabase_url,cfg.supabase_publishable_key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}})
  : null;
+// Never let the legacy UI restore access from its own sessionStorage flag.
+// A successful Supabase request below is the only path that may recreate it.
+if(cloud)sessionStorage.removeItem('msme-admin-auth');
 const email=v=>String(v||'').trim().toLowerCase();
 const list=()=>{try{const v=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(v)?v:[]}catch(_){return[]}};
 const save=v=>localStorage.setItem(KEY,JSON.stringify(v));
@@ -86,4 +89,13 @@ window.fetch=async function(input,options={}){
  }
  return response({error:'Unsupported public API request.'},404);
 };
+document.addEventListener('DOMContentLoaded',()=>{
+ const signOut=document.getElementById('sign-out');
+ if(!signOut||!cloud)return;
+ signOut.addEventListener('click',async()=>{
+  sessionStorage.removeItem('msme-admin-auth');
+  try{await cloud.auth.signOut()}catch(_){}
+  try{window.google?.accounts?.id?.disableAutoSelect()}catch(_){}
+ },{capture:true});
+});
 })();
