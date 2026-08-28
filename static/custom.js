@@ -541,15 +541,24 @@ window.adminPanel = function captchaProtectedAdminPanel() {
   const emailInput = document.getElementById('admin-email-otp');
   const verification = document.getElementById('admin-email-verification');
   const originalEmail = String(admin.email || '').trim().toLowerCase();
+  const currentPasswordInput = document.getElementById('admin-current-password');
+  const newPasswordInput = document.getElementById('admin-new-password');
   let verified = false;
   let answer = 0;
+  const unlockPasswordFields = () => {
+    currentPasswordInput.disabled = false;
+    currentPasswordInput.required = true;
+    newPasswordInput.disabled = false;
+    newPasswordInput.required = false;
+  };
   verification.innerHTML = `<div><b>Confirm account change</b><p>Complete the CAPTCHA before saving a new login email.</p></div><div class="captcha-box"><strong id="admin-captcha-question"></strong><button class="secondary" type="button" id="refresh-admin-captcha">New CAPTCHA</button></div><label>CAPTCHA ANSWER<input id="admin-captcha-answer" inputmode="numeric"></label><button class="secondary" type="button" id="verify-admin-captcha">Verify CAPTCHA</button><p class="admin-otp-message" id="admin-captcha-message"></p>`;
-  const renew = () => { const values=crypto.getRandomValues(new Uint32Array(2)),a=values[0]%10+1,b=values[1]%10+1;answer=a+b;verified=false;document.getElementById('admin-captcha-question').textContent=`${a} + ${b} = ?`;document.getElementById('admin-captcha-answer').value=''; };
-  emailInput.oninput = () => { verification.hidden=emailInput.value.trim().toLowerCase()===originalEmail;renew(); };
+  const renew = () => { const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',values=crypto.getRandomValues(new Uint32Array(6));answer=[...values].map(value=>chars[value%chars.length]).join('');verified=false;document.getElementById('admin-captcha-question').textContent=answer;document.getElementById('admin-captcha-answer').value=''; };
+  emailInput.oninput = () => { verification.hidden=emailInput.value.trim().toLowerCase()===originalEmail;renew();unlockPasswordFields(); };
   document.getElementById('refresh-admin-captcha').onclick=renew;
-  document.getElementById('verify-admin-captcha').onclick=()=>{const box=document.getElementById('admin-captcha-message');verified=Number(document.getElementById('admin-captcha-answer').value)===answer;box.textContent=verified?'CAPTCHA verified.':'Incorrect CAPTCHA. Try again.';box.className=`admin-otp-message ${verified?'success':'error'}`;if(!verified)renew();};
+  document.getElementById('verify-admin-captcha').onclick=()=>{const box=document.getElementById('admin-captcha-message');verified=document.getElementById('admin-captcha-answer').value.trim().toUpperCase()===answer;box.textContent=verified?'CAPTCHA verified.':'Incorrect CAPTCHA. Try again.';box.className=`admin-otp-message ${verified?'success':'error'}`;if(!verified)renew();unlockPasswordFields();};
   form.onsubmit=async event=>{event.preventDefault();const fields=Object.fromEntries(new FormData(form)),newEmail=String(fields.email||'').trim().toLowerCase(),errorBox=document.getElementById('admin-error');if(newEmail!==originalEmail&&!verified){errorBox.textContent='Verify the CAPTCHA before changing the email.';return}try{const data=await adminApi('/api/auth/update-admin',{current_email:originalEmail,new_email:newEmail,current_password:fields.current_password,new_password:fields.new_password,name:fields.name,phone:fields.phone});migrateTenantStorage(originalEmail,newEmail);const local=tenantAccounts.find(a=>String(a.email||'').toLowerCase()===originalEmail);if(local)Object.assign(local,data.account,{password:fields.new_password||local.password});admin={...(local||data.account),...data.account};sessionStorage.setItem('msme-admin-auth',newEmail);localStorage.setItem('msme-accounts',JSON.stringify(tenantAccounts));save();refreshAdmin();document.getElementById('modal-root').innerHTML='';render()}catch(error){errorBox.textContent=error.message}};
   renew();
+  unlockPasswordFields();
 };
 document.getElementById('admin-access').onclick = () => window.adminPanel();
 
