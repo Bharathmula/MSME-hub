@@ -533,6 +533,26 @@ window.adminPanel = function otpProtectedAdminPanel() {
 /* The original click handler captured the older function reference. */
 document.getElementById('admin-access').onclick = () => window.adminPanel();
 
+/* Replace administrator-email OTP with a browser-local CAPTCHA. */
+const otpAdminPanel = window.adminPanel;
+window.adminPanel = function captchaProtectedAdminPanel() {
+  otpAdminPanel();
+  const form = document.getElementById('admin-form');
+  const emailInput = document.getElementById('admin-email-otp');
+  const verification = document.getElementById('admin-email-verification');
+  const originalEmail = String(admin.email || '').trim().toLowerCase();
+  let verified = false;
+  let answer = 0;
+  verification.innerHTML = `<div><b>Confirm account change</b><p>Complete the CAPTCHA before saving a new login email.</p></div><div class="captcha-box"><strong id="admin-captcha-question"></strong><button class="secondary" type="button" id="refresh-admin-captcha">New CAPTCHA</button></div><label>CAPTCHA ANSWER<input id="admin-captcha-answer" inputmode="numeric"></label><button class="secondary" type="button" id="verify-admin-captcha">Verify CAPTCHA</button><p class="admin-otp-message" id="admin-captcha-message"></p>`;
+  const renew = () => { const values=crypto.getRandomValues(new Uint32Array(2)),a=values[0]%10+1,b=values[1]%10+1;answer=a+b;verified=false;document.getElementById('admin-captcha-question').textContent=`${a} + ${b} = ?`;document.getElementById('admin-captcha-answer').value=''; };
+  emailInput.oninput = () => { verification.hidden=emailInput.value.trim().toLowerCase()===originalEmail;renew(); };
+  document.getElementById('refresh-admin-captcha').onclick=renew;
+  document.getElementById('verify-admin-captcha').onclick=()=>{const box=document.getElementById('admin-captcha-message');verified=Number(document.getElementById('admin-captcha-answer').value)===answer;box.textContent=verified?'CAPTCHA verified.':'Incorrect CAPTCHA. Try again.';box.className=`admin-otp-message ${verified?'success':'error'}`;if(!verified)renew();};
+  form.onsubmit=async event=>{event.preventDefault();const fields=Object.fromEntries(new FormData(form)),newEmail=String(fields.email||'').trim().toLowerCase(),errorBox=document.getElementById('admin-error');if(newEmail!==originalEmail&&!verified){errorBox.textContent='Verify the CAPTCHA before changing the email.';return}try{const data=await adminApi('/api/auth/update-admin',{current_email:originalEmail,new_email:newEmail,current_password:fields.current_password,new_password:fields.new_password,name:fields.name,phone:fields.phone});migrateTenantStorage(originalEmail,newEmail);const local=tenantAccounts.find(a=>String(a.email||'').toLowerCase()===originalEmail);if(local)Object.assign(local,data.account,{password:fields.new_password||local.password});admin={...(local||data.account),...data.account};sessionStorage.setItem('msme-admin-auth',newEmail);localStorage.setItem('msme-accounts',JSON.stringify(tenantAccounts));save();refreshAdmin();document.getElementById('modal-root').innerHTML='';render()}catch(error){errorBox.textContent=error.message}};
+  renew();
+};
+document.getElementById('admin-access').onclick = () => window.adminPanel();
+
 const rememberedLoginEmail = localStorage.getItem('msme-last-login-email');
 if (rememberedLoginEmail) {
   const loginEmail = document.getElementById('login-email-v27');

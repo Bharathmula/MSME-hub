@@ -9,3 +9,4 @@
 .auth-card.auth-card-hidden{display:none}
 .auth-back{display:inline-block;margin-bottom:15px}
 #create-card .auth-card-title{cursor:default}
+.captcha-box{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:15px 0;padding:13px 15px;border:1px dashed #9db4cc;border-radius:8px;background:#f6f9fc}.captcha-box strong{font-size:20px;letter-spacing:2px;color:#16263a}
