@@ -934,3 +934,99 @@ window.editor = function editorWithReligionField(personId, isEx = false) {
   editorBeforeReligionField(personId, isEx);
   ensureReligionFormControl(person);
 };
+
+/* Final safeguards: older versioned scripts sometimes call their original
+   lexical dashboard/editor functions, bypassing window-level wrappers. */
+function indiaHour(date = new Date()) {
+  try {
+    const part = new Intl.DateTimeFormat('en-IN', {
+      hour: '2-digit', hourCycle: 'h23', timeZone: 'Asia/Kolkata'
+    }).formatToParts(date).find(item => item.type === 'hour');
+    return Number(part?.value || 0) % 24;
+  } catch (_error) {
+    return date.getHours();
+  }
+}
+
+function greetingForIndiaTime(date = new Date()) {
+  const hour = indiaHour(date);
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 17) return 'Good afternoon';
+  if (hour >= 17 && hour < 21) return 'Good evening';
+  return 'Good night';
+}
+
+function refreshAdminGreeting() {
+  const block = [...document.querySelectorAll('#view-root .page-heading')]
+    .find(item => item.querySelector('.eyebrow')?.textContent.trim().toUpperCase() === 'ADMIN CONTROL CENTRE');
+  const heading = block?.querySelector('h1');
+  if (!heading) return;
+  const adminName = typeof admin !== 'undefined' && admin?.name ? admin.name : 'Admin';
+  const expected = `${greetingForIndiaTime()}, ${adminName}.`;
+  if (heading.textContent !== expected) heading.textContent = expected;
+}
+
+function modalWorkforceRecord(form) {
+  const eyebrow = form.querySelector('.eyebrow')?.textContent.trim().toUpperCase() || '';
+  if (!/(WORKER|STAFF|ENTREPRENEUR)/.test(eyebrow)) return null;
+  const enteredName = form.elements.namedItem('name')?.value?.trim() || '';
+  const isTemporary = eyebrow.includes('TEMPORARY');
+  const source = isTemporary
+    ? (typeof temporaryWorkers !== 'undefined' ? temporaryWorkers : [])
+    : [...(typeof people !== 'undefined' ? people : []), ...(typeof exPeople !== 'undefined' ? exPeople : [])];
+  const expectedRole = eyebrow.includes('ENTREPRENEUR') ? 'Entrepreneur' : eyebrow.includes('STAFF') ? 'Staff' : 'Worker';
+  return source.find(person => person.name === enteredName &&
+    (isTemporary || !person.role || person.role === expectedRole)) || { religion: '' };
+}
+
+function normalizeReligionInOpenWorkforceForm() {
+  const form = document.querySelector('#modal-root form');
+  if (!form) return;
+  const person = modalWorkforceRecord(form);
+  if (!person) return;
+  let control = form.elements.namedItem('religion');
+  if (!control) {
+    const grid = form.querySelector('.form-grid');
+    if (!grid) return;
+    const genderLabel = form.elements.namedItem('gender')?.closest('label');
+    const markup = `<label class="religion-form-field" data-religion-control="true">Religion
+      <select name="religion">${religionOptions(person.religion || '')}</select></label>`;
+    if (genderLabel) genderLabel.insertAdjacentHTML('afterend', markup);
+    else grid.insertAdjacentHTML('beforeend', markup);
+    control = form.elements.namedItem('religion');
+  } else if (control.tagName !== 'SELECT') {
+    const currentValue = person.religion || control.value || '';
+    const label = control.closest('label');
+    if (!label) return;
+    label.classList.add('religion-form-field');
+    label.dataset.religionControl = 'true';
+    control.outerHTML = `<select name="religion">${religionOptions(currentValue)}</select>`;
+    control = form.elements.namedItem('religion');
+  }
+  const label = control?.closest('label');
+  label?.classList.add('religion-form-field');
+  if (label) label.dataset.religionControl = 'true';
+}
+
+function installFinalRenderSafeguards() {
+  const viewRoot = document.getElementById('view-root');
+  const modalRoot = document.getElementById('modal-root');
+  if (viewRoot && !viewRoot.dataset.finalSafeguards) {
+    viewRoot.dataset.finalSafeguards = 'true';
+    new MutationObserver(refreshAdminGreeting).observe(viewRoot, { childList: true, subtree: true });
+  }
+  if (modalRoot && !modalRoot.dataset.finalSafeguards) {
+    modalRoot.dataset.finalSafeguards = 'true';
+    new MutationObserver(normalizeReligionInOpenWorkforceForm)
+      .observe(modalRoot, { childList: true, subtree: true });
+  }
+  refreshAdminGreeting();
+  normalizeReligionInOpenWorkforceForm();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', installFinalRenderSafeguards, { once: true });
+} else {
+  installFinalRenderSafeguards();
+}
+setInterval(refreshAdminGreeting, 60_000);
