@@ -784,10 +784,19 @@ function renderHabitualLeaveRows(periodMonths = 1) {
 }
 
 const dashboardBeforeAttendanceEnhancements = window.dashboard;
+function greetingForCurrentTime(date = new Date()) {
+  const hour = date.getHours();
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 17) return 'Good afternoon';
+  if (hour >= 17 && hour < 21) return 'Good evening';
+  return 'Good night';
+}
 window.dashboard = function dashboardWithDateAndAttendanceSectors(...args) {
   ensureInclusiveFestivalCalendar();
   const result = dashboardBeforeAttendanceEnhancements.apply(this, args);
   const heading = document.querySelector('#view-root .page-heading');
+  const greeting = heading?.querySelector('h1');
+  if (greeting) greeting.textContent = `${greetingForCurrentTime()}, ${admin.name}.`;
   if (heading && !document.getElementById('overview-current-date')) {
     heading.insertAdjacentHTML('beforeend', `<time class="overview-current-date" id="overview-current-date" datetime="${new Date().toISOString().slice(0, 10)}">
       <span>Today</span><b>${esc(overviewDateText())}</b></time>`);

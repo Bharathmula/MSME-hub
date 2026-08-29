@@ -408,7 +408,24 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
   box-shadow: 0 8px 18px rgba(0, 15, 45, .2);
 }
 
-.religion-form-field select { width: 100%; }
+.religion-form-field select {
+  display: block!important;
+  width: 100%!important;
+  min-height: 39px!important;
+  margin-top: 5px!important;
+  padding: 9px 34px 9px 10px!important;
+  border: 2px solid #315b7d!important;
+  border-radius: 6px!important;
+  background-color: #fff!important;
+  color: #102a43!important;
+  box-shadow: 0 1px 2px rgba(16,42,67,.08)!important;
+  appearance: auto!important;
+}
+.religion-form-field select:focus {
+  border-color: #0b4f9a!important;
+  outline: 3px solid rgba(11,79,154,.16)!important;
+  outline-offset: 1px;
+}
 
 .role-attendance-sector {
   overflow: hidden;
