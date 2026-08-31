@@ -1030,3 +1030,151 @@ if (document.readyState === 'loading') {
   installFinalRenderSafeguards();
 }
 setInterval(refreshAdminGreeting, 60_000);
+
+/* CONTRACT DEADLINES AND OVERVIEW OPERATIONS */
+function indiaDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-IN', {
+    year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Kolkata'
+  }).formatToParts(date);
+  const value = type => parts.find(part => part.type === type)?.value || '';
+  return `${value('year')}-${value('month')}-${value('day')}`;
+}
+
+function dateKeyToUtc(dateKey) {
+  const [year, month, day] = String(dateKey || '').split('-').map(Number);
+  return year && month && day ? Date.UTC(year, month - 1, day) : NaN;
+}
+
+function daysFromToday(dateKey) {
+  const end = dateKeyToUtc(dateKey);
+  const today = dateKeyToUtc(indiaDateKey());
+  return Number.isFinite(end) ? Math.round((end - today) / 86_400_000) : null;
+}
+
+function readableContractDate(dateKey) {
+  const value = dateKeyToUtc(dateKey);
+  return Number.isFinite(value)
+    ? new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })
+    : 'Not entered';
+}
+
+function contractorDeadlineState(contractor) {
+  const remaining = daysFromToday(contractor?.contract_end);
+  if (remaining === null) return { className: 'not-entered', label: 'End date not entered', remaining };
+  if (remaining < 0) return { className: 'overdue', label: `Overdue by ${Math.abs(remaining)} day${Math.abs(remaining) === 1 ? '' : 's'}`, remaining };
+  if (remaining === 0) return { className: 'due-today', label: 'Contract ends today', remaining };
+  if (remaining <= 30) return { className: 'due-soon', label: `${remaining} day${remaining === 1 ? '' : 's'} remaining`, remaining };
+  return { className: 'active', label: `${remaining} days remaining`, remaining };
+}
+
+function enhanceContractorPage() {
+  const page = document.querySelector('#view-root');
+  const eyebrow = page?.querySelector('.page-heading .eyebrow')?.textContent.trim().toUpperCase();
+  if (eyebrow !== 'CONTRACTOR REGISTER') return;
+  const table = page.querySelector('.table-wrap table');
+  if (!table || table.dataset.deadlinesAdded) return;
+  table.dataset.deadlinesAdded = 'true';
+  const headerRow = table.querySelector('thead tr');
+  const notesHeading = [...(headerRow?.children || [])].find(cell => cell.textContent.trim().toUpperCase() === 'NOTES');
+  notesHeading?.insertAdjacentHTML('beforebegin', '<th>CONTRACT ENDS / DEADLINE</th>');
+  table.querySelectorAll('tbody tr').forEach(row => {
+    const id = row.querySelector('[data-contractor]')?.dataset.contractor;
+    const contractor = typeof contractors !== 'undefined' ? contractors.find(item => item.id === id) : null;
+    if (!contractor) {
+      const empty = row.querySelector('td.empty');
+      if (empty) empty.colSpan = 7;
+      return;
+    }
+    const actionCell = row.querySelector('[data-contractor]')?.closest('td');
+    const notesCell = actionCell?.previousElementSibling;
+    const state = contractorDeadlineState(contractor);
+    notesCell?.insertAdjacentHTML('beforebegin', `<td class="contract-deadline-cell"><b>${esc(readableContractDate(contractor.contract_end))}</b><span class="contract-deadline-state ${state.className}">${esc(state.label)}</span></td>`);
+  });
+}
+
+function enhanceContractorForm() {
+  const form = document.querySelector('#modal-root #contractor-form');
+  if (!form || form.elements.namedItem('contract_end')) return;
+  const name = form.elements.namedItem('name')?.value || '';
+  const contractName = form.elements.namedItem('contract')?.value || '';
+  const contractor = typeof contractors !== 'undefined'
+    ? contractors.find(item => item.name === name && item.contract === contractName) || contractors[contractors.length - 1]
+    : null;
+  const markup = `<label>Contract end date / deadline<span class="required">*</span><input type="date" name="contract_end" value="${esc(contractor?.contract_end || '')}" required><small>The dashboard will flag the contract after this date.</small></label>`;
+  const notes = form.elements.namedItem('notes')?.closest('label');
+  if (notes) notes.insertAdjacentHTML('beforebegin', markup);
+  else form.querySelector('.form-grid')?.insertAdjacentHTML('beforeend', markup);
+}
+
+function attendanceStatusCounts(records) {
+  const list = Array.isArray(records) ? records : [];
+  const uncertain = new Set(['On leave', 'Not sure', 'Not sure absent', 'Pending']);
+  return {
+    total: list.length,
+    present: list.filter(item => item.status === 'Present').length,
+    unsure: list.filter(item => uncertain.has(item.status)).length,
+    absent: list.filter(item => item.status === 'Absent').length
+  };
+}
+
+function attendanceOverviewCard(title, records, viewName) {
+  const counts = attendanceStatusCounts(records);
+  return `<article class="attendance-overview-card"><div class="attendance-overview-head"><h3>${esc(title)}</h3><button class="text-button" data-view="${esc(viewName)}">Open →</button></div><p>${counts.total} total record${counts.total === 1 ? '' : 's'}</p><div class="attendance-color-counts"><span class="attendance-color present"><i></i><b>${counts.present}</b> Present</span><span class="attendance-color unsure"><i></i><b>${counts.unsure}</b> Not sure / on leave</span><span class="attendance-color absent"><i></i><b>${counts.absent}</b> Sure absent</span></div></article>`;
+}
+
+function overviewDeadlineRow(name, detail, className) {
+  return `<div class="overview-deadline-row ${className}"><div><b>${esc(name)}</b><span>${esc(detail)}</span></div></div>`;
+}
+
+function enhanceOverviewDashboard() {
+  const page = document.querySelector('#view-root');
+  const eyebrow = page?.querySelector('.page-heading .eyebrow')?.textContent.trim().toUpperCase();
+  if (eyebrow !== 'ADMIN CONTROL CENTRE' || document.getElementById('operations-overview')) return;
+  const activePeople = typeof people !== 'undefined' ? people : [];
+  const temporary = typeof temporaryWorkers !== 'undefined' ? temporaryWorkers : [];
+  const contractorRecords = typeof contractors !== 'undefined' ? contractors : [];
+  const temporaryOverflow = temporary.filter(person => elapsed(person) >= 180);
+  const contractorOverflow = contractorRecords.filter(item => {
+    const remaining = daysFromToday(item.contract_end);
+    return remaining !== null && remaining < 0;
+  });
+  const workerRecords = activePeople.filter(person => person.role === 'Worker');
+  const staffRecords = activePeople.filter(person => person.role === 'Staff');
+  const metrics = page.querySelector('.metrics');
+  const section = `<section class="operations-overview" id="operations-overview">
+    <div class="operations-overview-heading"><div><span>OVERVIEW</span><h2>Attendance status and deadline overflow</h2></div><div class="attendance-overview-legend"><span class="present"><i></i>Present</span><span class="unsure"><i></i>Not sure</span><span class="absent"><i></i>Sure absent</span></div></div>
+    <div class="attendance-overview-grid">${attendanceOverviewCard('Workers', workerRecords, 'workers')}${attendanceOverviewCard('Staff', staffRecords, 'staff')}${attendanceOverviewCard('Temporary workers', temporary, 'temporary')}</div>
+    <div class="overflow-overview-grid">
+      <article class="overflow-overview-card temporary-overflow"><div class="overflow-card-head"><h3>Temporary worker overflow</h3><strong>${temporaryOverflow.length}</strong></div>${temporaryOverflow.length ? temporaryOverflow.map(person => { const extra = Math.max(0, elapsed(person) - 180); return overviewDeadlineRow(person.name, `${extra} day${extra === 1 ? '' : 's'} beyond 180-day limit`, 'temporary'); }).join('') : '<p class="overflow-empty">No temporary worker has crossed the 180-day limit.</p>'}</article>
+      <article class="overflow-overview-card contractor-overflow"><div class="overflow-card-head"><h3>Contractor overflow</h3><strong>${contractorOverflow.length}</strong></div>${contractorOverflow.length ? contractorOverflow.map(contractor => overviewDeadlineRow(contractor.name || contractor.contract, contractorDeadlineState(contractor).label, 'contractor')).join('') : '<p class="overflow-empty">No contractor has crossed the contract end date.</p>'}</article>
+    </div>
+  </section>`;
+  if (metrics) metrics.insertAdjacentHTML('afterend', section);
+  else page.querySelector('.page-heading')?.insertAdjacentHTML('afterend', section);
+}
+
+function refreshOperationsEnhancements() {
+  enhanceOverviewDashboard();
+  enhanceContractorPage();
+  enhanceContractorForm();
+}
+
+function installOperationsEnhancements() {
+  const viewRoot = document.getElementById('view-root');
+  const modalRoot = document.getElementById('modal-root');
+  if (viewRoot && !viewRoot.dataset.operationsEnhancements) {
+    viewRoot.dataset.operationsEnhancements = 'true';
+    new MutationObserver(refreshOperationsEnhancements).observe(viewRoot, { childList: true, subtree: true });
+  }
+  if (modalRoot && !modalRoot.dataset.contractDeadlineEnhancement) {
+    modalRoot.dataset.contractDeadlineEnhancement = 'true';
+    new MutationObserver(enhanceContractorForm).observe(modalRoot, { childList: true, subtree: true });
+  }
+  refreshOperationsEnhancements();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', installOperationsEnhancements, { once: true });
+} else {
+  installOperationsEnhancements();
+}

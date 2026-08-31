@@ -619,3 +619,28 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
   opacity: 1 !important;
   appearance: auto !important;
 }
+
+/* Overview attendance colours and deadline overflow. */
+.operations-overview { margin: 18px 0; padding: 18px; border: 1px solid #d8e3ea; border-radius: 12px; background: #f8fbfd; box-shadow: 0 6px 18px rgba(16,42,67,.06); }
+.operations-overview-heading,.attendance-overview-head,.overflow-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.operations-overview-heading span:first-child { color: #607d91; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+.operations-overview-heading h2,.attendance-overview-head h3,.overflow-card-head h3 { margin: 3px 0 0; color: #102a43; }
+.attendance-overview-legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 10px; }
+.attendance-overview-legend span,.attendance-color { display: inline-flex; align-items: center; gap: 5px; }
+.attendance-overview-legend i,.attendance-color i { width: 9px; height: 9px; border-radius: 50%; }
+.present i { background: #24a148; }.unsure i { background: #f2b701; }.absent i { background: #d93025; }
+.attendance-overview-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-top: 15px; }
+.attendance-overview-card,.overflow-overview-card { padding: 14px; border: 1px solid #dbe5ec; border-radius: 10px; background: #fff; }
+.attendance-overview-card>p { margin: 4px 0 11px; color: #6b7f8f; font-size: 10px; }
+.attendance-color-counts { display: grid; gap: 7px; }
+.attendance-color { padding: 7px 9px; border-radius: 6px; font-size: 10px; font-weight: 600; }
+.attendance-color.present { color: #176b31; background: #e6f6ea; }.attendance-color.unsure { color: #765b00; background: #fff6cc; }.attendance-color.absent { color: #9f241d; background: #fde9e7; }
+.attendance-color b { min-width: 18px; font-size: 13px; }
+.overflow-overview-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin-top: 12px; }
+.overflow-card-head { margin-bottom: 9px; }.overflow-card-head strong { min-width: 28px; padding: 5px 8px; border-radius: 999px; color: #fff; background: #b42318; text-align: center; }
+.overview-deadline-row { padding: 8px 0; border-top: 1px solid #edf1f4; }.overview-deadline-row b,.overview-deadline-row span { display: block; }
+.overview-deadline-row span,.overflow-empty { margin: 3px 0 0; color: #6b7f8f; font-size: 10px; }
+.contract-deadline-cell b,.contract-deadline-state { display: block; }.contract-deadline-state { margin-top: 4px; font-size: 9px; font-weight: 800; }
+.contract-deadline-state.overdue { color: #b42318; }.contract-deadline-state.due-today,.contract-deadline-state.due-soon { color: #8a6500; }.contract-deadline-state.active { color: #176b31; }.contract-deadline-state.not-entered { color: #6b7f8f; }
+@media(max-width:900px){.attendance-overview-grid{grid-template-columns:1fr}}
+@media(max-width:650px){.operations-overview-heading{align-items:flex-start;flex-direction:column}.overflow-overview-grid{grid-template-columns:1fr}}
