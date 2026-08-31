@@ -32,3 +32,24 @@ python -m streamlit run streamlit_app.py
 The public build uses only Streamlit's exposed port and needs no Flask sidecar, localhost address, proxy, Supabase project, Google OAuth configuration, or Streamlit secrets. Account creation, password reset, and administrator email changes use CAPTCHA and browser-local storage.
 
 The shareable link is shown under the app name in Streamlit Community Cloud. Copy that complete `https://...streamlit.app` address to share the project.
+
+## Side-panel components and debugging
+
+Each side-panel section has a separate JavaScript component in `static/components/`:
+
+- `overview.js`, `reminders.js`, `temporary-workers.js`
+- `workers.js`, `staff.js`, `entrepreneurs.js`
+- `worker-replacement.js`, `attendance-calendar.js`, `contractors.js`
+- `ex-employees.js`, `recycle-bin.js`
+
+The components preserve the existing renderers and data while adding isolated diagnostics. Open the browser developer console and use:
+
+```javascript
+MSMEDebug.status()          // current component, checks and recent errors
+MSMEDebug.run('workers')    // diagnose one side-panel section
+MSMEDebug.list()            // list every registered component
+MSMEDebug.errors()          // captured JavaScript errors
+MSMEDebug.help()            // command reminder
+```
+
+The rendered `#view-root` also receives `data-component` and `data-section-ready` attributes, making the active section easy to inspect in developer tools.

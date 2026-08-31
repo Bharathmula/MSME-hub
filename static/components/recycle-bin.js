@@ -1,0 +1,1 @@
+MSMEComponentFactories.standard({ id:'recycle-bin', view:'recycle', label:'Recycle Bin', heading:'RECYCLE BIN', required:[{name:'Recycle category sectors',selector:'.recycle-sector',minimum:5},{name:'Recycle count badge',selector:'#recycle-count'}]});

@@ -1,0 +1,1 @@
+MSMEComponentFactories.standard({ id:'attendance-calendar', view:'attendance', label:'Attendance Calendar', heading:'DAILY ATTENDANCE REGISTER', required:[{name:'Calendar days rendered',selector:'.attendance-day',minimum:28},{name:'Save attendance control',selector:'#save-day-attendance'},{name:'Attendance roster',selector:'.table-wrap table'}]});
