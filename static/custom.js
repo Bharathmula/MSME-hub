@@ -801,24 +801,6 @@ window.dashboard = function dashboardWithDateAndAttendanceSectors(...args) {
     heading.insertAdjacentHTML('beforeend', `<time class="overview-current-date" id="overview-current-date" datetime="${new Date().toISOString().slice(0, 10)}">
       <span>Today</span><b>${esc(overviewDateText())}</b></time>`);
   }
-  const health = document.querySelector('#view-root .health');
-  if (health && !health.querySelector('.role-attendance-dashboard')) {
-    const healthHeader = health.querySelector('.panel-header');
-    healthHeader?.insertAdjacentHTML('afterend', `<div class="attendance-health-role-heading">
-      <b>Total attendance by workforce</b><span>Today</span></div>
-      <section class="role-attendance-dashboard attendance-health-role-dashboard">
-        ${attendanceSector('Worker', 'workers', 'worker-attendance')}
-        ${attendanceSector('Staff', 'staff', 'staff-attendance')}
-        ${attendanceSector('Entrepreneur', 'entrepreneurs', 'entrepreneur-attendance')}
-      </section>`);
-  }
-  if (health && !document.querySelector('.habitual-leave-panel')) {
-    health.insertAdjacentHTML('afterend', `<section class="panel habitual-leave-panel">
-      <div class="panel-header"><div><h2>Habitual leave records</h2><p>Calculated from permanently saved attendance dates.</p></div>
-      <label>Period<select id="habitual-leave-period"><option value="1">Current month</option><option value="3">Last 3 months</option></select></label></div>
-      <div id="habitual-leave-records"></div></section>`);
-    renderHabitualLeaveRows(1);
-  }
   return result;
 };
 
@@ -1126,10 +1108,99 @@ function overviewDeadlineRow(name, detail, className) {
   return `<div class="overview-deadline-row ${className}"><div><b>${esc(name)}</b><span>${esc(detail)}</span></div></div>`;
 }
 
+function upcomingAnnualDateDays(dateValue, maximumDays = 7) {
+  const match = String(dateValue || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const today = indiaDateKey();
+  const year = Number(today.slice(0, 4));
+  const monthDay = `${match[2]}-${match[3]}`;
+  const candidates = [`${year}-${monthDay}`, `${year + 1}-${monthDay}`];
+  const result = candidates.map(daysFromToday).find(days => days >= 1 && days <= maximumDays);
+  return Number.isFinite(result) ? result : null;
+}
+
+function recentAbsenceDays(personId, periodDays = 60) {
+  const today = dateKeyToUtc(indiaDateKey());
+  return (Array.isArray(attendanceLog) ? attendanceLog : []).filter(day => {
+    const value = dateKeyToUtc(day.date);
+    if (!Number.isFinite(value) || value > today || value < today - periodDays * 86_400_000) return false;
+    const record = Array.isArray(day.records) ? day.records.find(item => item.id === personId) : null;
+    return record && (record.status === 'Absent' || record.status === 'On leave');
+  }).length;
+}
+
+function estimatedAbsenceRisk(person) {
+  let score = 0;
+  const reasons = [];
+  const birthdayDays = upcomingAnnualDateDays(person.dob);
+  if (birthdayDays !== null) {
+    score += 25;
+    reasons.push(`birthday in ${birthdayDays} day${birthdayDays === 1 ? '' : 's'}`);
+  }
+  const familyDates = [
+    ['father_birthday', "father's birthday"], ['father_dob', "father's birthday"],
+    ['mother_birthday', "mother's birthday"], ['mother_dob', "mother's birthday"],
+    ['spouse_birthday', "spouse's birthday"], ['spouse_dob', "spouse's birthday"],
+    ['wedding_anniversary', 'wedding anniversary'], ['parents_anniversary', "parents' anniversary"],
+    ['special_date', 'family special date']
+  ];
+  const usedLabels = new Set();
+  familyDates.forEach(([field, label]) => {
+    const days = upcomingAnnualDateDays(person[field]);
+    if (days === null || usedLabels.has(label)) return;
+    usedLabels.add(label);
+    score += 20;
+    reasons.push(`${label} in ${days} day${days === 1 ? '' : 's'}`);
+  });
+  if (String(person.medical_history || '').trim() || String(person.family_medical_history || '').trim()) {
+    score += 15;
+    reasons.push('medical-history planning indicator');
+  }
+  if (person.absence_type === 'Habitual leave') {
+    score += 25;
+    reasons.push('classified as habitual leave');
+  }
+  const recent = recentAbsenceDays(person.id);
+  if (recent >= 3) {
+    score += 25;
+    reasons.push(`${recent} leave/absence days in the last 60 days`);
+  } else if (recent > 0) {
+    score += 10;
+    reasons.push(`${recent} leave/absence day${recent === 1 ? '' : 's'} in the last 60 days`);
+  }
+  return {
+    person, score: Math.min(score, 100), reasons,
+    level: score >= 60 ? 'high' : score >= 35 ? 'medium' : 'watch'
+  };
+}
+
+function nextWeekAbsenceEstimates(records) {
+  return records.map(estimatedAbsenceRisk)
+    .filter(item => item.score >= 20)
+    .sort((left, right) => right.score - left.score || left.person.name.localeCompare(right.person.name));
+}
+
+function absenceEstimatePanel(records) {
+  const estimates = nextWeekAbsenceEstimates(records);
+  return `<section class="absence-estimate-panel">
+    <div class="overview-subsection-head"><div><span>PLANNING ESTIMATE</span><h3>Estimated next-week absence risk</h3></div><small>Not a confirmed absence</small></div>
+    <p class="absence-estimate-note">Calculated from upcoming birthdays, important family dates, medical-history indicators, habitual-leave classification and saved attendance history.</p>
+    <div class="absence-estimate-list">${estimates.length ? estimates.map(item => `<article class="absence-estimate-row ${item.level}">
+      <div><b>${esc(item.person.name)}</b><span>${esc(item.person.role || 'Temporary Worker')} · ${esc(item.reasons.join(' · '))}</span></div>
+      <strong>${item.score}% <small>${item.level} risk</small></strong>
+    </article>`).join('') : '<p class="overflow-empty">No elevated next-week absence risk was identified from the available records.</p>'}</div>
+  </section>`;
+}
+
 function enhanceOverviewDashboard() {
   const page = document.querySelector('#view-root');
   const eyebrow = page?.querySelector('.page-heading .eyebrow')?.textContent.trim().toUpperCase();
-  if (eyebrow !== 'ADMIN CONTROL CENTRE' || document.getElementById('operations-overview')) return;
+  if (eyebrow !== 'ADMIN CONTROL CENTRE') return;
+  const health = page.querySelector('.health');
+  health?.querySelector('.attendance-health-role-heading')?.remove();
+  health?.querySelector('.attendance-health-role-dashboard')?.remove();
+  page.querySelectorAll('.habitual-leave-panel:not(.overview-habitual-leave)').forEach(panel => panel.remove());
+  if (document.getElementById('operations-overview')) return;
   const activePeople = typeof people !== 'undefined' ? people : [];
   const temporary = typeof temporaryWorkers !== 'undefined' ? temporaryWorkers : [];
   const contractorRecords = typeof contractors !== 'undefined' ? contractors : [];
@@ -1141,17 +1212,29 @@ function enhanceOverviewDashboard() {
   const workerRecords = activePeople.filter(person => person.role === 'Worker');
   const staffRecords = activePeople.filter(person => person.role === 'Staff');
   const entrepreneurRecords = activePeople.filter(person => person.role === 'Entrepreneur');
+  const riskRecords = [...activePeople, ...temporary.filter(person => !activePeople.some(item => item.id === person.id))];
   const metrics = page.querySelector('.metrics');
   const section = `<section class="operations-overview" id="operations-overview">
     <div class="operations-overview-heading"><div><span>OVERVIEW</span><h2>Attendance status and deadline overflow</h2></div><div class="attendance-overview-legend"><span class="present"><i></i>Present</span><span class="unsure"><i></i>Not sure</span><span class="absent"><i></i>Sure absent</span></div></div>
     <div class="attendance-overview-grid">${attendanceOverviewCard('Employees / Workers', workerRecords, 'workers')}${attendanceOverviewCard('Staff', staffRecords, 'staff')}${attendanceOverviewCard('Entrepreneurs', entrepreneurRecords, 'entrepreneurs')}${attendanceOverviewCard('Temporary workers', temporary, 'temporary')}</div>
+    <section class="operations-total-attendance">
+      <div class="overview-subsection-head"><div><span>TODAY</span><h3>Total attendance by workforce</h3></div><small>Moved from Attendance Health</small></div>
+      <div class="role-attendance-dashboard">${attendanceSector('Worker', 'workers', 'worker-attendance')}${attendanceSector('Staff', 'staff', 'staff-attendance')}${attendanceSector('Entrepreneur', 'entrepreneurs', 'entrepreneur-attendance')}</div>
+    </section>
     <div class="overflow-overview-grid">
       <article class="overflow-overview-card temporary-overflow"><div class="overflow-card-head"><h3>Temporary worker overflow</h3><strong>${temporaryOverflow.length}</strong></div>${temporaryOverflow.length ? temporaryOverflow.map(person => { const extra = Math.max(0, elapsed(person) - 180); return overviewDeadlineRow(person.name, `${extra} day${extra === 1 ? '' : 's'} beyond 180-day limit`, 'temporary'); }).join('') : '<p class="overflow-empty">No temporary worker has crossed the 180-day limit.</p>'}</article>
       <article class="overflow-overview-card contractor-overflow"><div class="overflow-card-head"><h3>Contractor overflow</h3><strong>${contractorOverflow.length}</strong></div>${contractorOverflow.length ? contractorOverflow.map(contractor => overviewDeadlineRow(contractor.name || contractor.contract, contractorDeadlineState(contractor).label, 'contractor')).join('') : '<p class="overflow-empty">No contractor has crossed the contract end date.</p>'}</article>
     </div>
+    ${absenceEstimatePanel(riskRecords)}
+    <section class="habitual-leave-panel overview-habitual-leave">
+      <div class="panel-header"><div><h3>Habitual leave records</h3><p>Calculated from permanently saved attendance dates.</p></div>
+      <label>Period<select id="habitual-leave-period"><option value="1">Current month</option><option value="3">Last 3 months</option></select></label></div>
+      <div id="habitual-leave-records"></div>
+    </section>
   </section>`;
   if (metrics) metrics.insertAdjacentHTML('afterend', section);
   else page.querySelector('.page-heading')?.insertAdjacentHTML('afterend', section);
+  renderHabitualLeaveRows(1);
 }
 
 function refreshOperationsEnhancements() {

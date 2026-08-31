@@ -649,6 +649,25 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
 .overview-deadline-row span,.overflow-empty { margin: 3px 0 0; color: #6b7f8f; font-size: 10px; }
 .contract-deadline-cell b,.contract-deadline-state { display: block; }.contract-deadline-state { margin-top: 4px; font-size: 9px; font-weight: 800; }
 .contract-deadline-state.overdue { color: #b42318; }.contract-deadline-state.due-today,.contract-deadline-state.due-soon { color: #8a6500; }.contract-deadline-state.active { color: #176b31; }.contract-deadline-state.not-entered { color: #6b7f8f; }
+.operations-total-attendance,.absence-estimate-panel,.overview-habitual-leave { margin-top: 14px; padding: 15px; border: 1px solid #dbe5ec; border-radius: 10px; background: #fff; }
+.overview-subsection-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 11px; }
+.overview-subsection-head span { color: #607d91; font-size: 8px; font-weight: 800; letter-spacing: .1em; }
+.overview-subsection-head h3 { margin: 2px 0 0; color: #102a43; font-size: 14px; }
+.overview-subsection-head small { color: #6b7f8f; font-size: 9px; }
+.operations-total-attendance .role-attendance-dashboard { margin: 0; }
+.absence-estimate-note { margin: -4px 0 12px; color: #6b7f8f; font-size: 10px; line-height: 1.5; }
+.absence-estimate-list { display: grid; gap: 8px; }
+.absence-estimate-row { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 14px; padding: 11px 12px; border-left: 4px solid #d7a900; border-radius: 7px; background: #fff9dd; }
+.absence-estimate-row.medium { border-left-color: #e08b16; background: #fff3df; }
+.absence-estimate-row.high { border-left-color: #c4382b; background: #fdeae8; }
+.absence-estimate-row b,.absence-estimate-row span,.absence-estimate-row strong,.absence-estimate-row small { display: block; }
+.absence-estimate-row b { color: #102a43; font-size: 11px; }
+.absence-estimate-row span { margin-top: 3px; color: #607080; font-size: 9px; line-height: 1.45; }
+.absence-estimate-row strong { min-width: 68px; color: #765b00; text-align: right; font-size: 15px; }
+.absence-estimate-row.medium strong { color: #9b5700; }.absence-estimate-row.high strong { color: #a1261d; }
+.absence-estimate-row strong small { margin-top: 2px; font-size: 8px; text-transform: uppercase; }
+.overview-habitual-leave .panel-header { margin-bottom: 8px; }
+.overview-habitual-leave .panel-header h3 { margin: 0; color: #102a43; font-size: 14px; }
 @media(max-width:1200px){.attendance-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:900px){.attendance-overview-grid{grid-template-columns:1fr}}
-@media(max-width:650px){.operations-overview-heading{align-items:flex-start;flex-direction:column}.overflow-overview-grid{grid-template-columns:1fr}}
+@media(max-width:650px){.operations-overview-heading,.overview-subsection-head{align-items:flex-start;flex-direction:column}.overflow-overview-grid{grid-template-columns:1fr}.absence-estimate-row{grid-template-columns:1fr}.absence-estimate-row strong{text-align:left}}
