@@ -1119,7 +1119,7 @@ function attendanceStatusCounts(records) {
 
 function attendanceOverviewCard(title, records, viewName) {
   const counts = attendanceStatusCounts(records);
-  return `<article class="attendance-overview-card"><div class="attendance-overview-head"><h3>${esc(title)}</h3><button class="text-button" data-view="${esc(viewName)}">Open →</button></div><p>${counts.total} total record${counts.total === 1 ? '' : 's'}</p><div class="attendance-color-counts"><span class="attendance-color present"><i></i><b>${counts.present}</b> Present</span><span class="attendance-color unsure"><i></i><b>${counts.unsure}</b> Not sure / on leave</span><span class="attendance-color absent"><i></i><b>${counts.absent}</b> Sure absent</span></div></article>`;
+  return `<article class="attendance-overview-card overview-role-${esc(viewName)}"><div class="attendance-overview-head"><h3>${esc(title)}</h3><button class="text-button" data-view="${esc(viewName)}">Open →</button></div><p>${counts.total} total record${counts.total === 1 ? '' : 's'}</p><div class="attendance-color-counts"><span class="attendance-color present"><i></i><b>${counts.present}</b> Present</span><span class="attendance-color unsure"><i></i><b>${counts.unsure}</b> Not sure / on leave</span><span class="attendance-color absent"><i></i><b>${counts.absent}</b> Sure absent</span></div></article>`;
 }
 
 function overviewDeadlineRow(name, detail, className) {
@@ -1140,10 +1140,11 @@ function enhanceOverviewDashboard() {
   });
   const workerRecords = activePeople.filter(person => person.role === 'Worker');
   const staffRecords = activePeople.filter(person => person.role === 'Staff');
+  const entrepreneurRecords = activePeople.filter(person => person.role === 'Entrepreneur');
   const metrics = page.querySelector('.metrics');
   const section = `<section class="operations-overview" id="operations-overview">
     <div class="operations-overview-heading"><div><span>OVERVIEW</span><h2>Attendance status and deadline overflow</h2></div><div class="attendance-overview-legend"><span class="present"><i></i>Present</span><span class="unsure"><i></i>Not sure</span><span class="absent"><i></i>Sure absent</span></div></div>
-    <div class="attendance-overview-grid">${attendanceOverviewCard('Workers', workerRecords, 'workers')}${attendanceOverviewCard('Staff', staffRecords, 'staff')}${attendanceOverviewCard('Temporary workers', temporary, 'temporary')}</div>
+    <div class="attendance-overview-grid">${attendanceOverviewCard('Employees / Workers', workerRecords, 'workers')}${attendanceOverviewCard('Staff', staffRecords, 'staff')}${attendanceOverviewCard('Entrepreneurs', entrepreneurRecords, 'entrepreneurs')}${attendanceOverviewCard('Temporary workers', temporary, 'temporary')}</div>
     <div class="overflow-overview-grid">
       <article class="overflow-overview-card temporary-overflow"><div class="overflow-card-head"><h3>Temporary worker overflow</h3><strong>${temporaryOverflow.length}</strong></div>${temporaryOverflow.length ? temporaryOverflow.map(person => { const extra = Math.max(0, elapsed(person) - 180); return overviewDeadlineRow(person.name, `${extra} day${extra === 1 ? '' : 's'} beyond 180-day limit`, 'temporary'); }).join('') : '<p class="overflow-empty">No temporary worker has crossed the 180-day limit.</p>'}</article>
       <article class="overflow-overview-card contractor-overflow"><div class="overflow-card-head"><h3>Contractor overflow</h3><strong>${contractorOverflow.length}</strong></div>${contractorOverflow.length ? contractorOverflow.map(contractor => overviewDeadlineRow(contractor.name || contractor.contract, contractorDeadlineState(contractor).label, 'contractor')).join('') : '<p class="overflow-empty">No contractor has crossed the contract end date.</p>'}</article>

@@ -629,8 +629,15 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
 .attendance-overview-legend span,.attendance-color { display: inline-flex; align-items: center; gap: 5px; }
 .attendance-overview-legend i,.attendance-color i { width: 9px; height: 9px; border-radius: 50%; }
 .present i { background: #24a148; }.unsure i { background: #f2b701; }.absent i { background: #d93025; }
-.attendance-overview-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-top: 15px; }
+.attendance-overview-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-top: 15px; }
 .attendance-overview-card,.overflow-overview-card { padding: 14px; border: 1px solid #dbe5ec; border-radius: 10px; background: #fff; }
+.attendance-overview-card.overview-role-workers { background: linear-gradient(135deg,#092a5d,#0b4f9a); }
+.attendance-overview-card.overview-role-staff { background: linear-gradient(135deg,#174f78,#267ca8); }
+.attendance-overview-card.overview-role-entrepreneurs { background: linear-gradient(135deg,#4b356e,#76559d); }
+.attendance-overview-card.overview-role-temporary { background: linear-gradient(135deg,#145a54,#23877d); }
+.attendance-overview-card[class*="overview-role-"] { border-color: transparent; box-shadow: 0 8px 20px rgba(9,42,93,.14); }
+.attendance-overview-card[class*="overview-role-"] h3,.attendance-overview-card[class*="overview-role-"] .text-button { color: #fff; }
+.attendance-overview-card[class*="overview-role-"]>p { color: rgba(255,255,255,.76); }
 .attendance-overview-card>p { margin: 4px 0 11px; color: #6b7f8f; font-size: 10px; }
 .attendance-color-counts { display: grid; gap: 7px; }
 .attendance-color { padding: 7px 9px; border-radius: 6px; font-size: 10px; font-weight: 600; }
@@ -642,5 +649,6 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
 .overview-deadline-row span,.overflow-empty { margin: 3px 0 0; color: #6b7f8f; font-size: 10px; }
 .contract-deadline-cell b,.contract-deadline-state { display: block; }.contract-deadline-state { margin-top: 4px; font-size: 9px; font-weight: 800; }
 .contract-deadline-state.overdue { color: #b42318; }.contract-deadline-state.due-today,.contract-deadline-state.due-soon { color: #8a6500; }.contract-deadline-state.active { color: #176b31; }.contract-deadline-state.not-entered { color: #6b7f8f; }
+@media(max-width:1200px){.attendance-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:900px){.attendance-overview-grid{grid-template-columns:1fr}}
 @media(max-width:650px){.operations-overview-heading{align-items:flex-start;flex-direction:column}.overflow-overview-grid{grid-template-columns:1fr}}
