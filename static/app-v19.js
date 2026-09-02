@@ -34,7 +34,7 @@ window.dashboard = function dashboardWithCalendarControls() {
     .find(heading => heading.textContent.includes('Festival calendar'));
 
   if (festivalHeading) {
-    festivalHeading.innerHTML = `Festival calendar - ${festivalYear}
+    festivalHeading.innerHTML = `Yearly holidays and festival calendar - ${festivalYear}
       <button class="text-button" id="previous-festival-year">← Previous year</button>
       <button class="text-button" id="next-festival-year">Next year →</button>
       <button class="text-button" id="edit-calendar">Edit calendar</button>`;

@@ -729,8 +729,21 @@ const inclusiveFestivalAdditions = {
   ]
 };
 
+/* Fixed-date holidays are generated for every selected calendar year. Festival
+   entries already saved by the administrator remain untouched. */
+const annualHolidayTemplates = [
+  ['01-01', "New Year's Day"],
+  ['01-26', 'Republic Day'],
+  ['05-01', 'May Day'],
+  ['08-15', 'Independence Day'],
+  ['10-02', 'Gandhi Jayanti'],
+  ['12-25', 'Christmas Day']
+];
+
 function ensureInclusiveFestivalCalendar() {
-  const additions = inclusiveFestivalAdditions[Number(festivalYear)] || [];
+  const selectedYear = Number(festivalYear) || new Date().getFullYear();
+  const annualHolidays = annualHolidayTemplates.map(([monthDay, name]) => [`${selectedYear}-${monthDay}`, name]);
+  const additions = [...annualHolidays, ...(inclusiveFestivalAdditions[selectedYear] || [])];
   if (!additions.length || !Array.isArray(festivalCalendar)) return;
   let changed = false;
   additions.forEach(([date, name]) => {
@@ -800,6 +813,11 @@ window.dashboard = function dashboardWithDateAndAttendanceSectors(...args) {
   if (heading && !document.getElementById('overview-current-date')) {
     heading.insertAdjacentHTML('beforeend', `<time class="overview-current-date" id="overview-current-date" datetime="${new Date().toISOString().slice(0, 10)}">
       <span>Today</span><b>${esc(overviewDateText())}</b></time>`);
+  }
+  const festivalHeading = [...document.querySelectorAll('#view-root .section-title')]
+    .find(item => item.textContent.toLowerCase().includes('festival calendar'));
+  if (festivalHeading?.firstChild) {
+    festivalHeading.firstChild.textContent = `Yearly holidays and festival calendar - ${festivalYear} `;
   }
   return result;
 };
@@ -1101,7 +1119,7 @@ function attendanceStatusCounts(records) {
 
 function attendanceOverviewCard(title, records, viewName) {
   const counts = attendanceStatusCounts(records);
-  return `<article class="attendance-overview-card overview-role-${esc(viewName)}"><div class="attendance-overview-head"><h3>${esc(title)}</h3><button class="text-button" data-view="${esc(viewName)}">Open →</button></div><p>${counts.total} total record${counts.total === 1 ? '' : 's'}</p><div class="attendance-color-counts"><span class="attendance-color present"><i></i><b>${counts.present}</b> Present</span><span class="attendance-color unsure"><i></i><b>${counts.unsure}</b> Not sure / on leave</span><span class="attendance-color absent"><i></i><b>${counts.absent}</b> Sure absent</span></div></article>`;
+  return `<article class="attendance-overview-card overview-role-${esc(viewName)}"><div class="attendance-overview-head"><h3>${esc(title)}</h3></div><p>${counts.total} total record${counts.total === 1 ? '' : 's'}</p><div class="attendance-color-counts"><span class="attendance-color present"><i></i><b>${counts.present}</b> Present</span><span class="attendance-color unsure"><i></i><b>${counts.unsure}</b> Not sure / on leave</span><span class="attendance-color absent"><i></i><b>${counts.absent}</b> Sure absent</span></div></article>`;
 }
 
 function overviewDeadlineRow(name, detail, className) {

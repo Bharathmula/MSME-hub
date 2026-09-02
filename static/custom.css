@@ -636,6 +636,8 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
 .attendance-overview-card.overview-role-entrepreneurs { background: linear-gradient(135deg,#4b356e,#76559d); }
 .attendance-overview-card.overview-role-temporary { background: linear-gradient(135deg,#145a54,#23877d); }
 .attendance-overview-card[class*="overview-role-"] { border-color: transparent; box-shadow: 0 8px 20px rgba(9,42,93,.14); }
+.attendance-overview-card[class*="overview-role-"] { position: relative; transition: transform .22s ease, box-shadow .22s ease; transform-origin: center; }
+.attendance-overview-card[class*="overview-role-"]:hover { z-index: 2; transform: scale(1.035); box-shadow: 0 14px 30px rgba(9,42,93,.25); }
 .attendance-overview-card[class*="overview-role-"] h3,.attendance-overview-card[class*="overview-role-"] .text-button { color: #fff; }
 .attendance-overview-card[class*="overview-role-"]>p { color: rgba(255,255,255,.76); }
 .attendance-overview-card>p { margin: 4px 0 11px; color: #6b7f8f; font-size: 10px; }
