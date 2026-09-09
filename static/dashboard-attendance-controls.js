@@ -524,9 +524,14 @@ async function syncAutomaticAttendanceV21(date, force = false) {
     const payload = await response.json();
     if (!response.ok) throw Error(payload.error || 'Automatic attendance could not be loaded.');
     automaticAttendanceDraftsV21.set(date, payload.attendance.map(item => {
-      const person = [...people, ...temporaryWorkers].find(record => record.id === item.employee_id);
+      const workforce = [...people, ...temporaryWorkers];
+      const normalizedEmail = String(item.email || '').trim().toLowerCase();
+      const person = workforce.find(record => record.id === item.employee_id)
+        || workforce.find(record => normalizedEmail && String(record.email || '').trim().toLowerCase() === normalizedEmail);
       return ({
-      id: item.employee_id, name: item.name, role: automaticRoleV21(item.workforce_role),
+      id: person?.id || item.employee_id, employee_account_id: item.employee_id,
+      name: person?.name || item.name, email: item.email,
+      role: automaticRoleV21(item.workforce_role),
       status: item.status === 'COMPLETED' || item.status === 'OPEN' ? 'Present' : 'Absent',
       login: automaticTimeV21(item.check_in_at), logout: automaticTimeV21(item.check_out_at),
       work: durationTextV21(item.worked_minutes || 0), half: '-', overtime: '-', total: durationTextV21(item.worked_minutes || 0),

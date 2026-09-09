@@ -22,6 +22,7 @@ class EmployeePortalTests(unittest.TestCase):
   retry=self.c.post('/api/employee/attendance',json={'pin':'123456','device_identifier':'test','face_capture':face},headers=self.headers(employee,{'Idempotency-Key':'in'}));self.assertTrue(retry.json['duplicate'])
   out=self.c.post('/api/employee/attendance',json={'pin':'123456','device_identifier':'test','face_capture':face},headers=self.headers(employee,{'Idempotency-Key':'out'}));self.assertEqual(out.json['event']['event_type'],'CHECK_OUT')
   admin_attendance=self.c.get('/api/admin/employee-attendance',headers=self.headers(self.admin));self.assertEqual(admin_attendance.status_code,200,admin_attendance.text);self.assertEqual(admin_attendance.json['attendance'][0]['employee_id'],'W-100')
+  self.assertEqual(admin_attendance.json['attendance'][0]['email'],'worker100@example.com')
   photo=self.c.patch('/api/employee/profile-photo',json={'profile_photo':face},headers=self.headers(employee));self.assertEqual(photo.status_code,200,photo.text)
   dash=self.c.get('/api/employee/dashboard',headers=self.headers(employee));self.assertEqual(dash.json['today']['status'],'COMPLETED');self.assertEqual(dash.json['employee']['employee_id'],'W-100')
   self.assertEqual(dash.json['employee']['phone'],'9876543210');self.assertTrue(dash.json['employee']['profile_photo_data'].startswith('data:image/'))

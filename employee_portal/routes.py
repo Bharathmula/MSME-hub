@@ -157,7 +157,7 @@ def employee_attendance():
  work_date=str(request.args.get('date','')).strip()
  query='''
   SELECT s.work_date,s.check_in_at,s.check_out_at,s.worked_minutes,s.status,
-         a.employee_id,a.name,a.workforce_role
+         a.employee_id,a.name,a.email,a.workforce_role
   FROM employee_shifts s
   JOIN employee_accounts a ON a.id=s.employee_account_id
   WHERE a.tenant_email=?
