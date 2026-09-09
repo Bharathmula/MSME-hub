@@ -570,7 +570,7 @@ window.attendanceCalendar = function advancedAttendanceCalendarV25() {
       <div class="calendar-legend"><span><i class="legend-today">✓</i> Today</span>
         <span><i class="legend-selected"></i> Selected date</span>
         <b>${savedRecord ? `Attendance saved for ${calendarDay}` : `No saved attendance for ${calendarDay}`}</b></div>
-      <div class="manual-attendance-switch"><span><b>Manual attendance control</b><small>Automatic face attendance is shown by default. Turn this ON only to enter or correct records manually.</small></span>
+      <div class="manual-attendance-switch"><span><b>Automatic attendance: ON</b><small>Live check-in and checkout are calculated automatically. Turn manual entry ON only to add or override a person’s record.</small></span>
         <label class="enter-manually-button"><input type="checkbox" id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? 'checked' : ''}><i></i><b>Enter manually: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b></label></div>
     </section>
     <div class="calendar-role-sections">

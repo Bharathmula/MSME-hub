@@ -649,6 +649,7 @@ function manualAttendanceRecord(person) {
     id: person.id,
     name: person.name,
     role: person.role,
+    source: 'Manual attendance',
     status: person.status,
     shift: person.shift || '09:00 AM - 06:00 PM',
     grace: typeof GRACE_TIME !== 'undefined' ? GRACE_TIME : '09:15 AM',
@@ -679,7 +680,7 @@ window.saveSelectedDay = function saveOnlyManuallyEnteredAttendance() {
     if (index < 0) records.push(record); else records[index] = record;
   });
   if (!records.length) {
-    alert(`No attendance has been entered manually for ${calendarDay}.`);
+    alert(`No automatic or manual attendance is available for ${calendarDay}.`);
     return;
   }
   const index = attendanceLog.findIndex(day => day.date === calendarDay);
@@ -687,7 +688,10 @@ window.saveSelectedDay = function saveOnlyManuallyEnteredAttendance() {
   else attendanceLog[index] = { date: calendarDay, records };
   save();
   render();
-  setTimeout(() => alert(`Manually entered attendance for ${calendarDay} has been saved.`), 50);
+  const saveType = manuallyEntered.length && automatic.length
+    ? 'Automatic attendance and manual overrides'
+    : manuallyEntered.length ? 'Manual attendance' : 'Automatic attendance';
+  setTimeout(() => alert(`${saveType} for ${calendarDay} has been saved.`), 50);
 };
 
 /*

@@ -504,10 +504,11 @@ function automaticTimeV21(value) {
 function combinedAttendanceRecordV21(date, savedRecord) {
   const automatic = automaticAttendanceDraftsV21.get(date) || [];
   if (!automatic.length) return savedRecord;
-  const records = [...(savedRecord?.records || [])];
-  automatic.forEach(record => {
+  const records = [...automatic];
+  (savedRecord?.records || []).forEach(record => {
     const index = records.findIndex(item => item.id === record.id);
-    if (index < 0) records.push(record); else records[index] = { ...records[index], ...record };
+    if (index < 0) records.push(record);
+    else if (record.source === 'Manual attendance') records[index] = { ...records[index], ...record };
   });
   return { date, records, automaticDraft: true };
 }

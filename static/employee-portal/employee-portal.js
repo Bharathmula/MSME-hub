@@ -341,6 +341,10 @@
   async function adminView() {
     const page = document.querySelector('#view-root');
     if (!page || document.body.dataset.employeeAccess !== 'yes') return;
+    if (!apiBase()) {
+      page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1></div></div><section class="panel"><h2>Public employee service is not connected</h2><p>Employee accounts and attendance require the public Python backend. Deploy <b>backend.py</b>, then add its HTTPS address to Streamlit secrets as <b>MSME_EMPLOYEE_API_URL</b>.</p><p>This replaces the unclear “Unsupported request” message. Clerk is not required.</p></section>`;
+      return;
+    }
     page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1><p>Create employee access invitations for Workers, Staff and Temporary Workers.</p></div></div>
       <section class="panel"><form id="ea-create" class="form-grid"><label>NAME<input name="name" required></label><label>EMPLOYEE ID<input name="employee_id" required></label><label>EMAIL<input name="email" type="email" required></label><label>ROLE<select name="workforce_role"><option>WORKER</option><option>STAFF</option><option>TEMPORARY</option></select></label><button class="primary">Create invitation</button></form><p id="ea-message"></p></section>
       <section class="panel"><h2>Employee accounts</h2><div class="employee-access-list" id="ea-list">Loading…</div></section>`;
