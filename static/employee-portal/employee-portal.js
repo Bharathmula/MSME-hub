@@ -37,6 +37,18 @@
     return role.charAt(0) + role.slice(1).toLowerCase();
   }
 
+  function employeeInvitationUrl(inviteToken, employeeEmail) {
+    let source = document.referrer || window.location.href;
+    try {
+      const url = new URL(source);
+      url.search = '';
+      url.hash = '';
+      url.searchParams.set('employee_invite', inviteToken);
+      url.searchParams.set('employee_email', employeeEmail);
+      return url.toString();
+    } catch (_error) { return ''; }
+  }
+
   function duration(minutes = 0) {
     return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
   }
@@ -359,10 +371,16 @@
     page.querySelector('#ea-create').onsubmit = async event => {
       event.preventDefault();
       try {
-        const result = await request('/api/admin/employee-accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(event.target))) }, adminToken);
-        page.querySelector('#ea-message').textContent = result.credentials_created
+        const fields = Object.fromEntries(new FormData(event.target));
+        const result = await request('/api/admin/employee-accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) }, adminToken);
+        const invitationUrl = employeeInvitationUrl(result.invite_token, fields.email);
+        page.querySelector('#ea-message').innerHTML = result.credentials_created
           ? 'Active employee login created. The employee can sign in now.'
-          : `Invitation token (valid 48 hours): ${result.invite_token}`;
+          : `<b>Invitation created (valid 48 hours).</b><br><a id="ea-invitation-link" href="${esc(invitationUrl)}" target="_blank" rel="noopener">${esc(invitationUrl)}</a><br><button type="button" class="secondary" id="ea-copy-invitation">Copy invitation link</button>`;
+        page.querySelector('#ea-copy-invitation')?.addEventListener('click', async () => {
+          await navigator.clipboard.writeText(invitationUrl);
+          page.querySelector('#ea-copy-invitation').textContent = 'Copied ✓';
+        });
         event.target.reset();
       } catch (error) { page.querySelector('#ea-message').textContent = error.message; }
     };

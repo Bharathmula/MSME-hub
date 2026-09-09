@@ -139,6 +139,18 @@
     }).join("");
   }
 
+  function openShiftEditor(person, configuration) {
+    const modalRoot = document.getElementById('modal-root');
+    modalRoot.innerHTML = `<div class="modal-backdrop"><form class="modal" id="workforce-shift-form"><div class="modal-head"><div><div class="eyebrow">EDIT SHIFT TIMINGS</div><h2>${esc(person.name)}</h2><p>Update the shift, then use Save dashboard to store it permanently.</p></div><button class="close" type="button" data-close>×</button></div><div class="form-grid"><label class="full">SHIFT TIMINGS<input name="shift" value="${esc(person.shift || '09:00 AM - 06:00 PM')}" required></label></div><div class="modal-actions"><button class="secondary" type="button" data-close>Cancel</button><button class="primary">Apply shift</button></div></form></div>`;
+    modalRoot.querySelectorAll('[data-close]').forEach(button => button.onclick = () => { modalRoot.innerHTML = ''; });
+    modalRoot.querySelector('#workforce-shift-form').onsubmit = event => {
+      event.preventDefault();
+      person.shift = new FormData(event.target).get('shift').trim();
+      modalRoot.innerHTML = '';
+      renderDashboard(configuration);
+    };
+  }
+
   function renderDashboard(configuration) {
     const records = configuration.records();
     const label = configuration.label;
@@ -196,10 +208,7 @@
       button.onclick = () => {
         const person = records.find(item => item.id === button.dataset.workforceId);
         if (!person) return;
-        const shift = prompt(`Enter shift timings for ${person.name}`, person.shift || '09:00 AM - 06:00 PM');
-        if (shift === null || !shift.trim()) return;
-        person.shift = shift.trim();
-        renderDashboard(configuration);
+        openShiftEditor(person, configuration);
       };
     });
     root.querySelector('#save-workforce-dashboard').onclick = () => {
