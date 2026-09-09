@@ -10,24 +10,29 @@
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="login.css" />
   <link rel="stylesheet" href="admin.css" />
-  <link rel="stylesheet" href="v3.css" />
-  <link rel="stylesheet" href="v4.css" />
-  <link rel="stylesheet" href="v5.css" />
-  <link rel="stylesheet" href="v6.css" />
-  <link rel="stylesheet" href="v9.css" />
-  <link rel="stylesheet" href="v12.css" />
-  <link rel="stylesheet" href="v15.css" />
-  <link rel="stylesheet" href="v20.css" />
-  <link rel="stylesheet" href="v21.css" />
-  <link rel="stylesheet" href="v22.css" />
-  <link rel="stylesheet" href="v23.css" />
-  <link rel="stylesheet" href="v24.css" />
-  <link rel="stylesheet" href="v25.css" />
-  <link rel="stylesheet" href="v7.css" />
-  <link rel="stylesheet" href="v26.css" />
-  <link rel="stylesheet" href="v27.css" />
-  <link rel="stylesheet" href="v28.css" />
-  <link rel="stylesheet" href="custom.css" />
+  <link rel="stylesheet" href="account-signup-and-workforce-summary.css" />
+  <link rel="stylesheet" href="festival-calendar-grid.css" />
+  <link rel="stylesheet" href="attendance-time-entry.css" />
+  <link rel="stylesheet" href="attendance-calendar-days.css" />
+  <link rel="stylesheet" href="dashboard-notification-bar.css" />
+  <link rel="stylesheet" href="overview-attendance-health.css" />
+  <link rel="stylesheet" href="overview-attendance-health-blue-theme.css" />
+  <link rel="stylesheet" href="attendance-time-and-overtime-controls.css" />
+  <link rel="stylesheet" href="unified-attendance-tables.css" />
+  <link rel="stylesheet" href="overview-role-overflow-cards.css" />
+  <link rel="stylesheet" href="temporary-worker-timing-controls.css" />
+  <link rel="stylesheet" href="resignation-and-calendar-theme.css" />
+  <link rel="stylesheet" href="attendance-calendar-navigation-downloads.css" />
+  <link rel="stylesheet" href="temporary-worker-calendar-spacing.css" />
+  <link rel="stylesheet" href="brand-and-overtime-dropdowns.css" />
+  <link rel="stylesheet" href="login-captcha-authentication.css" />
+  <link rel="stylesheet" href="dashboard-final-theme-and-form-controls.css" />
+  <link rel="stylesheet" href="dashboard-feature-extensions.css" />
+  <link rel="stylesheet" href="payroll-training.css" />
+  <link rel="stylesheet" href="owned-authentication.css" />
+  <link rel="stylesheet" href="automatic-workforce-dashboard.css" />
+  <link rel="stylesheet" href="clerk-authentication.css" />
+  <link rel="stylesheet" href="employee-portal/employee-portal.css" />
 </head>
 <body>
   <section class="login-screen" id="login-screen">
@@ -58,9 +63,12 @@
         <button class="nav-link" data-view="entrepreneurs"><span>♔</span> Entrepreneur <em id="entrepreneur-count"></em></button>
         <button class="nav-link" data-view="coverage"><span>✦</span> Worker replacement</button>
         <button class="nav-link" data-view="attendance"><span>▦</span> Attendance calendar</button>
+        <button class="nav-link" data-view="payroll"><span>₹</span> Payroll</button>
+        <button class="nav-link" data-view="training"><span>△</span> Training</button>
         <button class="nav-link" data-view="contractors"><span>▤</span> Contractors</button>
         <button class="nav-link" data-view="exemployees"><span>▤</span> Ex-employees</button>
         <button class="nav-link" data-view="recycle"><span>♲</span> Recycle bin <em id="recycle-count"></em></button>
+        <button class="nav-link" data-view="employeeaccess"><span>▣</span> Employee Login Setup</button>
       </nav>
       <div class="sidebar-footer" id="admin-access"><div class="admin-avatar" id="admin-initials">AR</div><div><strong id="admin-name">Admin access</strong><small>Open account controls</small></div></div>
       <button class="logout-button" id="sign-out">↗ &nbsp; Log out</button>
@@ -71,37 +79,19 @@
     </main>
   </div>
   <div id="modal-root"></div>
-  <script src="app-v2.js"></script>
-  <script src="app-v3.js"></script>
-  <script src="app-v4.js"></script>
-  <script src="app-v5.js"></script>
-  <script src="app-v6.js"></script>
-  <script src="app-v7.js"></script>
-  <script src="app-v8.js"></script>
-  <script src="app-v9.js"></script>
-  <script src="app-v10.js"></script>
-  <script src="app-v11.js"></script>
-  <script src="app-v12.js"></script>
-  <script src="app-v13.js"></script>
-  <script src="app-v14.js"></script>
-  <script src="app-v15.js"></script>
-  <script src="app-v16.js"></script>
-  <script src="app-v17.js"></script>
-  <script src="app-v18.js"></script>
-  <script src="app-v19.js"></script>
-  <script src="app-v20.js"></script>
-  <script src="app-v21.js"></script>
-  <script src="app-v22.js"></script>
-  <script src="app-v23.js"></script>
-  <script src="app-v24.js"></script>
-  <script src="app-v25.js"></script>
-  <script src="app-v26.js"></script>
-  <script src="app-v27.js"></script>
-  <script src="app-v28.js"></script>
-  <script src="app-v29.js"></script>
-  <script src="app-v30.js"></script>
-  <script src="app-v31.js"></script>
-  <script src="custom.js"></script>
+  <div id="employee-portal-root"></div>
+  <script src="application-core-and-profiles.js"></script>
+  <script src="attendance-and-calendar.js"></script>
+  <script src="dashboard-attendance-controls.js"></script>
+  <script src="workforce-operations.js"></script>
+  <script src="account-notifications-and-forms.js"></script>
+  <script src="overview-payroll-and-training.js"></script>
+  <script src="sections/workforce-dashboard-shared.js"></script>
+  <script src="sections/workers-dashboard.js"></script>
+  <script src="sections/staff-dashboard.js"></script>
+  <script src="sections/entrepreneur-dashboard.js"></script>
+  <script src="sections/temporary-workers-dashboard.js"></script>
+  <script src="sections/dashboard-greeting.js"></script>
   <script src="components/runtime.js"></script>
   <script src="components/component-utils.js"></script>
   <script src="components/overview.js"></script>
@@ -112,8 +102,13 @@
   <script src="components/entrepreneurs.js"></script>
   <script src="components/worker-replacement.js"></script>
   <script src="components/attendance-calendar.js"></script>
+  <script src="components/payroll.js"></script>
+  <script src="components/training.js"></script>
   <script src="components/contractors.js"></script>
   <script src="components/ex-employees.js"></script>
   <script src="components/recycle-bin.js"></script>
+  <script src="employee-portal/employee-portal.js"></script>
+  <script src="owned-authentication-login.js"></script>
+  <script src="clerk-authentication.js"></script>
 </body>
 </html>

@@ -1,0 +1,26 @@
+/* MSME-BS authentication layout, adapted to this project's owned backend. */
+#login-screen{min-height:100vh;display:grid;grid-template-columns:40% 60%;background:#fff}.login-screen.hidden{display:none!important}#login-screen .login-art{background:#020e1f;color:#fff;padding:55px;display:flex;flex-direction:column}#login-screen .os-logo{font-size:21px;font-weight:800}#login-screen .art-copy{margin:auto 0}#login-screen .art-copy h2{font-size:clamp(52px,6vw,82px);line-height:1.15;margin:0}#login-screen .art-copy i{font-style:normal;color:#1689ff}#login-screen .art-copy>span{display:block;width:65px;height:5px;background:#1689ff;margin:30px 0}#login-screen .art-copy p{line-height:1.7;max-width:560px}#login-screen .login-side{display:grid;place-items:center;padding:30px;background:#f8fafc}#login-screen .login-card{width:min(700px,100%);border:1px solid #d9e1ea;border-radius:16px;padding:30px;background:#fff;box-shadow:0 18px 45px rgba(15,35,60,.12)}#login-screen .login-card h1{font-size:32px;margin:8px 0}.access-switch,.auth-tabs{display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:10px}.access-switch{background:#f1f3ef;margin:22px 0 14px}.auth-tabs{background:#edf2f7;margin:0 0 24px}.access-switch button,.auth-tabs button{border:0;background:transparent;padding:11px;border-radius:8px;font-weight:800;cursor:pointer}.access-switch button.active{background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.08)}.auth-tabs button.active{background:#071b33;color:#fff}#owned-auth-panel .auth-form{display:grid;gap:14px}#owned-auth-panel label{display:grid;gap:6px;font-size:11px;font-weight:800}#owned-auth-panel input,#owned-auth-panel select{width:100%;padding:11px;border:1px solid #aebed0;border-radius:8px;box-sizing:border-box}.password-wrap{display:flex}.password-wrap input{border-radius:8px 0 0 8px}.password-wrap button{border:1px solid #aebed0;border-left:0;background:#fff;border-radius:0 8px 8px 0;padding:0 14px}.forgot{border:0;background:none;color:#0875df;text-align:left;padding:0;cursor:pointer}.captcha-box{display:grid;grid-template-columns:1fr auto;gap:8px}.captcha-box strong{display:grid;place-items:center;min-height:44px;border:1px dashed #7793b0;border-radius:8px;background:repeating-linear-gradient(-35deg,#edf5fd,#edf5fd 8px,#dceaf7 8px,#dceaf7 16px);color:#082f61;font-size:21px;letter-spacing:.28em}.onboarding-progress{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.onboarding-progress span{display:grid;place-items:center;gap:5px;padding:8px 5px;border:1px solid #d7e0ea;border-radius:9px;background:#f3f6f9;color:#64778a;font-size:9px;font-weight:800}.onboarding-progress span b{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:#dce6ef}.onboarding-progress span.active,.onboarding-progress span.complete{background:#e4f1fc;color:#0a4379}.onboarding-progress span.active b,.onboarding-progress span.complete b{background:#071b33;color:#fff}.onboarding-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:13px}.onboarding-grid .full{grid-column:1/-1}.auth-actions{display:flex;gap:10px}.auth-actions>*{flex:1}.auth-message{min-height:16px;margin:0;font-size:12px}.auth-message.error{color:#b42318}.auth-message.success{color:#26714b}.worker-auth-copy{padding:12px 0;display:grid;gap:14px}.worker-auth-copy p{color:#667085}.secondary{border:1px solid #cbd8e6;background:#f4f8fc;color:#0b63b6;border-radius:8px;padding:11px;font-weight:700;cursor:pointer}@media(max-width:850px){#login-screen{grid-template-columns:1fr}#login-screen .login-art{display:none}#login-screen .login-side{min-height:100vh}.onboarding-grid{grid-template-columns:1fr}.onboarding-grid .full{grid-column:auto}}
+
+#login-screen .login-side,
+#login-screen .login-card,
+#owned-auth-panel,
+#owned-auth-panel .auth-form,
+#owned-auth-panel button,
+#owned-auth-panel input {
+  pointer-events: auto !important;
+}
+
+#owned-signin {
+  position: relative;
+  z-index: 20;
+}
+
+#owned-signin-submit {
+  position: relative;
+  z-index: 30;
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}

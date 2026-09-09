@@ -1,0 +1,17 @@
+.clerk-login-button {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #c9d6e4;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #102a43;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.clerk-login-button:hover,
+.clerk-login-button:focus-visible {
+  border-color: #1689ff;
+  background: #f3f8ff;
+  outline: 3px solid rgba(22, 137, 255, 0.14);
+}

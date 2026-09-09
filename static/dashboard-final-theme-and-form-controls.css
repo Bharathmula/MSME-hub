@@ -1,0 +1,395 @@
+/* Matte-blue workspace column. */
+.sidebar{background:#174f78!important;color:#f4f9fc!important}
+.workspace-label{color:#b9d5e8!important}
+.nav-link{color:#dcecf7!important}
+.nav-link em{color:#c2daea!important}
+.nav-link.active,.nav-link:hover{background:#28698f!important;color:#fff!important}
+.sidebar-footer{border-top-color:#3f7396!important}
+.sidebar-footer small{color:#c8deec!important}
+.logout-button{border-color:#6d96b1!important;background:#123e5f!important;color:#fff!important}
+.logout-button:hover{background:#28698f!important}
+
+/* Matte-blue individual cards in Worker, Staff and Entrepreneur overflows. */
+.overflow-directory{background:#edf4f8!important;border-color:#c4d7e4!important}
+.overflow-person-card{background:#174f78!important;border-color:#2d6c97!important;color:#fff!important}
+.overflow-person-card:hover{border-color:#91c2e1!important;box-shadow:0 12px 28px rgba(14,57,87,.25)!important}
+.overflow-person-head h3{color:#fff!important}
+.overflow-person-head small,.overflow-person-details span,.overflow-skills>span{color:#c9dfed!important}
+.overflow-person-details div{background:#215f8d!important;border:1px solid rgba(255,255,255,.1)}
+.overflow-person-details b{color:#fff!important}
+.overflow-person-card .avatar{background:#dbeaf4!important;color:#174f78!important}
+.overflow-person-card .skill{background:#dcecf7!important;color:#174f78!important}
+.overflow-person-card .overflow-open-profile{background:#f3f8fb!important;color:#174f78!important}
+.overflow-person-card .overflow-open-profile:hover{background:#dcecf7!important}
+
+/* Matte-blue grouped login notifications. */
+.login-notice-backdrop{background:rgba(10,31,67,.72)!important}
+.login-notice-modal{width:min(820px,100%);padding:0!important;overflow:hidden!important;border:1px solid #2b628d}
+.login-notice-head{display:flex;justify-content:space-between;align-items:flex-start;padding:24px 26px;background:#174f78;color:#fff}
+.login-notice-head .eyebrow{color:#cfe4f5}
+.login-notice-head h2{margin:5px 0 3px;color:#fff}
+.login-notice-head p{margin:0;color:#dcecf8;font-size:11px}
+.login-notice-close{background:rgba(255,255,255,.14)!important;color:#fff!important}
+.login-notice-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:18px;background:#eef4f8}
+.login-notice-section{min-width:0;border:1px solid #b9d0df;border-radius:10px;overflow:hidden;background:#fff}
+.login-notice-section-title{display:flex;align-items:center;gap:8px;padding:12px;background:#205b84;color:#fff}
+.login-notice-section-title b{font-size:11px;line-height:1.3}
+.login-notice-section-title em{margin-left:auto;display:grid;place-items:center;min-width:22px;height:22px;padding:0 5px;border-radius:12px;background:#fff;color:#174f78;font-size:10px;font-style:normal;font-weight:800}
+.login-notice-section-body{max-height:310px;overflow:auto;padding:4px 12px 10px}
+.login-notice-row{display:flex;align-items:flex-start;gap:9px;padding:11px 0;border-bottom:1px solid #dce7ee}
+.login-notice-row:last-child{border:0}
+.login-notice-row strong,.login-notice-row small{display:block}
+.login-notice-row strong{color:#173d5a;font-size:11px;line-height:1.35}
+.login-notice-row small{margin-top:3px;color:#61788a;font-size:9px;line-height:1.4}
+.login-notice-icon{display:grid;place-items:center;flex:0 0 26px;height:26px;border-radius:7px;background:#dcecf7;color:#174f78;font-weight:800}
+.login-notice-empty{margin:12px 0 2px;color:#61788a;font-size:10px;line-height:1.5}
+@media(max-width:760px){.login-notice-grid{grid-template-columns:1fr}.login-notice-section-body{max-height:180px}}
+
+/* Matte-blue borders for workforce, attendance and register sections only. */
+#view-root .table-wrap,
+#view-root .panel,
+#view-root .metric-group,
+#view-root .skill-card,
+#view-root .reminder-card,
+#view-root .overflow-directory,
+#view-root .overflow-person-card,
+#view-root .attendance-role-section,
+#view-root .attendance-calendar-panel{
+  border:4px solid #174f78!important;
+}
+#view-root .table-wrap td{border-top:2px solid #174f78!important}
+#view-root .table-wrap th+th,
+#view-root .table-wrap td+td{border-left:2px solid #174f78}
+#view-root .work-dashboard .panel{border:4px solid #174f78!important}
+#view-root .calendar-role-sections{border:4px solid #174f78!important;border-radius:14px;padding:10px}
+
+/* Profile, temporary-worker and contractor form borders. */
+#modal-root .modal:not(.login-notice-modal){border:4px solid #174f78}
+#modal-root .modal:not(.login-notice-modal) .modal-head,
+#modal-root .modal:not(.login-notice-modal) .form-section{border-color:#174f78!important}
+#modal-root .modal:not(.login-notice-modal) input,
+#modal-root .modal:not(.login-notice-modal) select,
+#modal-root .modal:not(.login-notice-modal) textarea{border-color:#174f78!important}
+
+/* Add Profile and related add-record controls retain their fill; only the border changes. */
+#add-person,#add-temporary,#add-contractor,[data-overflow-add]{
+  border:4px solid #174f78!important;
+}
+
+/* Cream theme replaces the previous matte-blue surfaces and borders. */
+.sidebar{background:#f1dfb9!important;color:#14273a!important}
+.brand,.brand b{color:#14273a!important}
+.brand-mark{border-color:#14273a!important;background:#14273a!important;color:#f1dfb9!important}
+.workspace-label{color:#715d37!important}
+.nav-link,.nav-link em{color:#26394c!important}
+.nav-link.active,.nav-link:hover{background:#dcc28c!important;color:#14273a!important}
+.sidebar-footer{border-top-color:#c7aa70!important}
+.sidebar-footer strong{color:#14273a!important}
+.sidebar-footer small{color:#6b5a3c!important}
+.logout-button{border-color:#b8985e!important;background:#e3cc9d!important;color:#14273a!important}
+.logout-button:hover{background:#d4b77d!important}
+
+.overflow-directory{background:#fbf6ea!important;border-color:#d5b97f!important}
+.overflow-person-card{background:#f1dfb9!important;border-color:#d5b97f!important;color:#14273a!important}
+.overflow-person-card:hover{border-color:#b7924e!important;box-shadow:0 12px 28px rgba(89,67,28,.18)!important}
+.overflow-person-head h3,.overflow-person-details b{color:#14273a!important}
+.overflow-person-head small,.overflow-person-details span,.overflow-skills>span{color:#675636!important}
+.overflow-person-details div{background:#faefd8!important;border-color:#d5b97f!important}
+.overflow-person-card .avatar{background:#14273a!important;color:#f1dfb9!important}
+.overflow-person-card .skill{background:#fff8e9!important;color:#534224!important}
+.overflow-person-card .overflow-open-profile{background:#14273a!important;color:#fff8e9!important}
+.overflow-person-card .overflow-open-profile:hover{background:#263f55!important}
+
+.login-notice-modal{border-color:#d5b97f!important}
+.login-notice-head{background:#f1dfb9!important;color:#14273a!important}
+.login-notice-head .eyebrow,.login-notice-head p{color:#675636!important}
+.login-notice-head h2{color:#14273a!important}
+.login-notice-close{background:#dcc28c!important;color:#14273a!important}
+.login-notice-grid{background:#fbf6ea!important}
+.login-notice-section{border-color:#d5b97f!important}
+.login-notice-section-title{background:#e3cc9d!important;color:#14273a!important}
+.login-notice-section-title em{background:#fff8e9!important;color:#14273a!important}
+.login-notice-icon{background:#f1dfb9!important;color:#14273a!important}
+
+#view-root .table-wrap,
+#view-root .panel,
+#view-root .metric-group,
+#view-root .skill-card,
+#view-root .reminder-card,
+#view-root .overflow-directory,
+#view-root .overflow-person-card,
+#view-root .attendance-role-section,
+#view-root .attendance-calendar-panel,
+#view-root .work-dashboard .panel,
+#view-root .calendar-role-sections{border-color:#d5b97f!important}
+#view-root .table-wrap td{border-top-color:#d5b97f!important}
+#view-root .table-wrap th+th,#view-root .table-wrap td+td{border-left-color:#d5b97f!important}
+#modal-root .modal:not(.login-notice-modal),
+#modal-root .modal:not(.login-notice-modal) .modal-head,
+#modal-root .modal:not(.login-notice-modal) .form-section,
+#modal-root .modal:not(.login-notice-modal) input,
+#modal-root .modal:not(.login-notice-modal) select,
+#modal-root .modal:not(.login-notice-modal) textarea,
+#add-person,#add-temporary,#add-contractor,[data-overflow-add]{border-color:#d5b97f!important}
+
+/* Cream Attendance Calendar. */
+.attendance-calendar-panel{background:#f1dfb9!important;color:#14273a!important}
+.attendance-calendar-panel .panel-header h2,.calendar-title-block h2,.calendar-legend b{color:#14273a!important}
+.calendar-title-block small,.calendar-month-year-picker label,.calendar-legend{color:#675636!important}
+.attendance-calendar-panel .attendance-calendar>b{color:#14273a!important}
+.attendance-calendar-panel .attendance-day{border-color:#c7aa70!important;background:#fff8e9!important;color:#14273a!important}
+.attendance-calendar-panel .attendance-day small{color:#675636!important}
+.attendance-calendar-panel .attendance-day.selected,.attendance-calendar-panel .attendance-day:hover{border-color:#8f7139!important;background:#dcc28c!important}
+.calendar-nav-button,.calendar-today-button{border-color:#8f7139!important;background:#e3cc9d!important;color:#14273a!important}
+.today-check,.legend-today{background:#14273a!important;color:#f1dfb9!important}
+.legend-selected{border-color:#8f7139!important}
+.calendar-action-button,.calendar-action-button.strong{border-color:#d5b97f!important;background:#f1dfb9!important;color:#14273a!important}
+.calendar-action-button:hover{background:#dcc28c!important}
+
+/* Final navigation treatment: navy workspace with cream labels. */
+.sidebar{background:#102a43!important;color:#fff8e9!important}
+.brand,.brand b{color:#f1dfb9!important}
+.brand-mark{border-color:#f1dfb9!important;background:#f1dfb9!important;color:#102a43!important}
+.workspace-label{color:#cdbb98!important}
+.nav-link,.nav-link em{color:#f5e9d0!important}
+.nav-link.active,.nav-link:hover{background:#1d466b!important;color:#fff!important}
+.sidebar-footer{border-top-color:#49647d!important}
+.sidebar-footer strong{color:#fff8e9!important}
+.sidebar-footer small{color:#c9d5df!important}
+.logout-button{border-color:#ceb98f!important;background:#173b5c!important;color:#fff8e9!important}
+.logout-button:hover{background:#245579!important}
+
+/* Light, thin cream borders across records and forms. */
+#view-root .table-wrap,
+#view-root .panel,
+#view-root .metric-group,
+#view-root .skill-card,
+#view-root .reminder-card,
+#view-root .overflow-directory,
+#view-root .overflow-person-card,
+#view-root .attendance-role-section,
+#view-root .attendance-calendar-panel,
+#view-root .work-dashboard .panel,
+#view-root .calendar-role-sections{
+  border-width:1px!important;
+  border-style:solid!important;
+  border-color:#eadbbd!important;
+}
+#view-root .calendar-role-sections{padding:6px}
+#view-root .table-wrap td{border-top:1px solid #eadbbd!important}
+#view-root .table-wrap th+th,#view-root .table-wrap td+td{border-left:1px solid #eadbbd!important}
+#modal-root .modal:not(.login-notice-modal){border:1px solid #eadbbd!important}
+#modal-root .modal:not(.login-notice-modal) .modal-head,
+#modal-root .modal:not(.login-notice-modal) .form-section,
+#modal-root .modal:not(.login-notice-modal) input,
+#modal-root .modal:not(.login-notice-modal) select,
+#modal-root .modal:not(.login-notice-modal) textarea{border-color:#eadbbd!important}
+#add-person,#add-temporary,#add-contractor,[data-overflow-add]{border:1px solid #eadbbd!important}
+
+/* Navy workforce workflows replace the cream workflow treatment. */
+.overflow-directory{background:#102a43!important;border-color:#294c69!important;color:#fff8e9!important}
+.overflow-directory .eyebrow,.overflow-directory .panel-header h2{color:#fff8e9!important}
+.overflow-person-card{background:#102a43!important;border-color:#496c88!important;color:#fff8e9!important}
+.overflow-person-card:hover{border-color:#8eacc2!important;box-shadow:0 12px 28px rgba(7,25,43,.28)!important}
+.overflow-person-head h3,.overflow-person-details b{color:#fff8e9!important}
+.overflow-person-head small,.overflow-person-details span,.overflow-skills>span{color:#c9d8e3!important}
+.overflow-person-details div{background:#173b5c!important;border-color:#496c88!important}
+.overflow-person-card .avatar{background:#f1dfb9!important;color:#102a43!important}
+.overflow-person-card .skill{background:#e9f0f5!important;color:#102a43!important}
+.overflow-person-card .overflow-open-profile{background:#f1dfb9!important;color:#102a43!important}
+.overflow-person-card .overflow-open-profile:hover{background:#dcc28c!important}
+.unified-attendance-table{border-color:#102a43!important}
+.unified-attendance-table th{background:#102a43!important;color:#fff8e9!important}
+.unified-attendance-table th+th,.unified-attendance-table td+td{border-left-color:#496c88!important}
+.unified-attendance-table td{border-top-color:#496c88!important}
+
+/* Navy Attendance Calendar. */
+.attendance-calendar-panel{background:#102a43!important;border-color:#102a43!important;color:#fff8e9!important}
+.attendance-calendar-panel .panel-header h2,.calendar-title-block h2,.calendar-legend b{color:#fff8e9!important}
+.calendar-title-block small,.calendar-month-year-picker label,.calendar-legend{color:#c9d8e3!important}
+.attendance-calendar-panel .attendance-calendar>b{color:#fff8e9!important}
+.attendance-calendar-panel .attendance-day{border-color:#496c88!important;background:#173b5c!important;color:#fff8e9!important}
+.attendance-calendar-panel .attendance-day small{color:#c9d8e3!important}
+.attendance-calendar-panel .attendance-day.selected,.attendance-calendar-panel .attendance-day:hover{border-color:#f1dfb9!important;background:#245579!important}
+.calendar-nav-button,.calendar-today-button{border-color:#9fb4c5!important;background:#173b5c!important;color:#fff8e9!important}
+.today-check,.legend-today{background:#f1dfb9!important;color:#102a43!important}
+.legend-selected{border-color:#f1dfb9!important}
+.calendar-action-button,.calendar-action-button.strong{border-color:#496c88!important;background:#102a43!important;color:#fff8e9!important}
+.calendar-action-button:hover{background:#245579!important}
+
+/* White replaces cream for borders and navy workforce-overview details. */
+#view-root .table-wrap,
+#view-root .panel,
+#view-root .metric-group,
+#view-root .skill-card,
+#view-root .reminder-card,
+#view-root .overflow-directory,
+#view-root .overflow-person-card,
+#view-root .attendance-role-section,
+#view-root .attendance-calendar-panel,
+#view-root .work-dashboard .panel,
+#view-root .calendar-role-sections{border-color:#fff!important}
+#view-root .table-wrap td{border-top-color:#fff!important}
+#view-root .table-wrap th+th,#view-root .table-wrap td+td{border-left-color:#fff!important}
+#modal-root .modal:not(.login-notice-modal),
+#modal-root .modal:not(.login-notice-modal) .modal-head,
+#modal-root .modal:not(.login-notice-modal) .form-section,
+#modal-root .modal:not(.login-notice-modal) input,
+#modal-root .modal:not(.login-notice-modal) select,
+#modal-root .modal:not(.login-notice-modal) textarea,
+#add-person,#add-temporary,#add-contractor,[data-overflow-add]{border-color:#fff!important}
+
+.overflow-directory,.overflow-directory .eyebrow,.overflow-directory .panel-header h2,
+.overflow-person-card,.overflow-person-head h3,.overflow-person-details b,
+.unified-attendance-table th{color:#fff!important}
+.overflow-person-head small,.overflow-person-details span,.overflow-skills>span{color:#fff!important}
+.overflow-person-card,.overflow-person-details div{border-color:#fff!important}
+.overflow-person-card .avatar,.overflow-person-card .skill,
+.overflow-person-card .overflow-open-profile{background:#fff!important;color:#102a43!important}
+.overflow-person-card .overflow-open-profile:hover{background:#e7edf2!important}
+
+/* Match the Attendance Health visual style on workforce overflows and calendar. */
+.overflow-directory,
+.overflow-person-card,
+.attendance-calendar-panel{
+  background:linear-gradient(135deg,#092a5d,#0b4f9a)!important;
+  color:#fff!important;
+  border-color:#fff!important;
+}
+.overflow-directory .panel-header,
+.overflow-directory .panel-header h2,
+.overflow-directory .eyebrow,
+.overflow-person-head h3,
+.overflow-person-details b,
+.attendance-calendar-panel .panel-header h2,
+.calendar-title-block h2,
+.calendar-legend b{color:#fff!important}
+.overflow-person-head small,
+.overflow-person-details span,
+.overflow-skills>span,
+.calendar-title-block small,
+.calendar-month-year-picker label,
+.calendar-legend{color:#e9f3ff!important}
+.overflow-person-details div,
+.attendance-calendar-panel .attendance-day{
+  background:rgba(255,255,255,.1)!important;
+  border-color:rgba(255,255,255,.4)!important;
+}
+.overflow-person-card .skill,
+.overflow-person-card .avatar,
+.overflow-person-card .overflow-open-profile,
+.today-check,.legend-today{background:#fff!important;color:#092a5d!important}
+.attendance-calendar-panel .attendance-calendar>b,
+.attendance-calendar-panel .attendance-day,
+.attendance-calendar-panel .attendance-day small{color:#fff!important}
+.attendance-calendar-panel .attendance-day.selected,
+.attendance-calendar-panel .attendance-day:hover{background:#356da9!important;border-color:#fff!important}
+.calendar-nav-button,.calendar-today-button{background:rgba(255,255,255,.1)!important;border-color:#fff!important;color:#fff!important}
+.calendar-action-button,.calendar-action-button.strong{background:linear-gradient(135deg,#092a5d,#0b4f9a)!important;border-color:#fff!important;color:#fff!important}
+.calendar-action-button:hover{background:#356da9!important}
+
+/* Navy login-notification Important Updates. */
+.login-notice-modal{border-color:#fff!important}
+.login-notice-head,
+.login-notice-section-title{background:linear-gradient(135deg,#092a5d,#0b4f9a)!important;color:#fff!important}
+.login-notice-head .eyebrow,.login-notice-head h2,.login-notice-head p{color:#fff!important}
+.login-notice-close{background:rgba(255,255,255,.14)!important;color:#fff!important}
+.login-notice-section-title em{background:#fff!important;color:#092a5d!important}
+
+/* Keep every Admin Account Control input box clearly visible. */
+#admin-form{border-color:#102a43!important}
+#admin-form .modal-head,#admin-form .form-section{border-color:#9fb4c5!important}
+#admin-form label{color:#102a43!important}
+#modal-root #admin-form input,#modal-root #admin-form select,#modal-root #admin-form textarea{
+  border:2px solid #102a43!important;
+  background:#fff!important;
+  color:#102a43!important;
+  box-shadow:0 0 0 2px rgba(16,42,67,.06);
+}
+#modal-root #admin-form input:focus{outline:2px solid #4e83ae!important;outline-offset:1px}
+
+/* Navy Contractor and Ex-Employee registers. */
+body:has(.nav-link[data-view="contractors"].active) #view-root .table-wrap,
+body:has(.nav-link[data-view="exemployees"].active) #view-root .table-wrap{
+  background:linear-gradient(135deg,#092a5d,#0b4f9a)!important;
+  border-color:#fff!important;
+}
+body:has(.nav-link[data-view="contractors"].active) #view-root th,
+body:has(.nav-link[data-view="exemployees"].active) #view-root th{
+  background:rgba(255,255,255,.12)!important;
+  color:#fff!important;
+  border-color:#fff!important;
+}
+body:has(.nav-link[data-view="contractors"].active) #view-root td,
+body:has(.nav-link[data-view="exemployees"].active) #view-root td{
+  background:transparent!important;
+  color:#fff!important;
+  border-color:#fff!important;
+}
+body:has(.nav-link[data-view="contractors"].active) #view-root td small,
+body:has(.nav-link[data-view="exemployees"].active) #view-root td small{color:#e9f3ff!important}
+body:has(.nav-link[data-view="contractors"].active) #view-root .action,
+body:has(.nav-link[data-view="exemployees"].active) #view-root .action{
+  background:#fff!important;
+  color:#092a5d!important;
+  border:1px solid #fff!important;
+}
+#contractor-form{border-color:#102a43!important}
+#modal-root #contractor-form input,#modal-root #contractor-form select,#modal-root #contractor-form textarea{border:2px solid #102a43!important}
+
+/* Contractor and Ex-Employee tables match Worker/Temporary Worker tables. */
+body:has(.nav-link[data-view="contractors"].active) #view-root .table-wrap,
+body:has(.nav-link[data-view="exemployees"].active) #view-root .table-wrap{background:#fff!important;border-color:#fff!important}
+body:has(.nav-link[data-view="contractors"].active) #view-root th,
+body:has(.nav-link[data-view="exemployees"].active) #view-root th{background:#102a43!important;color:#fff!important;border-color:#fff!important}
+body:has(.nav-link[data-view="contractors"].active) #view-root td,
+body:has(.nav-link[data-view="exemployees"].active) #view-root td{background:#fff!important;color:#102a43!important;border-color:#fff!important}
+body:has(.nav-link[data-view="contractors"].active) #view-root td small,
+body:has(.nav-link[data-view="exemployees"].active) #view-root td small{color:#52687b!important}
+body:has(.nav-link[data-view="contractors"].active) #view-root .action,
+body:has(.nav-link[data-view="exemployees"].active) #view-root .action{background:#eaf2f8!important;color:#102a43!important;border:1px solid #9fb4c5!important}
+
+/* Worker Replacement: navy is limited to the absent worker name header. */
+body:has(.nav-link[data-view="coverage"].active) #view-root .panel>.panel-header{
+  margin:-19px -19px 16px;padding:14px 19px;border-radius:11px 11px 0 0;
+  background:linear-gradient(135deg,#092a5d,#0b4f9a)!important;color:#fff!important;
+}
+body:has(.nav-link[data-view="coverage"].active) #view-root .panel>.panel-header h2,
+body:has(.nav-link[data-view="coverage"].active) #view-root .panel>.panel-header p{color:#fff!important}
+
+/* Bulk selection for Worker, Staff and Entrepreneur overflow records. */
+.bulk-overflow-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 14px;padding:13px 15px;border:1px solid #9fb4c5;border-radius:10px;background:#f4f8fb}
+.bulk-select-all,.bulk-person-select{display:flex;align-items:center;gap:7px;color:#102a43;font-size:11px;font-weight:700;cursor:pointer}
+.bulk-select-all input,.bulk-person-select input{width:17px;height:17px;accent-color:#0b4f9a;cursor:pointer}
+.bulk-overflow-toolbar>strong{color:#52687b;font-size:11px}
+.bulk-overflow-actions{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.bulk-overflow-actions button{padding:9px 12px;border-radius:7px;font:700 10px 'DM Sans',sans-serif;cursor:pointer}
+.bulk-overflow-actions button:disabled{opacity:.45;cursor:not-allowed}
+.bulk-move-button{border:1px solid #0b4f9a;background:#0b4f9a;color:#fff}
+.bulk-delete-button{border:1px solid #b93b3b;background:#fff;color:#a62e2e}
+.bulk-person-select{position:relative;z-index:2;width:max-content;margin:0 0 12px;padding:6px 9px;border-radius:6px;background:#fff;color:#092a5d}
+@media(max-width:650px){.bulk-overflow-actions{width:100%;margin-left:0}.bulk-overflow-actions button{flex:1}.bulk-overflow-toolbar>strong{margin-left:auto}}
+
+/* Visible input boxes throughout every project form. */
+#modal-root .modal input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+#modal-root .modal select,#modal-root .modal textarea,
+#view-root input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+#view-root select,#view-root textarea,
+.login-panel input:not([type="checkbox"]):not([type="radio"]),.login-panel select{
+  border:2px solid #315b7d!important;background:#fff!important;color:#102a43!important;
+  box-shadow:0 1px 2px rgba(16,42,67,.08)!important;
+}
+#modal-root .modal input:focus,#modal-root .modal select:focus,#modal-root .modal textarea:focus,
+#view-root input:focus,#view-root select:focus,#view-root textarea:focus,
+.login-panel input:focus,.login-panel select:focus{
+  border-color:#0b4f9a!important;outline:3px solid rgba(11,79,154,.16)!important;outline-offset:1px;
+}
+#modal-root .form-grid label,.login-panel label{color:#102a43!important}
+
+/* Modern, easy-to-see day/month/year calendar fields. */
+input[type="date"][data-date-enhanced]{min-height:43px;padding:9px 11px!important;color-scheme:light;cursor:pointer;font-weight:600!important}
+input[type="date"][data-date-enhanced]::-webkit-calendar-picker-indicator{
+  width:21px;height:21px;padding:3px;border-radius:5px;background-color:#e8f1f8;cursor:pointer;opacity:1;
+}
+.date-picker-help{display:block!important;margin:5px 0 0;color:#52687b!important;font-size:9px!important;font-weight:500!important;letter-spacing:0!important}
+#modal-root .modal .form-grid label{padding:9px;border:1px solid #b1c1cf;border-radius:8px;background:#f9fbfd}#modal-root .modal .form-grid input,#modal-root .modal .form-grid select,#modal-root .modal .form-grid textarea{border:1.5px solid #748da3!important;background:#fff!important;box-shadow:inset 0 0 0 1px rgba(116,141,163,.08)}#modal-root .modal .form-grid input:focus,#modal-root .modal .form-grid select:focus,#modal-root .modal .form-grid textarea:focus{border-color:#087cf1!important;outline:2px solid rgba(8,124,241,.16)!important}

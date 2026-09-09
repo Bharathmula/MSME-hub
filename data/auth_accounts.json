@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "name": "MSME Manager",
+    "phone": "+91 98765 43210",
+    "email": "manager@msme.com",
+    "password_hash": "scrypt:32768:8:1$KC2eAfav7Sns3KaS$323a840447106311fe61bf8a87b917cb20c0053e4798bbdda38fe1e30d558443ba55dacfad830d92072e0d5c613a946ff75e64f295e2ea2cd09c31d3d876aced",
+    "country": "India",
+    "provider": "default",
+    "role": "ADMIN",
+    "created_at": "2026-09-02T07:23:04.558513+00:00"
+  }
+]

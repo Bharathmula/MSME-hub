@@ -1,2 +1,12 @@
-MSMEComponentFactories.roster({ id:'staff', view:'staff', label:'Staff', heading:'STAFF OPERATIONS',
-  records:()=>typeof people==='undefined'?[]:people.filter(person=>person.role==='Staff'), rowSelector:'[data-attendance]', addSelector:'#add-person' });
+MSMEComponentFactories.standard({
+  id: "staff",
+  view: "staff",
+  label: "Staff",
+  heading: "STAFF AUTOMATIC ATTENDANCE",
+  required: [
+    {
+      name: "Automatic workforce table",
+      selector: ".automatic-workforce-table",
+    },
+  ],
+});

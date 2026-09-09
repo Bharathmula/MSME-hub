@@ -1,2 +1,12 @@
-MSMEComponentFactories.roster({ id:'entrepreneurs', view:'entrepreneurs', label:'Entrepreneur', heading:'ENTREPRENEUR OPERATIONS',
-  records:()=>typeof people==='undefined'?[]:people.filter(person=>person.role==='Entrepreneur'), rowSelector:'[data-attendance]', addSelector:'#add-person' });
+MSMEComponentFactories.standard({
+  id: "entrepreneurs",
+  view: "entrepreneurs",
+  label: "Entrepreneur",
+  heading: "ENTREPRENEUR AUTOMATIC ATTENDANCE",
+  required: [
+    {
+      name: "Automatic workforce table",
+      selector: ".automatic-workforce-table",
+    },
+  ],
+});
