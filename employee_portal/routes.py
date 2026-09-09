@@ -120,19 +120,30 @@ def accounts():
  tenant=g.employee_identity['tenant']
  with transaction() as db:
   if request.method=='GET':return jsonify({'employees':[public(x) for x in db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? ORDER BY workforce_role,name',(tenant,)).fetchall()]})
-  p=data();role=str(p.get('workforce_role','')).upper();email=str(p.get('email','')).strip().lower();eid=str(p.get('employee_id','')).strip();name=str(p.get('name','')).strip();phone=str(p.get('phone','')).strip()
+  p=data();role=str(p.get('workforce_role','')).upper();email=str(p.get('email','')).strip().lower();eid=str(p.get('employee_id','')).strip();name=str(p.get('name','')).strip();phone=str(p.get('phone','')).strip();password=str(p.get('password',''));pin=str(p.get('pin',''))
   if role not in {'WORKER','STAFF','TEMPORARY'} or not name or not eid or '@' not in email:return jsonify({'error':'Name, employee ID, valid email, and workforce role are required.'}),400
+  direct=bool(password or pin)
+  if direct and len(password)<8:return jsonify({'error':'Employee password must contain at least 8 characters.'}),400
+  if direct and not(pin.isdigit() and len(pin)==6):return jsonify({'error':'Attendance PIN must contain exactly 6 digits.'}),400
   raw=secrets.token_urlsafe(32);expires=(now()+timedelta(hours=48)).isoformat()
-  try:cur=db.execute('INSERT INTO employee_accounts(tenant_email,employee_id,name,email,workforce_role,phone,invite_hash,invite_expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',(tenant,eid,name,email,role,phone,hashlib.sha256(raw.encode()).hexdigest(),expires,stamp(),stamp()))
+  try:cur=db.execute('INSERT INTO employee_accounts(tenant_email,employee_id,name,email,workforce_role,phone,password_hash,pin_hash,status,invite_hash,invite_expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(tenant,eid,name,email,role,phone,generate_password_hash(password) if direct else None,generate_password_hash(pin) if direct else None,'ACTIVE' if direct else 'INVITED',None if direct else hashlib.sha256(raw.encode()).hexdigest(),None if direct else expires,stamp(),stamp()))
   except Exception:return jsonify({'error':'That employee ID or email already has an account.'}),409
-  audit(db,'EMPLOYEE_INVITED','employee_account',cur.lastrowid,{'employee_id':eid,'role':role})
- return jsonify({'ok':True,'invite_token':raw,'expires_at':expires}),201
+  audit(db,'EMPLOYEE_CREDENTIALS_CREATED' if direct else 'EMPLOYEE_INVITED','employee_account',cur.lastrowid,{'employee_id':eid,'role':role})
+ return jsonify({'ok':True,'credentials_created':direct,'invite_token':None if direct else raw,'expires_at':None if direct else expires}),201
 
 @employee_api.patch('/api/admin/employee-accounts/<int:account_id>')
 @require('ADMIN','HR')
 def account_status(account_id):
- p=data();status=str(p.get('status','')).upper()
- if status not in {'ACTIVE','SUSPENDED'}:return jsonify({'error':'Status must be ACTIVE or SUSPENDED.'}),400
+ p=data();status=str(p.get('status','')).upper();password=str(p.get('password',''));pin=str(p.get('pin',''))
+ if password or pin:
+  if len(password)<8:return jsonify({'error':'Employee password must contain at least 8 characters.'}),400
+  if not(pin.isdigit() and len(pin)==6):return jsonify({'error':'Attendance PIN must contain exactly 6 digits.'}),400
+  with transaction() as db:
+   row=db.execute('SELECT * FROM employee_accounts WHERE id=? AND tenant_email=?',(account_id,g.employee_identity['tenant'])).fetchone()
+   if not row:return jsonify({'error':'Employee account not found.'}),404
+   db.execute("UPDATE employee_accounts SET password_hash=?,pin_hash=?,status='ACTIVE',invite_hash=NULL,invite_expires_at=NULL,updated_at=? WHERE id=?",(generate_password_hash(password),generate_password_hash(pin),stamp(),account_id));audit(db,'EMPLOYEE_CREDENTIALS_RESET','employee_account',account_id,{})
+  return jsonify({'ok':True})
+  if status not in {'ACTIVE','SUSPENDED'}:return jsonify({'error':'Status must be ACTIVE or SUSPENDED.'}),400
  with transaction() as db:
   row=db.execute('SELECT * FROM employee_accounts WHERE id=? AND tenant_email=?',(account_id,g.employee_identity['tenant'])).fetchone()
   if not row:return jsonify({'error':'Employee account not found.'}),404

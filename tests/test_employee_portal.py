@@ -29,4 +29,10 @@ class EmployeePortalTests(unittest.TestCase):
   self.assertEqual(self.c.post('/api/employee/login',json={'email':'worker100@example.com','password':'Testing123!'}).status_code,401)
   self.assertEqual(self.c.post('/api/employee/login',json={'email':'worker100@example.com','password':'Changed123!'}).status_code,200)
 
+ def test_admin_can_create_active_employee_credentials(self):
+  response=self.c.post('/api/admin/employee-accounts',json={'name':'Direct Staff','employee_id':'ST-DIRECT','email':'direct.staff@example.com','phone':'9000000001','workforce_role':'STAFF','password':'Direct123!','pin':'456789'},headers=self.headers(self.admin))
+  self.assertEqual(response.status_code,201,response.text);self.assertTrue(response.json['credentials_created'])
+  login=self.c.post('/api/employee/login',json={'email':'direct.staff@example.com','password':'Direct123!'})
+  self.assertEqual(login.status_code,200,login.text);self.assertEqual(login.json['employee']['workforce_role'],'STAFF')
+
 if __name__=='__main__':unittest.main()

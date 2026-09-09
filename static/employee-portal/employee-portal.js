@@ -321,7 +321,7 @@
     ];
     return `<div class="employee-access-groups">${groups.map(([role, title]) => {
       const records = employees.filter(employee => employee.workforce_role === role);
-      const rows = records.map(employee => `<div class="ep-row"><div><b>${esc(employee.name)}</b><small>${esc(employee.employee_id)} · ${esc(employee.email)} · ${esc(employee.status)}</small></div><button class="secondary ea-status" data-account-id="${employee.id}" data-next-status="${employee.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'}">${employee.status === 'SUSPENDED' ? 'Restore' : 'Suspend'}</button></div>`).join('');
+      const rows = records.map(employee => `<div class="ep-row"><div><b>${esc(employee.name)}</b><small>${esc(employee.employee_id)} · ${esc(employee.email)} · ${esc(employee.status)}</small></div><span><button class="secondary ea-credentials" data-account-id="${employee.id}">Set credentials</button> <button class="secondary ea-status" data-account-id="${employee.id}" data-next-status="${employee.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'}">${employee.status === 'SUSPENDED' ? 'Restore' : 'Suspend'}</button></span></div>`).join('');
       return `<section class="panel employee-access-group"><div class="panel-header"><h2>${title}</h2><span class="tag neutral">${records.length} account${records.length === 1 ? '' : 's'}</span></div>${rows || '<p class="empty">No accounts in this section.</p>'}</section>`;
     }).join('')}</div>`;
   }
@@ -329,8 +329,8 @@
   async function adminView() {
     const page = document.querySelector('#view-root');
     if (!page || document.body.dataset.employeeAccess !== 'yes') return;
-    page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1><p>Create separate credentials for Workers, Staff and Temporary Workers.</p></div></div>
-      <section class="panel"><form id="ea-create" class="form-grid"><label>NAME<input name="name" required></label><label>EMPLOYEE ID<input name="employee_id" required></label><label>EMAIL<input name="email" type="email" required></label><label>PHONE NUMBER<input name="phone" type="tel"></label><label>ROLE<select name="workforce_role"><option>WORKER</option><option>STAFF</option><option>TEMPORARY</option></select></label><button class="primary">Create invitation</button></form><p id="ea-message"></p></section>
+    page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1><p>Create active login credentials for Workers, Staff and Temporary Workers. Clerk is not required.</p></div></div>
+      <section class="panel"><form id="ea-create" class="form-grid"><label>NAME<input name="name" required></label><label>EMPLOYEE ID<input name="employee_id" required></label><label>EMAIL<input name="email" type="email" required></label><label>PHONE NUMBER<input name="phone" type="tel"></label><label>ROLE<select name="workforce_role"><option>WORKER</option><option>STAFF</option><option>TEMPORARY</option></select></label><label>LOGIN PASSWORD<input name="password" type="password" minlength="8" required></label><label>6-DIGIT ATTENDANCE PIN<input name="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required></label><button class="primary">Create active login</button></form><p id="ea-message"></p></section>
       <section class="panel"><h2>Employee accounts</h2><div class="employee-access-list" id="ea-list">Loading…</div></section>`;
     const adminToken = sessionStorage.getItem('msme-admin-api-token') || '';
     try {
@@ -341,6 +341,18 @@
         await request(`/api/admin/employee-accounts/${button.dataset.accountId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: button.dataset.nextStatus, reason: 'Administrator action' }) }, adminToken);
         adminView();
       });
+      page.querySelectorAll('.ea-credentials').forEach(button => button.onclick = async event => {
+        event.stopPropagation();
+        const password = prompt('Enter a new login password (minimum 8 characters):');
+        if (password === null) return;
+        const pin = prompt('Enter a new 6-digit attendance PIN:');
+        if (pin === null) return;
+        try {
+          await request(`/api/admin/employee-accounts/${button.dataset.accountId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password, pin }) }, adminToken);
+          alert('Employee credentials saved. The employee can sign in now.');
+          adminView();
+        } catch (error) { alert(error.message); }
+      });
     } catch (error) {
       page.querySelector('#ea-list').innerHTML = `<p class="login-error">${esc(error.message)}</p>`;
     }
@@ -348,7 +360,9 @@
       event.preventDefault();
       try {
         const result = await request('/api/admin/employee-accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(event.target))) }, adminToken);
-        page.querySelector('#ea-message').textContent = `Invitation token (valid 48 hours): ${result.invite_token}`;
+        page.querySelector('#ea-message').textContent = result.credentials_created
+          ? 'Active employee login created. The employee can sign in now.'
+          : `Invitation token (valid 48 hours): ${result.invite_token}`;
         event.target.reset();
       } catch (error) { page.querySelector('#ea-message').textContent = error.message; }
     };
