@@ -329,8 +329,8 @@
   async function adminView() {
     const page = document.querySelector('#view-root');
     if (!page || document.body.dataset.employeeAccess !== 'yes') return;
-    page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1><p>Create active login credentials for Workers, Staff and Temporary Workers. Clerk is not required.</p></div></div>
-      <section class="panel"><form id="ea-create" class="form-grid"><label>NAME<input name="name" required></label><label>EMPLOYEE ID<input name="employee_id" required></label><label>EMAIL<input name="email" type="email" required></label><label>PHONE NUMBER<input name="phone" type="tel"></label><label>ROLE<select name="workforce_role"><option>WORKER</option><option>STAFF</option><option>TEMPORARY</option></select></label><label>LOGIN PASSWORD<input name="password" type="password" minlength="8" required></label><label>6-DIGIT ATTENDANCE PIN<input name="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required></label><button class="primary">Create active login</button></form><p id="ea-message"></p></section>
+    page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1><p>Create employee access invitations for Workers, Staff and Temporary Workers.</p></div></div>
+      <section class="panel"><form id="ea-create" class="form-grid"><label>NAME<input name="name" required></label><label>EMPLOYEE ID<input name="employee_id" required></label><label>EMAIL<input name="email" type="email" required></label><label>ROLE<select name="workforce_role"><option>WORKER</option><option>STAFF</option><option>TEMPORARY</option></select></label><button class="primary">Create invitation</button></form><p id="ea-message"></p></section>
       <section class="panel"><h2>Employee accounts</h2><div class="employee-access-list" id="ea-list">Loading…</div></section>`;
     const adminToken = sessionStorage.getItem('msme-admin-api-token') || '';
     try {
