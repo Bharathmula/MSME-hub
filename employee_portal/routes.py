@@ -1,7 +1,8 @@
 import hashlib,json,secrets
 from datetime import datetime,timedelta,timezone
 from uuid import uuid4
-from flask import Blueprint,g,jsonify,request
+from flask import Blueprint,current_app,g,jsonify,request
+from itsdangerous import BadSignature,SignatureExpired,URLSafeTimedSerializer
 from werkzeug.security import check_password_hash,generate_password_hash
 from .database import connect,transaction
 from .security import require,token
@@ -10,6 +11,7 @@ employee_api=Blueprint('employee_api',__name__)
 def now():return datetime.now(timezone.utc)
 def stamp():return now().isoformat()
 def data():return request.get_json(silent=True) or {}
+def reset_signer():return URLSafeTimedSerializer(current_app.config['SECRET_KEY'],salt='msme-employee-password-reset-v1')
 def public(row):
  columns=set(row.keys())
  fields=('id','employee_id','name','email','workforce_role','status','biometric_status','phone','profile_photo_data','tenant_email')
@@ -40,6 +42,25 @@ def activate():
   if contact not in {str(row['email']).lower(),str(row['phone'] or '').lower()}:
    return jsonify({'error':'The phone number or email does not match this invitation.'}),400
   db.execute("UPDATE employee_accounts SET password_hash=?,pin_hash=NULL,status='ACTIVE',invite_hash=NULL,invite_expires_at=NULL,updated_at=? WHERE id=?",(generate_password_hash(password),stamp(),row['id']))
+ return jsonify({'ok':True})
+
+@employee_api.get('/api/employee/password-reset-captcha')
+def employee_reset_captcha():
+ alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+ answer=''.join(secrets.choice(alphabet) for _ in range(6))
+ return jsonify({'captcha_code':answer,'captcha_id':reset_signer().dumps({'answer':answer})})
+
+@employee_api.post('/api/employee/reset-password')
+def employee_reset_password():
+ p=data();email=str(p.get('email','')).strip().lower();password=str(p.get('password',''));answer=str(p.get('captcha_answer','')).strip().upper()
+ if len(password)<8:return jsonify({'error':'Password must contain at least 8 characters.'}),400
+ try:captcha=reset_signer().loads(str(p.get('captcha_id','')),max_age=600)
+ except (BadSignature,SignatureExpired):return jsonify({'error':'The CAPTCHA is incorrect or expired. Generate a new code.'}),403
+ if not secrets.compare_digest(str(captcha.get('answer','')),answer):return jsonify({'error':'The CAPTCHA is incorrect or expired. Generate a new code.'}),403
+ with transaction() as db:
+  row=db.execute('SELECT * FROM employee_accounts WHERE lower(email)=?',(email,)).fetchone()
+  if not row:return jsonify({'error':'No employee account was found for this email.'}),404
+  db.execute("UPDATE employee_accounts SET password_hash=?,status='ACTIVE',updated_at=? WHERE id=?",(generate_password_hash(password),stamp(),row['id']))
  return jsonify({'ok':True})
 
 @employee_api.get('/api/employee/dashboard')
@@ -155,18 +176,6 @@ def account_status(account_id):
   db.execute('UPDATE employee_accounts SET status=?,updated_at=? WHERE id=?',(status,stamp(),account_id));audit(db,'ACCOUNT_STATUS_CHANGED','employee_account',account_id,{'from':row['status'],'to':status,'reason':p.get('reason','')})
  return jsonify({'ok':True})
 
-@employee_api.post('/api/admin/employee-accounts/<int:account_id>/password-reset')
-@require('ADMIN','HR')
-def employee_password_reset(account_id):
- tenant=g.employee_identity['tenant']
- raw=secrets.token_urlsafe(32)
- expires=(now()+timedelta(hours=48)).isoformat()
- with transaction() as db:
-  row=db.execute('SELECT * FROM employee_accounts WHERE id=? AND tenant_email=?',(account_id,tenant)).fetchone()
-  if not row:return jsonify({'error':'Employee account not found.'}),404
-  db.execute('UPDATE employee_accounts SET invite_hash=?,invite_expires_at=?,updated_at=? WHERE id=?',(hashlib.sha256(raw.encode()).hexdigest(),expires,stamp(),account_id))
-  audit(db,'EMPLOYEE_PASSWORD_RESET_INVITED','employee_account',account_id,{'employee_id':row['employee_id']})
- return jsonify({'ok':True,'invite_token':raw,'expires_at':expires,'employee':public(row)})
 
 @employee_api.get('/api/admin/employee-attendance')
 @require('ADMIN','HR')

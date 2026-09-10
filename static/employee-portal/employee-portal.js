@@ -374,7 +374,7 @@
     ];
     return `<div class="employee-access-groups">${groups.map(([role, title]) => {
       const records = employees.filter(employee => employee.workforce_role === role);
-      const rows = records.map(employee => `<div class="ep-row"><div><b>${esc(employee.name)}</b><small>${esc(employee.employee_id)} · ${esc(employee.email)} · ${esc(employee.status)}</small></div><span class="ea-account-actions"><button class="secondary ea-reset-password" data-account-id="${employee.id}">Password reset link</button><button class="secondary ea-status" data-account-id="${employee.id}" data-next-status="${employee.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'}">${employee.status === 'SUSPENDED' ? 'Restore' : 'Suspend'}</button></span></div>`).join('');
+      const rows = records.map(employee => `<div class="ep-row"><div><b>${esc(employee.name)}</b><small>${esc(employee.employee_id)} · ${esc(employee.email)} · ${esc(employee.status)}</small></div><span><button class="secondary ea-status" data-account-id="${employee.id}" data-next-status="${employee.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'}">${employee.status === 'SUSPENDED' ? 'Restore' : 'Suspend'}</button></span></div>`).join('');
       return `<section class="panel employee-access-group"><div class="panel-header"><h2>${title}</h2><span class="tag neutral">${records.length} account${records.length === 1 ? '' : 's'}</span></div>${rows || '<p class="empty">No accounts in this section.</p>'}</section>`;
     }).join('')}</div>`;
   }
@@ -400,24 +400,6 @@
     document.querySelector('#ea-selected-profile').textContent = `${person.name} · ${person.id} · ${person.role} · ${person.email || 'No email saved'}`;
   }
 
-  function workforceInvitationColumns(profiles) {
-    const groups = [
-      ['WORKER', 'Workers'],
-      ['STAFF', 'Staff'],
-      ['TEMPORARY', 'Temporary Workers']
-    ];
-    return groups.map(([role, title]) => {
-      const records = profiles.filter(person => employeeRoleValue(person) === role);
-      const names = records.map(person => `<option value="${esc(person.id)}">${esc(person.name)} · ${esc(person.id)}</option>`).join('');
-      const emails = records.filter(person => person.email).map(person => `<option value="${esc(person.id)}">${esc(person.email)} · ${esc(person.name)}</option>`).join('');
-      return `<section class="ea-workforce-column">
-        <h3>${title}</h3>
-        <label>NAME<select class="ea-person-selector"><option value="">Select ${title.toLowerCase()} name ↓</option>${names}</select></label>
-        <label>EMAIL<select class="ea-person-selector"><option value="">Select ${title.toLowerCase()} email ↓</option>${emails}</select></label>
-      </section>`;
-    }).join('');
-  }
-
   function employeeSearchResults(query) {
     const results = document.querySelector('#ea-profile-results');
     if (!results) return;
@@ -435,14 +417,13 @@
       return;
     }
     const profiles = existingWorkforceProfiles();
+    const nameOptions = profiles.map(person => `<option value="${esc(person.name)}">${esc(person.name)} · ${esc(person.id)}</option>`).join('');
+    const emailOptions = profiles.map(person => `<option value="${esc(person.email || '')}">${esc(person.email || 'No email')} · ${esc(person.name)}</option>`).join('');
     page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1><p>Select an existing Worker, Staff or Temporary Worker. Their saved details will fill automatically.</p></div></div>
-      <section class="panel"><form id="ea-create"><div class="ea-workforce-columns">${workforceInvitationColumns(profiles)}</div><input type="hidden" name="name" required><input type="hidden" name="email" required><input type="hidden" name="employee_id" required><input type="hidden" name="workforce_role" required><p id="ea-selected-profile">No employee selected.</p><button class="primary">Create invitation</button></form><p id="ea-message"></p></section>
+      <section class="panel"><form id="ea-create" class="form-grid"><label>NAME<select name="name" id="ea-existing-name" required><option value="">Select an existing person ↓</option>${nameOptions}</select></label><label>EMPLOYEE ID<input name="employee_id" required readonly></label><label>EMAIL<select name="email" id="ea-existing-email" required><option value="">Select their saved email ↓</option>${emailOptions}</select></label><label>CATEGORY<select name="workforce_role" required><option value="WORKER">Worker</option><option value="STAFF">Staff</option><option value="TEMPORARY">Temporary Worker</option></select></label><p class="full" id="ea-selected-profile">No employee selected.</p><button class="primary">Create invitation</button></form><p id="ea-message"></p></section>
       <section class="panel"><h2>Employee accounts</h2><div class="employee-access-list" id="ea-list">Loading…</div></section>`;
-    page.querySelectorAll('.ea-person-selector').forEach(select => select.onchange = event => {
-      if (!event.target.value) return;
-      page.querySelectorAll('.ea-person-selector').forEach(other => { if (other !== event.target) other.value = ''; });
-      fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.id === event.target.value));
-    });
+    page.querySelector('#ea-existing-name').onchange = event => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.name === event.target.value));
+    page.querySelector('#ea-existing-email').onchange = event => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.email === event.target.value));
     const adminToken = sessionStorage.getItem('msme-admin-api-token') || '';
     try {
       const result = await request('/api/admin/employee-accounts', {}, adminToken);
@@ -451,16 +432,6 @@
         event.stopPropagation();
         await request(`/api/admin/employee-accounts/${button.dataset.accountId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: button.dataset.nextStatus, reason: 'Administrator action' }) }, adminToken);
         adminView();
-      });
-      page.querySelectorAll('.ea-reset-password').forEach(button => button.onclick = async event => {
-        event.stopPropagation();
-        try {
-          const reset = await request(`/api/admin/employee-accounts/${button.dataset.accountId}/password-reset`, { method: 'POST' }, adminToken);
-          const employee = reset.employee;
-          const invitationUrl = employeeInvitationUrl(reset.invite_token, employee.email);
-          page.querySelector('#ea-message').innerHTML = invitationShareButtons(invitationUrl, employee.name, employee.email).replace('Invitation created', 'Password reset link created');
-          page.querySelector('#ea-message').scrollIntoView({ behavior: 'smooth', block: 'center' });
-        } catch (error) { page.querySelector('#ea-message').textContent = error.message; }
       });
     } catch (error) {
       page.querySelector('#ea-list').innerHTML = `<p class="login-error">${esc(error.message)}</p>`;

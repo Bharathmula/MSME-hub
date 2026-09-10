@@ -25,10 +25,12 @@ async function request(path,options={}){
     throw error;
   }finally{clearTimeout(timeout)}
 }
-async function employeeRequest(path,payload){
+async function employeeRequest(path,payload={},method='POST'){
   const base=String(window.MSME_EMPLOYEE_API_URL||'').replace(/\/$/,'');
   if(!base)throw Error('Employee access is not configured on this host.');
-  const response=await fetch(base+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const options={method,headers:{'Content-Type':'application/json'}};
+  if(method!=='GET')options.body=JSON.stringify(payload);
+  const response=await fetch(base+path,options);
   let result={};try{result=await response.json()}catch(_){}
   if(!response.ok)throw Error(result.error||'Employee request failed.');
   return result;
@@ -75,8 +77,14 @@ function bindEmployeeAccess(){
  if(activation)activation.onsubmit=async event=>{event.preventDefault();const button=activation.querySelector('button[type="submit"]');button.disabled=true;button.textContent='Creating account…';try{await employeeRequest('/api/employee/activate',Object.fromEntries(new FormData(activation)));alert('Account created successfully. You can sign in now.');tab='signin';screen.querySelectorAll('[data-tab]').forEach(item=>item.classList.toggle('active',item.dataset.tab==='signin'));show();message('Account created successfully. Sign in with your new password.')}catch(error){message(error.message,true);button.disabled=false;button.textContent='Create account'}};
 }
 function employeeForgotPassword(){
- panel.innerHTML=`<section class="auth-form"><button type="button" class="forgot" data-employee-forgot-back>← Back to sign in</button><h2>Forgot employee password?</h2><p>For your security, only your manager can create a password-reset invitation. Ask the manager to open <b>Employee Login Setup</b>, find your account, and select <b>Password reset link</b>.</p><p>The manager can send the reset link through Gmail or WhatsApp. Open that link, enter your registered email, and create a new password.</p></section>`;
+ let employeeCaptcha={};
+ panel.innerHTML=`<form class="auth-form" id="owned-employee-reset"><button type="button" class="forgot" data-employee-forgot-back>← Back to sign in</button><h2>Reset employee password</h2><label>REGISTERED EMAIL<input type="email" name="email" required autocomplete="username"></label><label>NEW PASSWORD<span class="password-wrap"><input type="password" name="password" minlength="8" required autocomplete="new-password">${eye()}</span></label><label>CONFIRM PASSWORD<span class="password-wrap"><input type="password" name="confirm_password" minlength="8" required autocomplete="new-password">${eye()}</span></label><label>CAPTCHA<div class="captcha-box"><strong data-employee-captcha>Loading…</strong><button type="button" class="secondary" data-employee-captcha-refresh>↻ New code</button></div><input name="captcha_answer" maxlength="6" autocomplete="off" required placeholder="Enter the six-character code"></label><p data-message></p><button class="primary" type="submit">Reset password</button></form>`;
+ bind();
+ const loadEmployeeCaptcha=async()=>{try{employeeCaptcha=await employeeRequest('/api/employee/password-reset-captcha',{},'GET');panel.querySelector('[data-employee-captcha]').textContent=employeeCaptcha.captcha_code}catch(error){message(error.message,true)}};
  panel.querySelector('[data-employee-forgot-back]').onclick=()=>{tab='signin';show()};
+ panel.querySelector('[data-employee-captcha-refresh]').onclick=loadEmployeeCaptcha;
+ panel.querySelector('#owned-employee-reset').onsubmit=async event=>{event.preventDefault();const fields=Object.fromEntries(new FormData(event.currentTarget));if(fields.password!==fields.confirm_password)return message('Passwords do not match.',true);const button=event.currentTarget.querySelector('button[type="submit"]');button.disabled=true;button.textContent='Resetting…';try{await employeeRequest('/api/employee/reset-password',{email:fields.email,password:fields.password,captcha_answer:fields.captcha_answer,captcha_id:employeeCaptcha.captcha_id});tab='signin';show();message('Password reset successfully. Sign in with your new password.')}catch(error){message(error.message,true);button.disabled=false;button.textContent='Reset password';loadEmployeeCaptcha()}};
+ loadEmployeeCaptcha();
 }
 function show(){
  if(mode==='worker'){
