@@ -49,7 +49,8 @@ async function enter(account,password=''){
   admin=a;
   sessionStorage.setItem('msme-admin-auth',email);
   const savedView=sessionStorage.getItem('msme-active-view');
-  if(savedView) view=savedView;
+  const safeViews=['dashboard','reminders','temporary','workers','staff','entrepreneurs','coverage','attendance','payroll','training','contractors','exemployees','recycle'];
+  view=safeViews.includes(savedView)?savedView:'dashboard';
   document.querySelector('#login-screen')?.classList.add('hidden');
   document.querySelector('#app-shell')?.classList.add('visible');
   await new Promise(resolve=>requestAnimationFrame(resolve));
@@ -73,11 +74,15 @@ function bindEmployeeAccess(){
  const activation=panel.querySelector('#owned-employee-activate');
  if(activation)activation.onsubmit=async event=>{event.preventDefault();const button=activation.querySelector('button[type="submit"]');button.disabled=true;button.textContent='Creating account…';try{await employeeRequest('/api/employee/activate',Object.fromEntries(new FormData(activation)));alert('Account created successfully. You can sign in now.');tab='signin';screen.querySelectorAll('[data-tab]').forEach(item=>item.classList.toggle('active',item.dataset.tab==='signin'));show();message('Account created successfully. Sign in with your new password.')}catch(error){message(error.message,true);button.disabled=false;button.textContent='Create account'}};
 }
+function employeeForgotPassword(){
+ panel.innerHTML=`<section class="auth-form"><button type="button" class="forgot" data-employee-forgot-back>← Back to sign in</button><h2>Forgot employee password?</h2><p>For your security, only your manager can create a password-reset invitation. Ask the manager to open <b>Employee Login Setup</b>, find your account, and select <b>Password reset link</b>.</p><p>The manager can send the reset link through Gmail or WhatsApp. Open that link, enter your registered email, and create a new password.</p></section>`;
+ panel.querySelector('[data-employee-forgot-back]').onclick=()=>{tab='signin';show()};
+}
 function show(){
  if(mode==='worker'){
-  if(tab==='signin')panel.innerHTML=`<form class="auth-form" id="owned-employee-signin"><h2>Employee / Staff sign in</h2><p>Workers, Staff and Temporary Workers use credentials issued by their administrator.</p><label>PHONE NUMBER / EMAIL<input name="email" type="text" required autocomplete="username" placeholder="Enter registered email"></label><label>PASSWORD<span class="password-wrap"><input name="password" type="password" required autocomplete="current-password">${eye()}</span></label><p data-message></p><button class="primary" type="submit">Sign in</button></form>`;
+  if(tab==='signin')panel.innerHTML=`<form class="auth-form" id="owned-employee-signin"><h2>Employee / Staff sign in</h2><p>Workers, Staff and Temporary Workers use credentials issued by their administrator.</p><label>PHONE NUMBER / EMAIL<input name="email" type="text" required autocomplete="username" placeholder="Enter registered email"></label><label>PASSWORD<span class="password-wrap"><input name="password" type="password" required autocomplete="current-password">${eye()}</span></label><button class="forgot" type="button" data-employee-forgot>Forgot password?</button><p data-message></p><button class="primary" type="submit">Sign in</button></form>`;
   else {const query=employeeInviteParams();panel.innerHTML=`<form class="auth-form" id="owned-employee-activate"><h2>Create employee account</h2><p>Your invitation and registered email are filled automatically from the link sent by your administrator.</p><label>INVITATION TOKEN<input name="invite_token" value="${esc(query.get('employee_invite')||'')}" required autocomplete="off" readonly></label><label>PHONE NUMBER / EMAIL<input name="contact" value="${esc(query.get('employee_email')||'')}" required placeholder="Enter the email on your invitation"></label><label>CREATE PASSWORD<span class="password-wrap"><input name="password" type="password" minlength="8" required>${eye()}</span></label><p data-message></p><button class="primary" type="submit">Create account</button></form>`;}
-  bindEmployeeAccess();return
+  bindEmployeeAccess();panel.querySelector('[data-employee-forgot]')?.addEventListener('click',employeeForgotPassword);return
  }
  if(tab==='signin'){const remembered=localStorage.getItem('msme-last-login-email')||'';panel.innerHTML=`<form class="auth-form" id="owned-signin"><label>EMAIL<input type="email" name="email" value="${esc(remembered)}" required autocomplete="username"></label><label>PASSWORD<span class="password-wrap"><input type="password" name="password" required autocomplete="current-password">${eye()}</span></label><button type="button" class="forgot" data-forgot>Forgot password?</button><p data-message></p><button type="button" class="primary" id="owned-signin-submit">Sign in</button></form>`;bind();return}
  signup={};panel.innerHTML=`<form class="auth-form" id="owned-signup">${progress(0)}<label>EMAIL<input type="email" name="email" required></label><label>CREATE PASSWORD<span class="password-wrap"><input type="password" name="password" minlength="8" required>${eye()}</span></label><label>CONFIRM PASSWORD<span class="password-wrap"><input type="password" name="confirm" minlength="8" required>${eye()}</span></label><label>CAPTCHA VERIFICATION<div class="captcha-box"><strong data-captcha-code>Loading…</strong><button type="button" class="secondary" data-refresh>↻ New code</button></div><input name="captcha_answer" maxlength="6" autocomplete="off" placeholder="Enter the six-character code" required></label><p data-message></p><button class="primary">Continue to company details</button></form>`;bind();newCaptcha().catch(e=>message(e.message,true));
@@ -90,4 +95,5 @@ document.addEventListener('click',event=>{const navigation=event.target.closest(
 const restoredEmail=sessionStorage.getItem('msme-admin-auth');
 const restoredAccount=tenantAccounts.find(account=>String(account.email||'').toLowerCase()===String(restoredEmail||'').toLowerCase());
 if(restoredAccount)setTimeout(()=>enter(restoredAccount),0);
+window.addEventListener('msme-employee-session-expired',()=>{mode='worker';tab='signin';screen.querySelectorAll('[data-access]').forEach(x=>x.classList.toggle('active',x.dataset.access==='worker'));screen.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab==='signin'));document.querySelector('#app-shell')?.classList.remove('visible');screen.classList.remove('hidden');show();message('Your employee session expired. Sign in again.',true)});
 })();

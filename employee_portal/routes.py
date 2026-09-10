@@ -155,6 +155,19 @@ def account_status(account_id):
   db.execute('UPDATE employee_accounts SET status=?,updated_at=? WHERE id=?',(status,stamp(),account_id));audit(db,'ACCOUNT_STATUS_CHANGED','employee_account',account_id,{'from':row['status'],'to':status,'reason':p.get('reason','')})
  return jsonify({'ok':True})
 
+@employee_api.post('/api/admin/employee-accounts/<int:account_id>/password-reset')
+@require('ADMIN','HR')
+def employee_password_reset(account_id):
+ tenant=g.employee_identity['tenant']
+ raw=secrets.token_urlsafe(32)
+ expires=(now()+timedelta(hours=48)).isoformat()
+ with transaction() as db:
+  row=db.execute('SELECT * FROM employee_accounts WHERE id=? AND tenant_email=?',(account_id,tenant)).fetchone()
+  if not row:return jsonify({'error':'Employee account not found.'}),404
+  db.execute('UPDATE employee_accounts SET invite_hash=?,invite_expires_at=?,updated_at=? WHERE id=?',(hashlib.sha256(raw.encode()).hexdigest(),expires,stamp(),account_id))
+  audit(db,'EMPLOYEE_PASSWORD_RESET_INVITED','employee_account',account_id,{'employee_id':row['employee_id']})
+ return jsonify({'ok':True,'invite_token':raw,'expires_at':expires,'employee':public(row)})
+
 @employee_api.get('/api/admin/employee-attendance')
 @require('ADMIN','HR')
 def employee_attendance():

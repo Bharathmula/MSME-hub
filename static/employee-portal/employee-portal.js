@@ -57,10 +57,10 @@
     const subject = 'Your MSME Hub employee invitation';
     const message = `Hello ${employeeName},\n\nUse this secure invitation to create your MSME Hub employee account:\n${invitationUrl}\n\nThis invitation is valid for 48 hours.`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    const mailUrl = `mailto:${encodeURIComponent(employeeEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+    const mailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(employeeEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
     const whatsappIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a9.7 9.7 0 0 0-8.4 14.6L2 22l5.5-1.5A9.8 9.8 0 1 0 12 2Zm0 17.8c-1.5 0-3-.4-4.2-1.2l-.3-.2-3.2.9.9-3.1-.2-.3A7.8 7.8 0 1 1 12 19.8Zm4.3-5.8c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.6.1l-.7.9c-.1.2-.3.2-.5.1-1.4-.7-2.4-1.3-3.3-2.9-.2-.3.2-.5.6-1 .1-.2.1-.4 0-.5l-.7-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.8.8-1.1 1.9-.7 3 1 2.9 3.5 5.1 6.5 5.9 1.1.3 2.1.2 2.9-.2.9-.4 1.4-1.4 1.4-2.1 0-.3-.1-.5-.3-.6Z"/></svg>`;
     const mailIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm9 7.2L20.4 7H3.6L12 12.2ZM3 17h18V9.2l-8.5 5.2a1 1 0 0 1-1 0L3 9.2V17Z"/></svg>`;
-    return `<div class="ea-share-actions"><b>Invitation created (valid 48 hours).</b><p>Choose how you want to send it:</p><a class="secondary ea-share-button ea-whatsapp" href="${esc(whatsappUrl)}" target="_blank" rel="noopener">${whatsappIcon}<span>Send via WhatsApp</span></a><a class="secondary ea-share-button ea-mail" href="${esc(mailUrl)}">${mailIcon}<span>Send via Mail</span></a></div>`;
+    return `<div class="ea-share-actions"><b>Invitation created (valid 48 hours).</b><p>Choose how you want to send it:</p><a class="secondary ea-share-button ea-whatsapp" href="${esc(whatsappUrl)}" target="_blank" rel="noopener">${whatsappIcon}<span>Send via WhatsApp</span></a><a class="secondary ea-share-button ea-mail" href="${esc(mailUrl)}" target="_blank" rel="noopener">${mailIcon}<span>Send via Gmail</span></a></div>`;
   }
 
   function duration(minutes = 0) {
@@ -162,7 +162,9 @@
       stopCamera();
       sessionStorage.removeItem('msme-employee-token');
       sessionStorage.removeItem('msme-employee-page');
-      employeeLogin();
+      root.style.display = 'none';
+      root.innerHTML = '';
+      window.dispatchEvent(new CustomEvent('msme-employee-session-expired'));
     };
     root.querySelectorAll('[data-ep-page]').forEach(button => {
       button.onclick = () => {
@@ -195,16 +197,21 @@
     const rows = dashboard.history.map(item => `<tr><td>${esc(item.work_date)}</td><td>${dateTime(item.check_in_at)}</td><td>${dateTime(item.check_out_at)}</td><td>${duration(item.worked_minutes || 0)}</td><td><span class="ep-table-status">${esc(item.status)}</span></td></tr>`).join('');
     const monthStart = new Date(attendanceCalendarMonth);
     const year = monthStart.getFullYear(), month = monthStart.getMonth(), days = new Date(year, month + 1, 0).getDate(), offset = (monthStart.getDay() + 6) % 7;
+    const monthOptions = Array.from({length: 12}, (_, index) => `<option value="${index}" ${index === month ? 'selected' : ''}>${new Date(2000, index, 1).toLocaleString('en-IN', {month:'long'})}</option>`).join('');
+    const yearOptions = Array.from({length: 11}, (_, index) => year - 5 + index).map(optionYear => `<option value="${optionYear}" ${optionYear === year ? 'selected' : ''}>${optionYear}</option>`).join('');
     const byDate = new Map(dashboard.history.map(item => [item.work_date, item]));
     const todayKey = new Date().toISOString().slice(0, 10);
-    const calendar = `${'<i></i>'.repeat(offset)}${Array.from({length:days},(_,index)=>{const day=index+1,key=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`,record=byDate.get(key),isPast=key<todayKey,status=record?(record.status==='COMPLETED'?'present':'checked-in'):(isPast?'absent':'future'),label=record?(record.status==='COMPLETED'?'Present':'Checked in'):(isPast?'Absent':'—');return `<button type="button" class="ep-calendar-day ${status} ${key===selectedAttendanceDate?'selected':''}" data-ep-attendance-date="${key}"><b>${day}</b><small>${label}</small></button>`}).join('')}`;
+    const calendar = `${'<i></i>'.repeat(offset)}${Array.from({length:days},(_,index)=>{const day=index+1,key=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`,record=byDate.get(key),isPast=key<todayKey,status=record?(record.status==='COMPLETED'?'present':'checked-in'):(isPast?'absent':'future'),label=record?(record.status==='COMPLETED'?'Present':'Checked in'):(isPast?'Absent':'—');return `<button type="button" class="ep-calendar-day attendance-day ${status} ${key===selectedAttendanceDate?'selected':''} ${key===todayKey?'today-date':''}" data-ep-attendance-date="${key}"><span class="calendar-date-number">${day}</span><small>${label}</small>${key===todayKey?'<span class="today-check">TODAY</span>':''}</button>`}).join('')}`;
     const selected = byDate.get(selectedAttendanceDate);
     const selectedStatus = selected ? (selected.status === 'COMPLETED' ? 'Present' : 'Checked in') : (selectedAttendanceDate < todayKey ? 'Absent' : 'No attendance recorded');
     const selectedDetails = `<div class="ep-selected-day"><div><span>Selected date</span><b>${esc(selectedAttendanceDate)}</b></div><div><span>Status</span><b class="${selectedStatus==='Present'?'present-text':selectedStatus==='Absent'?'absent-text':''}">${esc(selectedStatus)}</b></div><div><span>Check-in</span><b>${dateTime(selected?.check_in_at)}</b></div><div><span>Check-out</span><b>${dateTime(selected?.check_out_at)}</b></div><div><span>Total time</span><b>${duration(selected?.worked_minutes || 0)}</b></div></div>`;
-    employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">MY RECORDS</p><h1>Attendance</h1><p>Choose a month and click a date to see that day's attendance below the calendar.</p></section><section class="ep-card ep-personal-calendar"><div class="ep-calendar-toolbar"><button type="button" class="ep-secondary" id="ep-calendar-previous" aria-label="Previous month">‹</button><input type="month" id="ep-calendar-month" value="${year}-${String(month+1).padStart(2,'0')}" aria-label="Attendance month and year"><button type="button" class="ep-secondary" id="ep-calendar-next" aria-label="Next month">›</button></div><h2>${monthStart.toLocaleString('en-IN',{month:'long',year:'numeric'})}</h2><div class="ep-calendar-legend"><span class="present">Present</span><span class="absent">Absent</span></div><div class="ep-calendar-weekdays">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=>`<b>${day}</b>`).join('')}</div><div class="ep-calendar-grid">${calendar}</div>${selectedDetails}</section><section class="ep-card"><div class="ep-table-wrap"><table><thead><tr><th>Date</th><th>Check-in</th><th>Check-out</th><th>Total time</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="5">No attendance recorded.</td></tr>'}</tbody></table></div></section>`);
+    employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">MY RECORDS</p><h1>Attendance</h1><p>Choose a month and click a date to see that day's attendance below the calendar.</p></section><section class="ep-card ep-personal-calendar attendance-calendar-panel advanced-calendar-panel"><div class="advanced-calendar-toolbar"><button type="button" class="calendar-nav-button" id="ep-calendar-previous" aria-label="Previous month">‹</button><div class="calendar-title-block"><small>SELECTED MONTH</small><h2>${monthStart.toLocaleString('en-IN',{month:'long',year:'numeric'})}</h2></div><button type="button" class="calendar-nav-button" id="ep-calendar-next" aria-label="Next month">›</button><div class="calendar-month-year-picker"><label>Month<select id="ep-calendar-month">${monthOptions}</select></label><label>Year<select id="ep-calendar-year">${yearOptions}</select></label><button type="button" id="ep-calendar-today" class="calendar-today-button">Today</button></div></div><div class="ep-calendar-weekdays">${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day=>`<b>${day}</b>`).join('')}</div><div class="ep-calendar-grid attendance-calendar">${calendar}</div><div class="calendar-legend"><span><i class="legend-today">✓</i> Today</span><span><i class="ep-legend-present"></i> Present</span><span><i class="ep-legend-absent"></i> Absent</span><b>Click a date for details</b></div>${selectedDetails}</section><section class="ep-card"><div class="ep-table-wrap"><table><thead><tr><th>Date</th><th>Check-in</th><th>Check-out</th><th>Total time</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="5">No attendance recorded.</td></tr>'}</tbody></table></div></section>`);
     root.querySelector('#ep-calendar-previous').onclick=()=>{attendanceCalendarMonth=new Date(year,month-1,1);selectedAttendanceDate=`${attendanceCalendarMonth.getFullYear()}-${String(attendanceCalendarMonth.getMonth()+1).padStart(2,'0')}-01`;renderAttendance()};
     root.querySelector('#ep-calendar-next').onclick=()=>{attendanceCalendarMonth=new Date(year,month+1,1);selectedAttendanceDate=`${attendanceCalendarMonth.getFullYear()}-${String(attendanceCalendarMonth.getMonth()+1).padStart(2,'0')}-01`;renderAttendance()};
-    root.querySelector('#ep-calendar-month').onchange=event=>{const [nextYear,nextMonth]=event.target.value.split('-').map(Number);attendanceCalendarMonth=new Date(nextYear,nextMonth-1,1);selectedAttendanceDate=`${event.target.value}-01`;renderAttendance()};
+    const changeCalendarMonth=()=>{const nextYear=Number(root.querySelector('#ep-calendar-year').value),nextMonth=Number(root.querySelector('#ep-calendar-month').value);attendanceCalendarMonth=new Date(nextYear,nextMonth,1);selectedAttendanceDate=`${nextYear}-${String(nextMonth+1).padStart(2,'0')}-01`;renderAttendance()};
+    root.querySelector('#ep-calendar-month').onchange=changeCalendarMonth;
+    root.querySelector('#ep-calendar-year').onchange=changeCalendarMonth;
+    root.querySelector('#ep-calendar-today').onclick=()=>{attendanceCalendarMonth=new Date();selectedAttendanceDate=new Date().toISOString().slice(0,10);renderAttendance()};
     root.querySelectorAll('[data-ep-attendance-date]').forEach(button=>button.onclick=()=>{selectedAttendanceDate=button.dataset.epAttendanceDate;renderAttendance()});
   }
 
@@ -344,7 +351,9 @@
       renderPage();
     } catch (_error) {
       sessionStorage.removeItem('msme-employee-token');
-      employeeLogin();
+      root.style.display = 'none';
+      root.innerHTML = '';
+      window.dispatchEvent(new CustomEvent('msme-employee-session-expired'));
     }
   }
 
@@ -353,7 +362,8 @@
       alert('Employee API URL is not configured. Add MSME_EMPLOYEE_API_URL to Streamlit secrets.');
       return;
     }
-    authToken() ? loadDashboard() : employeeLogin();
+    if (authToken()) loadDashboard();
+    else window.dispatchEvent(new CustomEvent('msme-employee-session-expired'));
   }
 
   function employeeAccessGroups(employees) {
@@ -364,7 +374,7 @@
     ];
     return `<div class="employee-access-groups">${groups.map(([role, title]) => {
       const records = employees.filter(employee => employee.workforce_role === role);
-      const rows = records.map(employee => `<div class="ep-row"><div><b>${esc(employee.name)}</b><small>${esc(employee.employee_id)} · ${esc(employee.email)} · ${esc(employee.status)}</small></div><span><button class="secondary ea-status" data-account-id="${employee.id}" data-next-status="${employee.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'}">${employee.status === 'SUSPENDED' ? 'Restore' : 'Suspend'}</button></span></div>`).join('');
+      const rows = records.map(employee => `<div class="ep-row"><div><b>${esc(employee.name)}</b><small>${esc(employee.employee_id)} · ${esc(employee.email)} · ${esc(employee.status)}</small></div><span class="ea-account-actions"><button class="secondary ea-reset-password" data-account-id="${employee.id}">Password reset link</button><button class="secondary ea-status" data-account-id="${employee.id}" data-next-status="${employee.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'}">${employee.status === 'SUSPENDED' ? 'Restore' : 'Suspend'}</button></span></div>`).join('');
       return `<section class="panel employee-access-group"><div class="panel-header"><h2>${title}</h2><span class="tag neutral">${records.length} account${records.length === 1 ? '' : 's'}</span></div>${rows || '<p class="empty">No accounts in this section.</p>'}</section>`;
     }).join('')}</div>`;
   }
@@ -387,7 +397,25 @@
     form.elements.email.value = person.email || '';
     form.elements.employee_id.value = person.id || '';
     form.elements.workforce_role.value = employeeRoleValue(person);
-    document.querySelector('#ea-selected-profile').textContent = `${person.name} · ${person.id} · ${person.role}`;
+    document.querySelector('#ea-selected-profile').textContent = `${person.name} · ${person.id} · ${person.role} · ${person.email || 'No email saved'}`;
+  }
+
+  function workforceInvitationColumns(profiles) {
+    const groups = [
+      ['WORKER', 'Workers'],
+      ['STAFF', 'Staff'],
+      ['TEMPORARY', 'Temporary Workers']
+    ];
+    return groups.map(([role, title]) => {
+      const records = profiles.filter(person => employeeRoleValue(person) === role);
+      const names = records.map(person => `<option value="${esc(person.id)}">${esc(person.name)} · ${esc(person.id)}</option>`).join('');
+      const emails = records.filter(person => person.email).map(person => `<option value="${esc(person.id)}">${esc(person.email)} · ${esc(person.name)}</option>`).join('');
+      return `<section class="ea-workforce-column">
+        <h3>${title}</h3>
+        <label>NAME<select class="ea-person-selector"><option value="">Select ${title.toLowerCase()} name ↓</option>${names}</select></label>
+        <label>EMAIL<select class="ea-person-selector"><option value="">Select ${title.toLowerCase()} email ↓</option>${emails}</select></label>
+      </section>`;
+    }).join('');
   }
 
   function employeeSearchResults(query) {
@@ -407,19 +435,14 @@
       return;
     }
     const profiles = existingWorkforceProfiles();
-    const nameOptions = profiles.map(person => `<option value="${esc(person.name)}">${esc(person.name)} · ${esc(person.id)}</option>`).join('');
-    const emailOptions = profiles.map(person => `<option value="${esc(person.email || '')}">${esc(person.email || 'No email')} · ${esc(person.name)}</option>`).join('');
     page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1><p>Select an existing Worker, Staff or Temporary Worker. Their saved details will fill automatically.</p></div></div>
-      <section class="panel"><form id="ea-create" class="form-grid"><label>NAME<select name="name" id="ea-existing-name" required><option value="">Select an existing person ↓</option>${nameOptions}</select></label><label>EMPLOYEE ID<input name="employee_id" required readonly></label><label>EMAIL<select name="email" id="ea-existing-email" required><option value="">Select their saved email ↓</option>${emailOptions}</select></label><label>ROLE<select name="workforce_role" required><option>WORKER</option><option>STAFF</option><option>TEMPORARY</option></select></label><p class="full" id="ea-selected-profile">No profile selected.</p><button class="primary">Create invitation</button></form><p id="ea-message"></p></section>
-      <section class="panel"><div class="panel-header"><h2>Existing workforce profiles</h2><span class="tag neutral">Select a result below</span></div><div id="ea-profile-results" class="ea-profile-results"></div></section>
+      <section class="panel"><form id="ea-create"><div class="ea-workforce-columns">${workforceInvitationColumns(profiles)}</div><input type="hidden" name="name" required><input type="hidden" name="email" required><input type="hidden" name="employee_id" required><input type="hidden" name="workforce_role" required><p id="ea-selected-profile">No employee selected.</p><button class="primary">Create invitation</button></form><p id="ea-message"></p></section>
       <section class="panel"><h2>Employee accounts</h2><div class="employee-access-list" id="ea-list">Loading…</div></section>`;
-    const selectByName = event => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.name === event.target.value));
-    const selectByEmail = event => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.email === event.target.value));
-    page.querySelector('#ea-existing-name').onchange = selectByName;
-    page.querySelector('#ea-existing-email').onchange = selectByEmail;
-    employeeSearchResults(document.getElementById('global-search')?.value || '');
-    const globalSearch = document.getElementById('global-search');
-    if (globalSearch) globalSearch.oninput = event => employeeSearchResults(event.target.value);
+    page.querySelectorAll('.ea-person-selector').forEach(select => select.onchange = event => {
+      if (!event.target.value) return;
+      page.querySelectorAll('.ea-person-selector').forEach(other => { if (other !== event.target) other.value = ''; });
+      fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.id === event.target.value));
+    });
     const adminToken = sessionStorage.getItem('msme-admin-api-token') || '';
     try {
       const result = await request('/api/admin/employee-accounts', {}, adminToken);
@@ -428,6 +451,16 @@
         event.stopPropagation();
         await request(`/api/admin/employee-accounts/${button.dataset.accountId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: button.dataset.nextStatus, reason: 'Administrator action' }) }, adminToken);
         adminView();
+      });
+      page.querySelectorAll('.ea-reset-password').forEach(button => button.onclick = async event => {
+        event.stopPropagation();
+        try {
+          const reset = await request(`/api/admin/employee-accounts/${button.dataset.accountId}/password-reset`, { method: 'POST' }, adminToken);
+          const employee = reset.employee;
+          const invitationUrl = employeeInvitationUrl(reset.invite_token, employee.email);
+          page.querySelector('#ea-message').innerHTML = invitationShareButtons(invitationUrl, employee.name, employee.email).replace('Invitation created', 'Password reset link created');
+          page.querySelector('#ea-message').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch (error) { page.querySelector('#ea-message').textContent = error.message; }
       });
     } catch (error) {
       page.querySelector('#ea-list').innerHTML = `<p class="login-error">${esc(error.message)}</p>`;
@@ -464,7 +497,7 @@
     title: 'Employee login and attendance dashboard'
   };
 
-  if (authToken() && apiBase()) {
+  if (authToken() && apiBase() && document.querySelector('#login-screen')?.classList.contains('hidden')) {
     setTimeout(() => loadDashboard(sessionStorage.getItem('msme-employee-page') || 'overview'), 0);
   }
 })();

@@ -29,6 +29,10 @@ class EmployeePortalTests(unittest.TestCase):
   controls=self.c.patch('/api/employee/account-controls',json={'current_password':'Testing123!','new_password':'Changed123!','new_pin':'654321'},headers=self.headers(employee));self.assertEqual(controls.status_code,200,controls.text)
   self.assertEqual(self.c.post('/api/employee/login',json={'email':'worker100@example.com','password':'Testing123!'}).status_code,401)
   self.assertEqual(self.c.post('/api/employee/login',json={'email':'worker100@example.com','password':'Changed123!'}).status_code,200)
+  accounts=self.c.get('/api/admin/employee-accounts',headers=self.headers(self.admin)).json['employees'];account_id=next(item['id'] for item in accounts if item['email']=='worker100@example.com')
+  reset=self.c.post(f'/api/admin/employee-accounts/{account_id}/password-reset',headers=self.headers(self.admin));self.assertEqual(reset.status_code,200,reset.text)
+  activated=self.c.post('/api/employee/activate',json={'invite_token':reset.json['invite_token'],'contact':'worker100@example.com','password':'Reset123!'});self.assertEqual(activated.status_code,200,activated.text)
+  self.assertEqual(self.c.post('/api/employee/login',json={'email':'worker100@example.com','password':'Reset123!'}).status_code,200)
 
  def test_admin_can_create_active_employee_credentials(self):
   response=self.c.post('/api/admin/employee-accounts',json={'name':'Direct Staff','employee_id':'ST-DIRECT','email':'direct.staff@example.com','phone':'9000000001','workforce_role':'STAFF','password':'Direct123!','pin':'456789'},headers=self.headers(self.admin))
