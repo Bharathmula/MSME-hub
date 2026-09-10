@@ -464,6 +464,11 @@ window.editor = function editorWithResignationAction(id, isEx = false) {
   editorBeforeResignationAction(id, isEx);
   if (!person || isEx) return;
 
+  const firstGrid = document.querySelector('#modal-root .form-grid');
+  if (firstGrid && !firstGrid.querySelector('[name="id"]')) {
+    firstGrid.insertAdjacentHTML('afterbegin', `<label>${esc(person.role)} ID<span class="required">*</span><input name="id" value="${esc(person.id)}" required></label>`);
+  }
+
   const actions = document.querySelector('#modal-root .modal-actions');
   if (!actions) return;
   let archiveButton = document.getElementById('archive');

@@ -12,6 +12,7 @@
   let capturedFace = '';
   let attendanceCalendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   let selectedAttendanceDate = new Date().toISOString().slice(0, 10);
+  const defaultGlobalSearchHandler = document.getElementById('global-search')?.oninput || null;
 
   async function request(path, options = {}, token = authToken()) {
     const headers = new Headers(options.headers || {});
@@ -368,6 +369,36 @@
     }).join('')}</div>`;
   }
 
+  function existingWorkforceProfiles() {
+    return [
+      ...people.filter(person => ['Worker', 'Staff'].includes(person.role)),
+      ...temporaryWorkers.map(person => ({ ...person, role: 'Temporary Worker' })),
+    ];
+  }
+
+  function employeeRoleValue(person) {
+    return person.role === 'Temporary Worker' ? 'TEMPORARY' : String(person.role || '').toUpperCase();
+  }
+
+  function fillEmployeeInvitationForm(person) {
+    const form = document.querySelector('#ea-create');
+    if (!form || !person) return;
+    form.elements.name.value = person.name || '';
+    form.elements.email.value = person.email || '';
+    form.elements.employee_id.value = person.id || '';
+    form.elements.workforce_role.value = employeeRoleValue(person);
+    document.querySelector('#ea-selected-profile').textContent = `${person.name} · ${person.id} · ${person.role}`;
+  }
+
+  function employeeSearchResults(query) {
+    const results = document.querySelector('#ea-profile-results');
+    if (!results) return;
+    const normalized = String(query || '').trim().toLowerCase();
+    const profiles = existingWorkforceProfiles().filter(person => !normalized || JSON.stringify(person).toLowerCase().includes(normalized));
+    results.innerHTML = profiles.map(person => `<button type="button" class="ea-profile-result" data-ea-profile-id="${esc(person.id)}"><b>${esc(person.name)}</b><span>${esc(person.id)} · ${esc(person.email || 'No email')} · ${esc(person.role)}</span><i>Use this profile →</i></button>`).join('') || '<p class="empty">No existing worker, staff or temporary-worker profile matches this search.</p>';
+    results.querySelectorAll('[data-ea-profile-id]').forEach(button => button.onclick = () => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.id === button.dataset.eaProfileId)));
+  }
+
   async function adminView() {
     const page = document.querySelector('#view-root');
     if (!page || document.body.dataset.employeeAccess !== 'yes') return;
@@ -375,9 +406,20 @@
       page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1></div></div><section class="panel"><h2>Public employee service is not connected</h2><p>Employee accounts and attendance require the public Python backend. Deploy <b>backend.py</b>, then add its HTTPS address to Streamlit secrets as <b>MSME_EMPLOYEE_API_URL</b>.</p><p>This replaces the unclear “Unsupported request” message. Clerk is not required.</p></section>`;
       return;
     }
-    page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1><p>Create employee access invitations for Workers, Staff and Temporary Workers.</p></div></div>
-      <section class="panel"><form id="ea-create" class="form-grid"><label>NAME<input name="name" required></label><label>EMPLOYEE ID<input name="employee_id" required></label><label>EMAIL<input name="email" type="email" required></label><label>ROLE<select name="workforce_role"><option>WORKER</option><option>STAFF</option><option>TEMPORARY</option></select></label><button class="primary">Create invitation</button></form><p id="ea-message"></p></section>
+    const profiles = existingWorkforceProfiles();
+    const nameOptions = profiles.map(person => `<option value="${esc(person.name)}">${esc(person.name)} · ${esc(person.id)}</option>`).join('');
+    const emailOptions = profiles.map(person => `<option value="${esc(person.email || '')}">${esc(person.email || 'No email')} · ${esc(person.name)}</option>`).join('');
+    page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1><p>Select an existing Worker, Staff or Temporary Worker. Their saved details will fill automatically.</p></div></div>
+      <section class="panel"><form id="ea-create" class="form-grid"><label>NAME<select name="name" id="ea-existing-name" required><option value="">Select an existing person ↓</option>${nameOptions}</select></label><label>EMPLOYEE ID<input name="employee_id" required readonly></label><label>EMAIL<select name="email" id="ea-existing-email" required><option value="">Select their saved email ↓</option>${emailOptions}</select></label><label>ROLE<select name="workforce_role" required><option>WORKER</option><option>STAFF</option><option>TEMPORARY</option></select></label><p class="full" id="ea-selected-profile">No profile selected.</p><button class="primary">Create invitation</button></form><p id="ea-message"></p></section>
+      <section class="panel"><div class="panel-header"><h2>Existing workforce profiles</h2><span class="tag neutral">Select a result below</span></div><div id="ea-profile-results" class="ea-profile-results"></div></section>
       <section class="panel"><h2>Employee accounts</h2><div class="employee-access-list" id="ea-list">Loading…</div></section>`;
+    const selectByName = event => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.name === event.target.value));
+    const selectByEmail = event => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.email === event.target.value));
+    page.querySelector('#ea-existing-name').onchange = selectByName;
+    page.querySelector('#ea-existing-email').onchange = selectByEmail;
+    employeeSearchResults(document.getElementById('global-search')?.value || '');
+    const globalSearch = document.getElementById('global-search');
+    if (globalSearch) globalSearch.oninput = event => employeeSearchResults(event.target.value);
     const adminToken = sessionStorage.getItem('msme-admin-api-token') || '';
     try {
       const result = await request('/api/admin/employee-accounts', {}, adminToken);
@@ -410,7 +452,11 @@
     if (navigation.dataset.view === 'employeeaccess') {
       document.body.dataset.employeeAccess = 'yes';
       setTimeout(adminView, 0);
-    } else delete document.body.dataset.employeeAccess;
+    } else {
+      delete document.body.dataset.employeeAccess;
+      const globalSearch = document.getElementById('global-search');
+      if (globalSearch) globalSearch.oninput = defaultGlobalSearchHandler;
+    }
   });
 
   window.MSMEEmployeePortal = {
