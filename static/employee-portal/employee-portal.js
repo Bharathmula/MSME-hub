@@ -41,12 +41,21 @@
     let source = document.referrer || window.location.href;
     try {
       const url = new URL(source);
+      if (url.hostname.endsWith('.streamlit.app')) url.pathname = '/';
       url.search = '';
       url.hash = '';
       url.searchParams.set('employee_invite', inviteToken);
       url.searchParams.set('employee_email', employeeEmail);
       return url.toString();
     } catch (_error) { return ''; }
+  }
+
+  function invitationShareButtons(invitationUrl, employeeName, employeeEmail) {
+    const subject = 'Your MSME Hub employee invitation';
+    const message = `Hello ${employeeName},\n\nUse this secure invitation to create your MSME Hub employee account:\n${invitationUrl}\n\nThis invitation is valid for 48 hours.`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(employeeEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+    return `<div class="ea-share-actions"><b>Invitation created (valid 48 hours).</b><p>Choose how you want to send it:</p><a class="secondary ea-share-button ea-whatsapp" href="${esc(whatsappUrl)}" target="_blank" rel="noopener">Send via WhatsApp</a><a class="secondary ea-share-button ea-gmail" href="${esc(gmailUrl)}" target="_blank" rel="noopener">Send via Gmail</a></div>`;
   }
 
   function duration(minutes = 0) {
@@ -165,7 +174,7 @@
   function renderOverview() {
     const today = dashboard.today;
     const action = dashboard.next_action;
-    employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">TODAY</p><h1>${action === 'CHECK_IN' ? 'Ready to check in?' : 'Ready to check out?'}</h1><p>Capture a current live face photo and enter your private attendance PIN.</p></section>
+    employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">TODAY</p><h1>${action === 'CHECK_IN' ? 'Ready to check in?' : 'Ready to check out?'}</h1><p>Capture a current live face photo to record your attendance.</p></section>
       <div class="ep-overview-grid">
         <section class="ep-card"><h2>Attendance status</h2><div class="ep-status ${(today?.status || 'not-started').toLowerCase()}">${esc(today?.status || 'NOT STARTED')}</div>
           <dl class="ep-details"><div><dt>Check-in</dt><dd>${dateTime(today?.check_in_at)}</dd></div><div><dt>Check-out</dt><dd>${dateTime(today?.check_out_at)}</dd></div><div><dt>Total time</dt><dd>${duration(today?.worked_minutes || 0)}</dd></div></dl>
@@ -173,7 +182,7 @@
         <section class="ep-card ep-camera-card"><h2>${esc(action.replace('_', ' '))} face capture</h2>
           <div class="ep-camera-stage"><video id="ep-camera" autoplay playsinline></video><canvas id="ep-canvas" hidden></canvas><img id="ep-face-preview" alt="Captured face" hidden><span id="ep-camera-placeholder">Camera preview</span></div>
           <div class="ep-camera-actions"><button class="ep-secondary" id="ep-start-camera" type="button">Start camera</button><button class="ep-secondary" id="ep-capture-face" type="button" disabled>Capture face</button></div>
-          <form id="ep-attendance"><label>Attendance PIN<input class="ep-input" name="pin" inputmode="numeric" pattern="[0-9]{6}" required></label><p id="ep-attendance-message" class="ep-error"></p><button class="ep-primary" id="ep-attendance-submit" disabled>${esc(action.replace('_', ' '))}</button></form>
+          <form id="ep-attendance"><p id="ep-attendance-message" class="ep-error"></p><button class="ep-primary" id="ep-attendance-submit" disabled>${esc(action.replace('_', ' '))}</button></form>
         </section>
       </div>`);
     bindCamera();
@@ -181,7 +190,11 @@
 
   function renderAttendance() {
     const rows = dashboard.history.map(item => `<tr><td>${esc(item.work_date)}</td><td>${dateTime(item.check_in_at)}</td><td>${dateTime(item.check_out_at)}</td><td>${duration(item.worked_minutes || 0)}</td><td><span class="ep-table-status">${esc(item.status)}</span></td></tr>`).join('');
-    employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">MY RECORDS</p><h1>Attendance</h1><p>Check-in, check-out and total working time are calculated automatically.</p></section><section class="ep-card"><div class="ep-table-wrap"><table><thead><tr><th>Date</th><th>Check-in</th><th>Check-out</th><th>Total time</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="5">No attendance recorded.</td></tr>'}</tbody></table></div></section>`);
+    const monthStart = new Date(); monthStart.setDate(1);
+    const year = monthStart.getFullYear(), month = monthStart.getMonth(), days = new Date(year, month + 1, 0).getDate(), offset = (monthStart.getDay() + 6) % 7;
+    const byDate = new Map(dashboard.history.map(item => [item.work_date, item]));
+    const calendar = `${'<i></i>'.repeat(offset)}${Array.from({length:days},(_,index)=>{const day=index+1,key=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`,record=byDate.get(key);return `<span class="ep-calendar-day ${record?'recorded':''}"><b>${day}</b><small>${record?(record.status==='COMPLETED'?'Present':'Checked in'):'—'}</small></span>`}).join('')}`;
+    employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">MY RECORDS</p><h1>Attendance</h1><p>Check-in, check-out and total working time are calculated automatically.</p></section><section class="ep-card ep-personal-calendar"><h2>${monthStart.toLocaleString('en-IN',{month:'long',year:'numeric'})}</h2><div class="ep-calendar-weekdays">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=>`<b>${day}</b>`).join('')}</div><div class="ep-calendar-grid">${calendar}</div></section><section class="ep-card"><div class="ep-table-wrap"><table><thead><tr><th>Date</th><th>Check-in</th><th>Check-out</th><th>Total time</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="5">No attendance recorded.</td></tr>'}</tbody></table></div></section>`);
   }
 
   function renderProfile() {
@@ -268,7 +281,7 @@
         await request('/api/employee/attendance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
-          body: JSON.stringify({ pin: new FormData(event.target).get('pin'), device_identifier: navigator.userAgent, face_capture: capturedFace })
+          body: JSON.stringify({ device_identifier: navigator.userAgent, face_capture: capturedFace })
         });
         currentPage = 'overview';
         await loadDashboard();
@@ -380,11 +393,7 @@
         const invitationUrl = employeeInvitationUrl(result.invite_token, fields.email);
         page.querySelector('#ea-message').innerHTML = result.credentials_created
           ? 'Active employee login created. The employee can sign in now.'
-          : `<b>Invitation created (valid 48 hours).</b><br><a id="ea-invitation-link" href="${esc(invitationUrl)}" target="_blank" rel="noopener">${esc(invitationUrl)}</a><br><button type="button" class="secondary" id="ea-copy-invitation">Copy invitation link</button>`;
-        page.querySelector('#ea-copy-invitation')?.addEventListener('click', async () => {
-          await navigator.clipboard.writeText(invitationUrl);
-          page.querySelector('#ea-copy-invitation').textContent = 'Copied ✓';
-        });
+          : invitationShareButtons(invitationUrl, fields.name, fields.email);
         event.target.reset();
       } catch (error) { page.querySelector('#ea-message').textContent = error.message; }
     };

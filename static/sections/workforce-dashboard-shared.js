@@ -93,16 +93,10 @@
     };
   }
 
-  function faceStatus(record) {
-    const captured = Boolean(
-      record.face_captured ||
-      record.face_verified ||
-      record.checkin_photo ||
-      record.checkout_photo,
-    );
+  function faceStatus(captured) {
     return captured
-      ? '<span class="face-status captured">Captured</span>'
-      : '<span class="face-status missing">Not captured</span>';
+      ? '<span class="face-status captured">Yes</span>'
+      : '<span class="face-status missing">No</span>';
   }
 
   function workforceRows(records) {
@@ -125,7 +119,8 @@
           <td>${esc(text(person.shift, "09:00 AM - 06:00 PM"))}</td>
           <td>${esc(text(today.login || today.login_time))}</td>
           <td>${esc(text(today.logout || today.logout_time))}</td>
-          <td>${faceStatus(today)}</td>
+          <td>${faceStatus(today.checkin_face_captured || today.checkin_photo)}</td>
+          <td>${faceStatus(today.checkout_face_captured || today.checkout_photo)}</td>
           <td>${esc(totalTime)}</td>
           <td>${esc(overtime)}</td>
           <td>
@@ -184,7 +179,8 @@
               <th>SHIFT TIMINGS</th>
               <th>CHECK-IN TIME</th>
               <th>CHECK-OUT TIME</th>
-              <th>FACE CAPTURED</th>
+              <th>CHECK-IN FACE</th>
+              <th>CHECK-OUT FACE</th>
               <th>TOTAL TIME</th>
               <th>OVERTIME</th>
               <th>TOTAL SALARY</th>
@@ -195,7 +191,7 @@
           <tbody>
             ${workforceRows(records) || `
               <tr>
-                <td colspan="12" class="empty">No ${esc(label.toLowerCase())} records.</td>
+                <td colspan="13" class="empty">No ${esc(label.toLowerCase())} records.</td>
               </tr>
             `}
           </tbody>

@@ -170,6 +170,12 @@ def home():
     return send_from_directory(STATIC_DIR, "index.html")
 
 
+@app.get("/api/health")
+def health():
+    """Render health check endpoint; it does not expose account information."""
+    return jsonify({"ok": True, "service": "msme-employee-api"})
+
+
 @app.get("/api/auth/config")
 def auth_config():
     return jsonify({

@@ -32,15 +32,14 @@ def login():
 
 @employee_api.post('/api/employee/activate')
 def activate():
- p=data();raw=str(p.get('invite_token',''));contact=str(p.get('contact','')).strip().lower();password=str(p.get('password',''));pin=str(p.get('pin',''))
+ p=data();raw=str(p.get('invite_token',''));contact=str(p.get('contact','')).strip().lower();password=str(p.get('password',''))
  if len(password)<8:return jsonify({'error':'Password must contain at least 8 characters.'}),400
- if not(pin.isdigit() and len(pin)==6):return jsonify({'error':'PIN must contain exactly 6 digits.'}),400
  with transaction() as db:
   row=db.execute('SELECT * FROM employee_accounts WHERE invite_hash=?',(hashlib.sha256(raw.encode()).hexdigest(),)).fetchone()
   if not row or datetime.fromisoformat(row['invite_expires_at'])<now():return jsonify({'error':'Invitation is invalid or expired.'}),400
   if contact not in {str(row['email']).lower(),str(row['phone'] or '').lower()}:
    return jsonify({'error':'The phone number or email does not match this invitation.'}),400
-  db.execute("UPDATE employee_accounts SET password_hash=?,pin_hash=?,status='ACTIVE',invite_hash=NULL,invite_expires_at=NULL,updated_at=? WHERE id=?",(generate_password_hash(password),generate_password_hash(pin),stamp(),row['id']))
+  db.execute("UPDATE employee_accounts SET password_hash=?,pin_hash=NULL,status='ACTIVE',invite_hash=NULL,invite_expires_at=NULL,updated_at=? WHERE id=?",(generate_password_hash(password),stamp(),row['id']))
  return jsonify({'ok':True})
 
 @employee_api.get('/api/employee/dashboard')
@@ -58,7 +57,7 @@ def dashboard():
    'today':dict(shift) if shift else None,
    'next_action':'CHECK_OUT' if shift and shift['status']=='OPEN' else 'CHECK_IN',
    'history':[dict(x) for x in history],
-   'verification_method':'FACE_CAPTURE_AND_PIN',
+   'verification_method':'FACE_CAPTURE',
    'biometric_ready':True,
   })
  finally:db.close()
@@ -79,13 +78,12 @@ def profile_photo():
 @employee_api.post('/api/employee/attendance')
 @require('EMPLOYEE')
 def attendance():
- p=data();pin=str(p.get('pin',''));key=request.headers.get('Idempotency-Key','').strip();device=str(p.get('device_identifier','')).strip()[:250];face=str(p.get('face_capture',''))
+ p=data();key=request.headers.get('Idempotency-Key','').strip();device=str(p.get('device_identifier','')).strip()[:250];face=str(p.get('face_capture',''))
  if not key or not device:return jsonify({'error':'Idempotency key and device identifier are required.'}),400
  if not face.startswith('data:image/') or len(face)>1_500_000:return jsonify({'error':'Capture a current face photo before recording attendance.'}),400
  with transaction() as db:
   row=current(db)
   if not row:return jsonify({'error':'Employee account is not active.'}),403
-  if not check_password_hash(row['pin_hash'] or '',pin):return jsonify({'error':'Incorrect attendance PIN.'}),401
   duplicate=db.execute('SELECT * FROM employee_attendance_events WHERE employee_account_id=? AND idempotency_key=?',(row['id'],key)).fetchone()
   if duplicate:return jsonify({'ok':True,'duplicate':True,'event':dict(duplicate)})
   date=now().date().isoformat();shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(row['id'],date)).fetchone();event_time=stamp()
@@ -94,7 +92,7 @@ def attendance():
    action='CHECK_IN';sid=uuid4().hex;db.execute('INSERT INTO employee_shifts(id,employee_account_id,work_date,check_in_at,status) VALUES(?,?,?,?,?)',(sid,row['id'],date,event_time,'OPEN'))
   else:
    action='CHECK_OUT';sid=shift['id'];minutes=max(0,int((now()-datetime.fromisoformat(shift['check_in_at'])).total_seconds()//60));db.execute("UPDATE employee_shifts SET check_out_at=?,worked_minutes=?,status='COMPLETED' WHERE id=?",(event_time,minutes,sid))
-  eid=uuid4().hex;db.execute('INSERT INTO employee_attendance_events(id,employee_account_id,shift_id,event_type,server_timestamp,verification_method,idempotency_key,device_identifier,face_capture_data) VALUES(?,?,?,?,?,?,?,?,?)',(eid,row['id'],sid,action,event_time,'FACE_CAPTURE_AND_PIN',key,device,face));event=db.execute('SELECT * FROM employee_attendance_events WHERE id=?',(eid,)).fetchone()
+  eid=uuid4().hex;db.execute('INSERT INTO employee_attendance_events(id,employee_account_id,shift_id,event_type,server_timestamp,verification_method,idempotency_key,device_identifier,face_capture_data) VALUES(?,?,?,?,?,?,?,?,?)',(eid,row['id'],sid,action,event_time,'FACE_CAPTURE',key,device,face));event=db.execute('SELECT * FROM employee_attendance_events WHERE id=?',(eid,)).fetchone()
  return jsonify({'ok':True,'event':dict(event)})
 
 @employee_api.patch('/api/employee/account-controls')
@@ -126,6 +124,13 @@ def accounts():
   if direct and len(password)<8:return jsonify({'error':'Employee password must contain at least 8 characters.'}),400
   if direct and not(pin.isdigit() and len(pin)==6):return jsonify({'error':'Attendance PIN must contain exactly 6 digits.'}),400
   raw=secrets.token_urlsafe(32);expires=(now()+timedelta(hours=48)).isoformat()
+  existing=db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? AND (lower(email)=? OR employee_id=?)',(tenant,email,eid)).fetchone()
+  if existing:
+   if existing['status']=='ACTIVE':return jsonify({'error':'That employee already has an active account.'}),409
+   if str(existing['email']).lower()!=email or str(existing['employee_id'])!=eid:return jsonify({'error':'That employee ID or email belongs to another account.'}),409
+   db.execute("UPDATE employee_accounts SET name=?,workforce_role=?,phone=?,status='INVITED',invite_hash=?,invite_expires_at=?,updated_at=? WHERE id=?",(name,role,phone,hashlib.sha256(raw.encode()).hexdigest(),expires,stamp(),existing['id']))
+   audit(db,'EMPLOYEE_INVITATION_REGENERATED','employee_account',existing['id'],{'employee_id':eid,'role':role})
+   return jsonify({'ok':True,'credentials_created':False,'invite_token':raw,'expires_at':expires,'regenerated':True}),200
   try:cur=db.execute('INSERT INTO employee_accounts(tenant_email,employee_id,name,email,workforce_role,phone,password_hash,pin_hash,status,invite_hash,invite_expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(tenant,eid,name,email,role,phone,generate_password_hash(password) if direct else None,generate_password_hash(pin) if direct else None,'ACTIVE' if direct else 'INVITED',None if direct else hashlib.sha256(raw.encode()).hexdigest(),None if direct else expires,stamp(),stamp()))
   except Exception:return jsonify({'error':'That employee ID or email already has an account.'}),409
   audit(db,'EMPLOYEE_CREDENTIALS_CREATED' if direct else 'EMPLOYEE_INVITED','employee_account',cur.lastrowid,{'employee_id':eid,'role':role})
@@ -157,6 +162,8 @@ def employee_attendance():
  work_date=str(request.args.get('date','')).strip()
  query='''
   SELECT s.work_date,s.check_in_at,s.check_out_at,s.worked_minutes,s.status,
+         EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND e.face_capture_data LIKE 'data:image/%') AS checkin_face_captured,
+         EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND e.face_capture_data LIKE 'data:image/%') AS checkout_face_captured,
          a.employee_id,a.name,a.email,a.workforce_role
   FROM employee_shifts s
   JOIN employee_accounts a ON a.id=s.employee_account_id

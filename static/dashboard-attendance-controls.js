@@ -491,6 +491,7 @@ window.roleDashboard = function roleDashboardWithUnifiedTiming(roleName) {
 let manualAttendanceEnabledV21 = false;
 const automaticAttendanceDraftsV21 = new Map();
 const automaticAttendanceLoadedV21 = new Set();
+const automaticAttendanceSignaturesV21 = new Map();
 
 function automaticRoleV21(role) {
   return role === 'TEMPORARY' ? 'Temporary Worker' : role.charAt(0) + role.slice(1).toLowerCase();
@@ -523,29 +524,55 @@ async function syncAutomaticAttendanceV21(date, force = false) {
     const response = await fetch(`${base}/api/admin/employee-attendance?date=${encodeURIComponent(date)}`, { headers: { Authorization: `Bearer ${token}` } });
     const payload = await response.json();
     if (!response.ok) throw Error(payload.error || 'Automatic attendance could not be loaded.');
-    automaticAttendanceDraftsV21.set(date, payload.attendance.map(item => {
+    const mappedAttendance = payload.attendance.map(item => {
       const workforce = [...people, ...temporaryWorkers];
       const normalizedEmail = String(item.email || '').trim().toLowerCase();
       const person = workforce.find(record => record.id === item.employee_id)
         || workforce.find(record => normalizedEmail && String(record.email || '').trim().toLowerCase() === normalizedEmail);
-      return ({
+      return {
       id: person?.id || item.employee_id, employee_account_id: item.employee_id,
       name: person?.name || item.name, email: item.email,
       role: automaticRoleV21(item.workforce_role),
       status: item.status === 'COMPLETED' || item.status === 'OPEN' ? 'Present' : 'Absent',
       login: automaticTimeV21(item.check_in_at), logout: automaticTimeV21(item.check_out_at),
       work: durationTextV21(item.worked_minutes || 0), half: '-', overtime: '-', total: durationTextV21(item.worked_minutes || 0),
-      shift: person?.shift || '09:00 AM - 06:00 PM', face_captured: true, source: 'Face check-in / check-out'
-    });}));
+      shift: person?.shift || '09:00 AM - 06:00 PM',
+      checkin_face_captured: Boolean(item.checkin_face_captured),
+      checkout_face_captured: Boolean(item.checkout_face_captured),
+      face_captured: Boolean(item.checkin_face_captured || item.checkout_face_captured),
+      source: 'Face check-in / check-out'
+      };
+    });
+    const signature = JSON.stringify(mappedAttendance);
+    const changed = automaticAttendanceSignaturesV21.get(date) !== signature;
+    automaticAttendanceSignaturesV21.set(date, signature);
+    automaticAttendanceDraftsV21.set(date, mappedAttendance);
+    mappedAttendance.forEach(record => {
+      const person = [...people, ...temporaryWorkers].find(item => item.id === record.id);
+      if (!person) return;
+      person.status = record.status;
+      person.login_time = record.login || '';
+      person.logout_time = record.logout || '';
+      person.checkin_face_captured = record.checkin_face_captured;
+      person.checkout_face_captured = record.checkout_face_captured;
+    });
     if (typeof view !== 'undefined' && view === 'attendance' && calendarDay === date) attendanceCalendar();
     else if (typeof view !== 'undefined' && view === 'workers') roleDashboard('Worker');
     else if (typeof view !== 'undefined' && view === 'staff') roleDashboard('Staff');
     else if (typeof view !== 'undefined' && view === 'temporary') temporaryDashboard();
+    else if (changed && typeof view !== 'undefined' && view === 'dashboard') dashboard();
   } catch (error) {
     automaticAttendanceLoadedV21.delete(date);
     console.error(error);
   }
 }
+
+// Keep the administrator view synchronized with employee face check-ins and
+// check-outs without requiring a page refresh or a manual save action.
+setInterval(() => {
+  const token = sessionStorage.getItem('msme-admin-api-token') || '';
+  if (token) syncAutomaticAttendanceV21(new Date().toISOString().slice(0, 10), true);
+}, 5000);
 
 function calendarRoleSectionV21(title, roleName, record) {
   const rolePeople = group(roleName);

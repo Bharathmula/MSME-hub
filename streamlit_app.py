@@ -54,6 +54,12 @@ def bundled_application() -> str:
         "",
     )
 
+    # The preserved application runs inside a Streamlit srcdoc iframe. Query
+    # parameters live on the outer Streamlit page, so pass employee invitation
+    # values into the embedded application explicitly.
+    invite_token = str(st.query_params.get("employee_invite", ""))
+    invite_email = str(st.query_params.get("employee_email", ""))
+
     try:
         request_host = str(st.context.headers.get("Host", "")).lower()
     except Exception:
@@ -69,6 +75,8 @@ def bundled_application() -> str:
         (
             "<head><script>"
             f"window.MSME_EMPLOYEE_API_URL={json.dumps(api_url.rstrip('/'))};"
+            f"window.MSME_EMPLOYEE_INVITE={json.dumps(invite_token)};"
+            f"window.MSME_EMPLOYEE_EMAIL={json.dumps(invite_email)};"
             f"window.MSME_CLERK_PUBLISHABLE_KEY={json.dumps(clerk_publishable_key)};"
             f"window.MSME_CLERK_FRONTEND_API_URL={json.dumps(clerk_frontend_api_url.rstrip('/'))};"
             "</script>"

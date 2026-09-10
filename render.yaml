@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: msme-hub-employee-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn backend:app --bind 0.0.0.0:$PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: MSME_SECRET_KEY
+        generateValue: true
+      - key: MSME_ALLOWED_ORIGINS
+        value: https://replace-with-your-app.streamlit.app
+      - key: MSME_EMPLOYEE_DB
+        value: /tmp/msme-employee-portal.db

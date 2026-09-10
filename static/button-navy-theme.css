@@ -1,0 +1,16 @@
+/* Shared primary action color requested for administrator and employee views. */
+.primary,
+.ep-primary,
+.calendar-action-button.strong,
+.auth-form .primary {
+  background: #0b2f5b !important;
+  border-color: #0b2f5b !important;
+  color: #ffffff !important;
+}
+
+.primary:hover,
+.ep-primary:hover,
+.calendar-action-button.strong:hover,
+.auth-form .primary:hover {
+  background: #071f3d !important;
+}
