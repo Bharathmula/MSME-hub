@@ -10,6 +10,8 @@
   let currentPage = 'overview';
   let cameraStream = null;
   let capturedFace = '';
+  let attendanceCalendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  let selectedAttendanceDate = new Date().toISOString().slice(0, 10);
 
   async function request(path, options = {}, token = authToken()) {
     const headers = new Headers(options.headers || {});
@@ -54,8 +56,10 @@
     const subject = 'Your MSME Hub employee invitation';
     const message = `Hello ${employeeName},\n\nUse this secure invitation to create your MSME Hub employee account:\n${invitationUrl}\n\nThis invitation is valid for 48 hours.`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(employeeEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
-    return `<div class="ea-share-actions"><b>Invitation created (valid 48 hours).</b><p>Choose how you want to send it:</p><a class="secondary ea-share-button ea-whatsapp" href="${esc(whatsappUrl)}" target="_blank" rel="noopener">Send via WhatsApp</a><a class="secondary ea-share-button ea-gmail" href="${esc(gmailUrl)}" target="_blank" rel="noopener">Send via Gmail</a></div>`;
+    const mailUrl = `mailto:${encodeURIComponent(employeeEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+    const whatsappIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a9.7 9.7 0 0 0-8.4 14.6L2 22l5.5-1.5A9.8 9.8 0 1 0 12 2Zm0 17.8c-1.5 0-3-.4-4.2-1.2l-.3-.2-3.2.9.9-3.1-.2-.3A7.8 7.8 0 1 1 12 19.8Zm4.3-5.8c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.6.1l-.7.9c-.1.2-.3.2-.5.1-1.4-.7-2.4-1.3-3.3-2.9-.2-.3.2-.5.6-1 .1-.2.1-.4 0-.5l-.7-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.8.8-1.1 1.9-.7 3 1 2.9 3.5 5.1 6.5 5.9 1.1.3 2.1.2 2.9-.2.9-.4 1.4-1.4 1.4-2.1 0-.3-.1-.5-.3-.6Z"/></svg>`;
+    const mailIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm9 7.2L20.4 7H3.6L12 12.2ZM3 17h18V9.2l-8.5 5.2a1 1 0 0 1-1 0L3 9.2V17Z"/></svg>`;
+    return `<div class="ea-share-actions"><b>Invitation created (valid 48 hours).</b><p>Choose how you want to send it:</p><a class="secondary ea-share-button ea-whatsapp" href="${esc(whatsappUrl)}" target="_blank" rel="noopener">${whatsappIcon}<span>Send via WhatsApp</span></a><a class="secondary ea-share-button ea-mail" href="${esc(mailUrl)}">${mailIcon}<span>Send via Mail</span></a></div>`;
   }
 
   function duration(minutes = 0) {
@@ -86,13 +90,12 @@
         <label>Email<input class="ep-input" name="email" type="email" required autocomplete="username"></label>
         <label>Password<input class="ep-input" name="password" type="password" required autocomplete="current-password"></label>
         <p id="ep-message" class="ep-error"></p><button class="ep-primary">Sign in</button>
-      </form><hr><h2>Activate invitation</h2>
+      </form><hr><h2>Create employee account</h2>
       <form id="ep-activate">
         <label>Invitation token<input class="ep-input" name="invite_token" required></label>
         <label>Phone number / email<input class="ep-input" name="contact" required></label>
         <label>Create password<input class="ep-input" name="password" type="password" minlength="8" required></label>
-        <label>Create 6-digit attendance PIN<input class="ep-input" name="pin" inputmode="numeric" pattern="[0-9]{6}" required></label>
-        <button class="ep-secondary">Activate account</button>
+        <button class="ep-secondary">Create account</button>
       </form>
     </section>`);
 
@@ -120,7 +123,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(Object.fromEntries(new FormData(event.target)))
         }, '');
-        alert('Account activated. Sign in now.');
+        alert('Account created successfully. Sign in now.');
         employeeLogin();
       } catch (error) { alert(error.message); }
     };
@@ -150,11 +153,10 @@
         <button class="ep-sidebar-logout" id="ep-logout">↗ Log out</button>
       </aside>
       <main class="ep-main">
-        <header class="ep-topbar"><div><small>${esc(roleLabel(employee.workforce_role))} dashboard</small><b>${esc(employee.employee_id)}</b></div><button class="ep-secondary" id="ep-close" type="button">Close</button></header>
+        <header class="ep-topbar"><div><small>${esc(roleLabel(employee.workforce_role))} dashboard</small><b>${esc(employee.employee_id)}</b></div></header>
         ${content}
       </main>
     </div>`;
-    root.querySelector('#ep-close').onclick = closePortal;
     root.querySelector('#ep-logout').onclick = () => {
       stopCamera();
       sessionStorage.removeItem('msme-employee-token');
@@ -190,11 +192,19 @@
 
   function renderAttendance() {
     const rows = dashboard.history.map(item => `<tr><td>${esc(item.work_date)}</td><td>${dateTime(item.check_in_at)}</td><td>${dateTime(item.check_out_at)}</td><td>${duration(item.worked_minutes || 0)}</td><td><span class="ep-table-status">${esc(item.status)}</span></td></tr>`).join('');
-    const monthStart = new Date(); monthStart.setDate(1);
+    const monthStart = new Date(attendanceCalendarMonth);
     const year = monthStart.getFullYear(), month = monthStart.getMonth(), days = new Date(year, month + 1, 0).getDate(), offset = (monthStart.getDay() + 6) % 7;
     const byDate = new Map(dashboard.history.map(item => [item.work_date, item]));
-    const calendar = `${'<i></i>'.repeat(offset)}${Array.from({length:days},(_,index)=>{const day=index+1,key=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`,record=byDate.get(key);return `<span class="ep-calendar-day ${record?'recorded':''}"><b>${day}</b><small>${record?(record.status==='COMPLETED'?'Present':'Checked in'):'—'}</small></span>`}).join('')}`;
-    employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">MY RECORDS</p><h1>Attendance</h1><p>Check-in, check-out and total working time are calculated automatically.</p></section><section class="ep-card ep-personal-calendar"><h2>${monthStart.toLocaleString('en-IN',{month:'long',year:'numeric'})}</h2><div class="ep-calendar-weekdays">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=>`<b>${day}</b>`).join('')}</div><div class="ep-calendar-grid">${calendar}</div></section><section class="ep-card"><div class="ep-table-wrap"><table><thead><tr><th>Date</th><th>Check-in</th><th>Check-out</th><th>Total time</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="5">No attendance recorded.</td></tr>'}</tbody></table></div></section>`);
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const calendar = `${'<i></i>'.repeat(offset)}${Array.from({length:days},(_,index)=>{const day=index+1,key=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`,record=byDate.get(key),isPast=key<todayKey,status=record?(record.status==='COMPLETED'?'present':'checked-in'):(isPast?'absent':'future'),label=record?(record.status==='COMPLETED'?'Present':'Checked in'):(isPast?'Absent':'—');return `<button type="button" class="ep-calendar-day ${status} ${key===selectedAttendanceDate?'selected':''}" data-ep-attendance-date="${key}"><b>${day}</b><small>${label}</small></button>`}).join('')}`;
+    const selected = byDate.get(selectedAttendanceDate);
+    const selectedStatus = selected ? (selected.status === 'COMPLETED' ? 'Present' : 'Checked in') : (selectedAttendanceDate < todayKey ? 'Absent' : 'No attendance recorded');
+    const selectedDetails = `<div class="ep-selected-day"><div><span>Selected date</span><b>${esc(selectedAttendanceDate)}</b></div><div><span>Status</span><b class="${selectedStatus==='Present'?'present-text':selectedStatus==='Absent'?'absent-text':''}">${esc(selectedStatus)}</b></div><div><span>Check-in</span><b>${dateTime(selected?.check_in_at)}</b></div><div><span>Check-out</span><b>${dateTime(selected?.check_out_at)}</b></div><div><span>Total time</span><b>${duration(selected?.worked_minutes || 0)}</b></div></div>`;
+    employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">MY RECORDS</p><h1>Attendance</h1><p>Choose a month and click a date to see that day's attendance below the calendar.</p></section><section class="ep-card ep-personal-calendar"><div class="ep-calendar-toolbar"><button type="button" class="ep-secondary" id="ep-calendar-previous" aria-label="Previous month">‹</button><input type="month" id="ep-calendar-month" value="${year}-${String(month+1).padStart(2,'0')}" aria-label="Attendance month and year"><button type="button" class="ep-secondary" id="ep-calendar-next" aria-label="Next month">›</button></div><h2>${monthStart.toLocaleString('en-IN',{month:'long',year:'numeric'})}</h2><div class="ep-calendar-legend"><span class="present">Present</span><span class="absent">Absent</span></div><div class="ep-calendar-weekdays">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=>`<b>${day}</b>`).join('')}</div><div class="ep-calendar-grid">${calendar}</div>${selectedDetails}</section><section class="ep-card"><div class="ep-table-wrap"><table><thead><tr><th>Date</th><th>Check-in</th><th>Check-out</th><th>Total time</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="5">No attendance recorded.</td></tr>'}</tbody></table></div></section>`);
+    root.querySelector('#ep-calendar-previous').onclick=()=>{attendanceCalendarMonth=new Date(year,month-1,1);selectedAttendanceDate=`${attendanceCalendarMonth.getFullYear()}-${String(attendanceCalendarMonth.getMonth()+1).padStart(2,'0')}-01`;renderAttendance()};
+    root.querySelector('#ep-calendar-next').onclick=()=>{attendanceCalendarMonth=new Date(year,month+1,1);selectedAttendanceDate=`${attendanceCalendarMonth.getFullYear()}-${String(attendanceCalendarMonth.getMonth()+1).padStart(2,'0')}-01`;renderAttendance()};
+    root.querySelector('#ep-calendar-month').onchange=event=>{const [nextYear,nextMonth]=event.target.value.split('-').map(Number);attendanceCalendarMonth=new Date(nextYear,nextMonth-1,1);selectedAttendanceDate=`${event.target.value}-01`;renderAttendance()};
+    root.querySelectorAll('[data-ep-attendance-date]').forEach(button=>button.onclick=()=>{selectedAttendanceDate=button.dataset.epAttendanceDate;renderAttendance()});
   }
 
   function renderProfile() {
@@ -239,7 +249,9 @@
       video.hidden = false;
       root.querySelector('#ep-face-preview').hidden = true;
       root.querySelector('#ep-camera-placeholder').hidden = true;
-      root.querySelector('#ep-capture-face').disabled = false;
+      const captureButton = root.querySelector('#ep-capture-face');
+      captureButton.disabled = false;
+      captureButton.textContent = 'Capture face';
       message.textContent = '';
     } catch (_error) {
       message.textContent = 'Camera access is required. Allow camera permission and try again.';
@@ -259,7 +271,10 @@
     preview.hidden = false;
     video.hidden = true;
     root.querySelector('#ep-attendance-submit').disabled = false;
-    root.querySelector('#ep-capture-face').textContent = 'Retake face';
+    root.querySelector('#ep-capture-face').textContent = 'Retake';
+    const message = root.querySelector('#ep-attendance-message');
+    message.className = 'ep-success';
+    message.textContent = 'Captured';
     stopCamera();
   }
 
@@ -278,11 +293,13 @@
         return;
       }
       try {
+        const action = dashboard.next_action;
         await request('/api/employee/attendance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
           body: JSON.stringify({ device_identifier: navigator.userAgent, face_capture: capturedFace })
         });
+        alert(`${action === 'CHECK_IN' ? 'Check-in' : 'Check-out'} captured successfully.`);
         currentPage = 'overview';
         await loadDashboard();
       } catch (error) { message.textContent = error.message; }
@@ -346,7 +363,7 @@
     ];
     return `<div class="employee-access-groups">${groups.map(([role, title]) => {
       const records = employees.filter(employee => employee.workforce_role === role);
-      const rows = records.map(employee => `<div class="ep-row"><div><b>${esc(employee.name)}</b><small>${esc(employee.employee_id)} · ${esc(employee.email)} · ${esc(employee.status)}</small></div><span><button class="secondary ea-credentials" data-account-id="${employee.id}">Set credentials</button> <button class="secondary ea-status" data-account-id="${employee.id}" data-next-status="${employee.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'}">${employee.status === 'SUSPENDED' ? 'Restore' : 'Suspend'}</button></span></div>`).join('');
+      const rows = records.map(employee => `<div class="ep-row"><div><b>${esc(employee.name)}</b><small>${esc(employee.employee_id)} · ${esc(employee.email)} · ${esc(employee.status)}</small></div><span><button class="secondary ea-status" data-account-id="${employee.id}" data-next-status="${employee.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'}">${employee.status === 'SUSPENDED' ? 'Restore' : 'Suspend'}</button></span></div>`).join('');
       return `<section class="panel employee-access-group"><div class="panel-header"><h2>${title}</h2><span class="tag neutral">${records.length} account${records.length === 1 ? '' : 's'}</span></div>${rows || '<p class="empty">No accounts in this section.</p>'}</section>`;
     }).join('')}</div>`;
   }
@@ -369,18 +386,6 @@
         event.stopPropagation();
         await request(`/api/admin/employee-accounts/${button.dataset.accountId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: button.dataset.nextStatus, reason: 'Administrator action' }) }, adminToken);
         adminView();
-      });
-      page.querySelectorAll('.ea-credentials').forEach(button => button.onclick = async event => {
-        event.stopPropagation();
-        const password = prompt('Enter a new login password (minimum 8 characters):');
-        if (password === null) return;
-        const pin = prompt('Enter a new 6-digit attendance PIN:');
-        if (pin === null) return;
-        try {
-          await request(`/api/admin/employee-accounts/${button.dataset.accountId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password, pin }) }, adminToken);
-          alert('Employee credentials saved. The employee can sign in now.');
-          adminView();
-        } catch (error) { alert(error.message); }
       });
     } catch (error) {
       page.querySelector('#ea-list').innerHTML = `<p class="login-error">${esc(error.message)}</p>`;

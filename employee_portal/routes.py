@@ -50,7 +50,7 @@ def dashboard():
   row=current(db)
   if not row:return jsonify({'error':'Employee account is not active.'}),403
   shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(row['id'],now().date().isoformat())).fetchone()
-  history=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? ORDER BY work_date DESC LIMIT 60',(row['id'],)).fetchall()
+  history=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? ORDER BY work_date DESC LIMIT 400',(row['id'],)).fetchall()
   return jsonify({
    'employee':public(row),
    'server_time':stamp(),

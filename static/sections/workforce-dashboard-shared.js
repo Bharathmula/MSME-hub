@@ -40,7 +40,7 @@
 
   function currentDateTimeCard() {
     const now = new Date();
-    return `<time class="workforce-current-date"><span>Today</span><b>${esc(now.toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }))}</b><small>${esc(now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))}</small></time>`;
+    return `<time class="workforce-current-date"><span>Today</span><b>${esc(now.toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }))}</b><small>${esc(now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }))}</small></time>`;
   }
 
   function recordsFor(person, monthPrefix) {
