@@ -38,6 +38,14 @@ class EmployeePortalTests(unittest.TestCase):
   self.assertEqual(response.status_code,201,response.text);self.assertTrue(response.json['credentials_created'])
   login=self.c.post('/api/employee/login',json={'email':'direct.staff@example.com','password':'Direct123!'})
   self.assertEqual(login.status_code,200,login.text);self.assertEqual(login.json['employee']['workforce_role'],'STAFF')
+  accounts=self.c.get('/api/admin/employee-accounts',headers=self.headers(self.admin)).json['employees'];account_id=next(item['id'] for item in accounts if item['email']=='direct.staff@example.com')
+  removed=self.c.delete(f'/api/admin/employee-accounts/{account_id}',headers=self.headers(self.admin));self.assertEqual(removed.status_code,200,removed.text)
+  self.assertEqual(self.c.post('/api/employee/login',json={'email':'direct.staff@example.com','password':'Direct123!'}).status_code,401)
+
+ def test_employee_password_reset_captcha_is_required(self):
+  captcha=self.c.get('/api/employee/password-reset-captcha');self.assertEqual(captcha.status_code,200,captcha.text);self.assertEqual(len(captcha.json['captcha_code']),6)
+  rejected=self.c.post('/api/employee/reset-password',json={'email':'worker100@example.com','password':'Another123!','captcha_id':captcha.json['captcha_id'],'captcha_answer':'WRONG1'})
+  self.assertEqual(rejected.status_code,403,rejected.text)
 
  def test_admin_can_regenerate_pending_invitation(self):
   payload={'name':'Pending Worker','employee_id':'W-PENDING','email':'pending@example.com','workforce_role':'WORKER'}

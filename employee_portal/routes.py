@@ -176,6 +176,21 @@ def account_status(account_id):
   db.execute('UPDATE employee_accounts SET status=?,updated_at=? WHERE id=?',(status,stamp(),account_id));audit(db,'ACCOUNT_STATUS_CHANGED','employee_account',account_id,{'from':row['status'],'to':status,'reason':p.get('reason','')})
  return jsonify({'ok':True})
 
+@employee_api.delete('/api/admin/employee-accounts/<int:account_id>')
+@require('ADMIN','HR')
+def remove_employee_access(account_id):
+ tenant=g.employee_identity['tenant']
+ with transaction() as db:
+  row=db.execute('SELECT * FROM employee_accounts WHERE id=? AND tenant_email=?',(account_id,tenant)).fetchone()
+  if not row:return jsonify({'error':'Employee account not found.'}),404
+  shift_ids=[item['id'] for item in db.execute('SELECT id FROM employee_shifts WHERE employee_account_id=?',(account_id,)).fetchall()]
+  db.execute('DELETE FROM employee_attendance_events WHERE employee_account_id=?',(account_id,))
+  db.execute('DELETE FROM employee_shifts WHERE employee_account_id=?',(account_id,))
+  db.execute("DELETE FROM employee_audit_log WHERE entity_type='employee_account' AND entity_id=?",(str(account_id),))
+  for shift_id in shift_ids:db.execute("DELETE FROM employee_audit_log WHERE entity_type='employee_shift' AND entity_id=?",(shift_id,))
+  db.execute('DELETE FROM employee_accounts WHERE id=?',(account_id,))
+ return jsonify({'ok':True,'removed_employee_id':row['employee_id']})
+
 
 @employee_api.get('/api/admin/employee-attendance')
 @require('ADMIN','HR')

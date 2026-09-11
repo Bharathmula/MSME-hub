@@ -136,7 +136,7 @@ def disable_development_cache(response):
     if origin in allowed:
         response.headers['Access-Control-Allow-Origin']=origin;response.headers['Vary']='Origin'
         response.headers['Access-Control-Allow-Headers']='Authorization,Content-Type,Idempotency-Key'
-        response.headers['Access-Control-Allow-Methods']='GET,POST,PATCH,OPTIONS'
+        response.headers['Access-Control-Allow-Methods']='GET,POST,PATCH,DELETE,OPTIONS'
     return response
 
 

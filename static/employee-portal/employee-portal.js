@@ -374,7 +374,7 @@
     ];
     return `<div class="employee-access-groups">${groups.map(([role, title]) => {
       const records = employees.filter(employee => employee.workforce_role === role);
-      const rows = records.map(employee => `<div class="ep-row"><div><b>${esc(employee.name)}</b><small>${esc(employee.employee_id)} · ${esc(employee.email)} · ${esc(employee.status)}</small></div><span><button class="secondary ea-status" data-account-id="${employee.id}" data-next-status="${employee.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'}">${employee.status === 'SUSPENDED' ? 'Restore' : 'Suspend'}</button></span></div>`).join('');
+      const rows = records.map(employee => `<div class="ep-row"><div><b>${esc(employee.name)}</b><small>${esc(employee.employee_id)} · ${esc(employee.email)} · ${esc(employee.status)}</small></div><span class="ea-account-actions"><button class="secondary ea-status" data-account-id="${employee.id}" data-next-status="${employee.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'}">${employee.status === 'SUSPENDED' ? 'Restore' : 'Suspend'}</button><button class="secondary ea-remove-access" data-account-id="${employee.id}" data-employee-name="${esc(employee.name)}">Remove access</button></span></div>`).join('');
       return `<section class="panel employee-access-group"><div class="panel-header"><h2>${title}</h2><span class="tag neutral">${records.length} account${records.length === 1 ? '' : 's'}</span></div>${rows || '<p class="empty">No accounts in this section.</p>'}</section>`;
     }).join('')}</div>`;
   }
@@ -432,6 +432,14 @@
         event.stopPropagation();
         await request(`/api/admin/employee-accounts/${button.dataset.accountId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: button.dataset.nextStatus, reason: 'Administrator action' }) }, adminToken);
         adminView();
+      });
+      page.querySelectorAll('.ea-remove-access').forEach(button => button.onclick = async event => {
+        event.stopPropagation();
+        if (!confirm(`Remove all employee-login and attendance data for ${button.dataset.employeeName}? The main workforce profile will remain.`)) return;
+        try {
+          await request(`/api/admin/employee-accounts/${button.dataset.accountId}`, { method: 'DELETE' }, adminToken);
+          adminView();
+        } catch (error) { page.querySelector('#ea-message').textContent = error.message; }
       });
     } catch (error) {
       page.querySelector('#ea-list').innerHTML = `<p class="login-error">${esc(error.message)}</p>`;
