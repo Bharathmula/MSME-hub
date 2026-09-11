@@ -39,10 +39,11 @@ def activate():
  with transaction() as db:
   row=db.execute('SELECT * FROM employee_accounts WHERE invite_hash=?',(hashlib.sha256(raw.encode()).hexdigest(),)).fetchone()
   if not row or datetime.fromisoformat(row['invite_expires_at'])<now():return jsonify({'error':'Invitation is invalid or expired.'}),400
-  if contact not in {str(row['email']).lower(),str(row['phone'] or '').lower()}:
-   return jsonify({'error':'The phone number or email does not match this invitation.'}),400
+  if not contact.endswith('@gmail.com') or contact!=str(row['email']).lower():
+   return jsonify({'error':'Enter the Gmail address used for this invitation.'}),400
   db.execute("UPDATE employee_accounts SET password_hash=?,pin_hash=NULL,status='ACTIVE',invite_hash=NULL,invite_expires_at=NULL,updated_at=? WHERE id=?",(generate_password_hash(password),stamp(),row['id']))
- return jsonify({'ok':True})
+  active=db.execute('SELECT * FROM employee_accounts WHERE id=?',(row['id'],)).fetchone()
+ return jsonify({'ok':True,'access_token':token(active['email'],'EMPLOYEE',active['tenant_email'],active['id']),'employee':public(active)})
 
 @employee_api.get('/api/employee/password-reset-captcha')
 def employee_reset_captcha():
@@ -140,7 +141,7 @@ def accounts():
  with transaction() as db:
   if request.method=='GET':return jsonify({'employees':[public(x) for x in db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? ORDER BY workforce_role,name',(tenant,)).fetchall()]})
   p=data();role=str(p.get('workforce_role','')).upper();email=str(p.get('email','')).strip().lower();eid=str(p.get('employee_id','')).strip();name=str(p.get('name','')).strip();phone=str(p.get('phone','')).strip();password=str(p.get('password',''));pin=str(p.get('pin',''))
-  if role not in {'WORKER','STAFF','TEMPORARY'} or not name or not eid or '@' not in email:return jsonify({'error':'Name, employee ID, valid email, and workforce role are required.'}),400
+  if role not in {'WORKER','STAFF','TEMPORARY'} or not name or not eid or not email.endswith('@gmail.com'):return jsonify({'error':'Name, employee ID, a valid @gmail.com address, and workforce role are required.'}),400
   direct=bool(password or pin)
   if direct and len(password)<8:return jsonify({'error':'Employee password must contain at least 8 characters.'}),400
   if direct and not(pin.isdigit() and len(pin)==6):return jsonify({'error':'Attendance PIN must contain exactly 6 digits.'}),400
