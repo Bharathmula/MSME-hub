@@ -60,7 +60,8 @@
     const mailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(employeeEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
     const whatsappIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a9.7 9.7 0 0 0-8.4 14.6L2 22l5.5-1.5A9.8 9.8 0 1 0 12 2Zm0 17.8c-1.5 0-3-.4-4.2-1.2l-.3-.2-3.2.9.9-3.1-.2-.3A7.8 7.8 0 1 1 12 19.8Zm4.3-5.8c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.6.1l-.7.9c-.1.2-.3.2-.5.1-1.4-.7-2.4-1.3-3.3-2.9-.2-.3.2-.5.6-1 .1-.2.1-.4 0-.5l-.7-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.8.8-1.1 1.9-.7 3 1 2.9 3.5 5.1 6.5 5.9 1.1.3 2.1.2 2.9-.2.9-.4 1.4-1.4 1.4-2.1 0-.3-.1-.5-.3-.6Z"/></svg>`;
     const mailIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm9 7.2L20.4 7H3.6L12 12.2ZM3 17h18V9.2l-8.5 5.2a1 1 0 0 1-1 0L3 9.2V17Z"/></svg>`;
-    return `<div class="ea-share-actions"><b>Invitation created (valid 48 hours).</b><p>Choose how you want to send it:</p><a class="secondary ea-share-button ea-whatsapp" href="${esc(whatsappUrl)}" target="_blank" rel="noopener">${whatsappIcon}<span>Send via WhatsApp</span></a><a class="secondary ea-share-button ea-mail" href="${esc(mailUrl)}" target="_blank" rel="noopener">${mailIcon}<span>Send via Gmail</span></a></div>`;
+    const copyIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 7V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h3Zm2 1h5a2 2 0 0 1 2 2v4h2V5h-9v3Zm-5 2v9h10v-9H5Z"/></svg>`;
+    return `<div class="ea-share-actions"><b>Invitation created (valid 48 hours).</b><p>Choose how you want to send it:</p><button type="button" class="secondary ea-share-button ea-copy-link" data-copy-invitation="${esc(invitationUrl)}">${copyIcon}<span>Copy invitation link</span></button><a class="secondary ea-share-button ea-whatsapp" href="${esc(whatsappUrl)}" target="_blank" rel="noopener">${whatsappIcon}<span>Send via WhatsApp</span></a><a class="secondary ea-share-button ea-mail" href="${esc(mailUrl)}" target="_blank" rel="noopener">${mailIcon}<span>Send via Gmail</span></a></div>`;
   }
 
   function duration(minutes = 0) {
@@ -459,6 +460,15 @@
   }
 
   document.addEventListener('click', event => {
+    const copyInvitation = event.target.closest('[data-copy-invitation]');
+    if (copyInvitation) {
+      const invitationUrl = copyInvitation.dataset.copyInvitation;
+      navigator.clipboard.writeText(invitationUrl).then(() => {
+        copyInvitation.querySelector('span').textContent = 'Link copied';
+        setTimeout(() => { const label = copyInvitation.querySelector('span'); if (label) label.textContent = 'Copy invitation link'; }, 1800);
+      }).catch(() => window.prompt('Copy this invitation link:', invitationUrl));
+      return;
+    }
     const navigation = event.target.closest('[data-view]');
     if (!navigation) return;
     if (navigation.dataset.view === 'employeeaccess') {
