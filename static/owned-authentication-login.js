@@ -69,12 +69,28 @@ async function enter(account,password=''){
 }
 window.MSMEOwnedAuthEnter=enter;
 function progress(step){return `<div class="onboarding-progress">${['Account','Company','Address','Administrator'].map((x,i)=>`<span class="${i===step?'active':''} ${i<step?'complete':''}"><b>${i+1}</b>${x}</span>`).join('')}</div>`}
+function normalizeEmployeeInvitation(form){
+ const input=form?.elements?.invite_token;
+ if(!input)return;
+ const entered=String(input.value||'').trim();
+ if(!/^https?:\/\//i.test(entered))return;
+ try{
+  const invitation=new URL(entered);
+  input.value=invitation.searchParams.get('employee_invite')||'';
+  const email=invitation.searchParams.get('employee_email');
+  if(email&&form.elements.contact)form.elements.contact.value=email;
+ }catch(_){message('Enter a valid invitation link or token.',true)}
+}
 function bindEmployeeAccess(){
  bind();
  const login=panel.querySelector('#owned-employee-signin');
  if(login)login.onsubmit=async event=>{event.preventDefault();const button=login.querySelector('button[type="submit"]');button.disabled=true;button.textContent='Signing in…';try{const result=await employeeRequest('/api/employee/login',Object.fromEntries(new FormData(login)));sessionStorage.setItem('msme-employee-token',result.access_token);window.MSMEEmployeePortal?.open()}catch(error){message(error.message,true);button.disabled=false;button.textContent='Sign in'}};
  const activation=panel.querySelector('#owned-employee-activate');
- if(activation)activation.onsubmit=async event=>{event.preventDefault();const button=activation.querySelector('button[type="submit"]');button.disabled=true;button.textContent='Creating account…';try{await employeeRequest('/api/employee/activate',Object.fromEntries(new FormData(activation)));alert('Account created successfully. You can sign in now.');tab='signin';screen.querySelectorAll('[data-tab]').forEach(item=>item.classList.toggle('active',item.dataset.tab==='signin'));show();message('Account created successfully. Sign in with your new password.')}catch(error){message(error.message,true);button.disabled=false;button.textContent='Create account'}};
+ if(activation){
+  activation.elements.invite_token.addEventListener('change',()=>normalizeEmployeeInvitation(activation));
+  activation.elements.invite_token.addEventListener('paste',()=>setTimeout(()=>normalizeEmployeeInvitation(activation),0));
+  activation.onsubmit=async event=>{event.preventDefault();normalizeEmployeeInvitation(activation);const button=activation.querySelector('button[type="submit"]');button.disabled=true;button.textContent='Creating account…';try{await employeeRequest('/api/employee/activate',Object.fromEntries(new FormData(activation)));alert('Account created successfully. You can sign in now.');tab='signin';screen.querySelectorAll('[data-tab]').forEach(item=>item.classList.toggle('active',item.dataset.tab==='signin'));show();message('Account created successfully. Sign in with your new password.')}catch(error){message(error.message,true);button.disabled=false;button.textContent='Create account'}};
+ }
 }
 function employeeForgotPassword(){
  let employeeCaptcha={};
@@ -89,7 +105,7 @@ function employeeForgotPassword(){
 function show(){
  if(mode==='worker'){
   if(tab==='signin')panel.innerHTML=`<form class="auth-form" id="owned-employee-signin"><h2>Employee / Staff sign in</h2><p>Workers, Staff and Temporary Workers use credentials issued by their administrator.</p><label>PHONE NUMBER / EMAIL<input name="email" type="text" required autocomplete="username" placeholder="Enter registered email"></label><label>PASSWORD<span class="password-wrap"><input name="password" type="password" required autocomplete="current-password">${eye()}</span></label><button class="forgot" type="button" data-employee-forgot>Forgot password?</button><p data-message></p><button class="primary" type="submit">Sign in</button></form>`;
-  else {const query=employeeInviteParams();panel.innerHTML=`<form class="auth-form" id="owned-employee-activate"><h2>Create employee account</h2><p>Your invitation and registered email are filled automatically from the link sent by your administrator.</p><label>INVITATION TOKEN<input name="invite_token" value="${esc(query.get('employee_invite')||'')}" required autocomplete="off" readonly></label><label>PHONE NUMBER / EMAIL<input name="contact" value="${esc(query.get('employee_email')||'')}" required placeholder="Enter the email on your invitation"></label><label>CREATE PASSWORD<span class="password-wrap"><input name="password" type="password" minlength="8" required>${eye()}</span></label><p data-message></p><button class="primary" type="submit">Create account</button></form>`;}
+  else {const query=employeeInviteParams();panel.innerHTML=`<form class="auth-form" id="owned-employee-activate"><h2>Create employee account</h2><p>Open the invitation link to fill this form automatically, or paste the copied invitation link/token manually below.</p><label>INVITATION LINK OR TOKEN<input name="invite_token" value="${esc(query.get('employee_invite')||'')}" required autocomplete="off" placeholder="Paste the complete invitation link or token"></label><label>PHONE NUMBER / EMAIL<input name="contact" value="${esc(query.get('employee_email')||'')}" required placeholder="Enter the email on your invitation"></label><label>CREATE PASSWORD<span class="password-wrap"><input name="password" type="password" minlength="8" required>${eye()}</span></label><p data-message></p><button class="primary" type="submit">Create account</button></form>`;}
   bindEmployeeAccess();panel.querySelector('[data-employee-forgot]')?.addEventListener('click',employeeForgotPassword);return
  }
  if(tab==='signin'){const remembered=localStorage.getItem('msme-last-login-email')||'';panel.innerHTML=`<form class="auth-form" id="owned-signin"><label>EMAIL<input type="email" name="email" value="${esc(remembered)}" required autocomplete="username"></label><label>PASSWORD<span class="password-wrap"><input type="password" name="password" required autocomplete="current-password">${eye()}</span></label><button type="button" class="forgot" data-forgot>Forgot password?</button><p data-message></p><button type="button" class="primary" id="owned-signin-submit">Sign in</button></form>`;bind();return}
