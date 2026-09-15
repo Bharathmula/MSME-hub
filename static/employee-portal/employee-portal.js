@@ -41,7 +41,11 @@
   }
 
   function employeeInvitationUrl(inviteToken, employeeEmail) {
-    let source = document.referrer || window.location.href;
+    const candidates = [window.MSME_APPLICATION_URL];
+    try { candidates.push(window.parent.location.href); } catch (_error) {}
+    candidates.push(document.referrer, window.location.href);
+    const source = candidates.find(value => /^https?:\/\//i.test(String(value || '')));
+    if (!source) return '';
     try {
       const url = new URL(source);
       if (url.hostname.endsWith('.streamlit.app')) url.pathname = '/';

@@ -9,7 +9,6 @@ import threading
 from pathlib import Path
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -66,6 +65,11 @@ def bundled_application() -> str:
         request_host = ""
 
     is_streamlit_public_host = request_host.endswith(".streamlit.app")
+    application_url = (
+        f"{'https' if is_streamlit_public_host else 'http'}://{request_host}/"
+        if request_host
+        else ""
+    )
     api_url = configured_api_url or (
         "" if is_streamlit_public_host else LOCAL_EMPLOYEE_API_URL
     )
@@ -75,6 +79,7 @@ def bundled_application() -> str:
         (
             "<head><script>"
             f"window.MSME_EMPLOYEE_API_URL={json.dumps(api_url.rstrip('/'))};"
+            f"window.MSME_APPLICATION_URL={json.dumps(application_url)};"
             f"window.MSME_EMPLOYEE_INVITE={json.dumps(invite_token)};"
             f"window.MSME_EMPLOYEE_EMAIL={json.dumps(invite_email)};"
             f"window.MSME_CLERK_PUBLISHABLE_KEY={json.dumps(clerk_publishable_key)};"
@@ -121,4 +126,4 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-components.html(bundled_application(), height=900, scrolling=True)
+st.iframe(bundled_application(), height=900)

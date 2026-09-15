@@ -73,11 +73,14 @@ function normalizeEmployeeInvitation(form){
  const input=form?.elements?.invite_token;
  if(!input)return;
  const entered=String(input.value||'').trim();
- if(!/^https?:\/\//i.test(entered))return;
+ if(!entered||!entered.includes('employee_invite='))return;
  try{
-  const invitation=new URL(entered);
-  input.value=invitation.searchParams.get('employee_invite')||'';
-  const email=invitation.searchParams.get('employee_email');
+  const query=entered.includes('?')?entered.slice(entered.indexOf('?')+1):entered;
+  const params=new URLSearchParams(query);
+  const token=params.get('employee_invite');
+  if(!token)throw Error('Invitation token is missing.');
+  input.value=token;
+  const email=params.get('employee_email');
   if(email&&form.elements.contact)form.elements.contact.value=email;
  }catch(_){message('Enter a valid invitation link or token.',true)}
 }
