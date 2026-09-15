@@ -115,50 +115,70 @@ async function adminAttendanceRequestV33(path) {
 function adminAttendancePhotoPanelV33(detail, date) {
   const shift = detail?.attendance;
   const status = shift ? (shift.status === 'COMPLETED' ? 'Present' : 'Checked in') : 'Absent';
-  const total = shift?.status === 'COMPLETED' ? durationTextV21(shift.worked_minutes || 0) : (shift ? 'In progress' : '—');
+  const total = shift?.work_display || (shift?.status === 'COMPLETED' ? durationTextV21(shift.worked_minutes || 0) : (shift ? 'In progress' : '—'));
+  const displayTime = value => {
+    if (!value) return '—';
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? show12(value) : parsed.toLocaleString('en-IN');
+  };
   const photo = (title, source) => `<figure><figcaption>${title}</figcaption>${source
     ? `<img src="${esc(source)}" alt="${title} for ${esc(date)}">`
     : `<span>No ${title.toLowerCase()}</span>`}</figure>`;
-  return `<div class="admin-person-day-summary"><div><span>Date</span><b>${esc(date)}</b></div><div><span>Status</span><b>${status}</b></div><div><span>Check-in</span><b>${shift?.check_in_at ? new Date(shift.check_in_at).toLocaleString('en-IN') : '—'}</b></div><div><span>Check-out</span><b>${shift?.check_out_at ? new Date(shift.check_out_at).toLocaleString('en-IN') : '—'}</b></div><div><span>Working hours</span><b>${total}</b></div></div><div class="admin-attendance-photos">${photo('Check-in photo',detail?.check_in_photo)}${photo('Check-out photo',detail?.check_out_photo)}</div>`;
+  return `<div class="admin-person-day-summary"><div><span>Date</span><b>${esc(date)}</b></div><div><span>Status</span><b>${status}</b></div><div><span>Check-in</span><b>${displayTime(shift?.check_in_at)}</b></div><div><span>Check-out</span><b>${displayTime(shift?.check_out_at)}</b></div><div><span>Working hours</span><b>${total}</b></div></div><div class="admin-attendance-photos">${photo('Check-in photo',detail?.check_in_photo)}${photo('Check-out photo',detail?.check_out_photo)}</div>`;
+}
+
+function localIndividualAttendanceV34(person, monthValue) {
+  return attendanceLog.filter(day => String(day.date || '').startsWith(`${monthValue}-`)).map(day => {
+    const record = (day.records || []).find(item => item.id === person.id);
+    if (!record || record.status !== 'Present') return null;
+    return {
+      work_date: day.date,
+      status: record.logout ? 'COMPLETED' : 'OPEN',
+      check_in_at: record.login || '',
+      check_out_at: record.logout || '',
+      work_display: record.logout ? (record.work || record.total || '—') : 'In progress',
+      local_record: true,
+    };
+  }).filter(Boolean);
+}
+
+function renderIndividualAttendanceCalendarV34(person, monthValue, records, warning = '') {
+  const modalRoot = document.getElementById('modal-root');
+  const [year, monthNumber] = monthValue.split('-').map(Number);
+  const monthIndex = monthNumber - 1;
+  const firstDay = (new Date(year, monthIndex, 1).getDay() + 6) % 7;
+  const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+  const today = new Date().toISOString().slice(0, 10);
+  const byDate = new Map(records.map(item => [item.work_date, item]));
+  const days = Array.from({length:lastDay},(_,index)=>{const date=`${monthValue}-${String(index+1).padStart(2,'0')}`,record=byDate.get(date),state=record?'present':date<today?'absent':'future';return `<button type="button" class="attendance-day admin-person-attendance-day ${state}" data-admin-attendance-date="${date}" ${record?'':'data-no-record="yes"'}><span class="calendar-date-number">${index+1}</span><small>${record?(record.status==='COMPLETED'?'Present':'Checked in'):(date<today?'Absent':'—')}</small>${date===today?'<span class="today-check">TODAY</span>':''}</button>`}).join('');
+  const current = new Date(year, monthIndex, 1);
+  const monthKey = value => `${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,'0')}`;
+  const previous = monthKey(new Date(year, monthIndex - 1, 1));
+  const next = monthKey(new Date(year, monthIndex + 1, 1));
+  const monthOptions=Array.from({length:12},(_,index)=>`<option value="${index+1}" ${index===monthIndex?'selected':''}>${new Date(2000,index,1).toLocaleString('en-IN',{month:'long'})}</option>`).join('');
+  const yearOptions=Array.from({length:11},(_,index)=>year-5+index).map(value=>`<option ${value===year?'selected':''}>${value}</option>`).join('');
+  modalRoot.innerHTML = `<div class="modal-backdrop"><section class="modal individual-attendance-modal"><div class="modal-head"><div><div class="eyebrow">INDIVIDUAL ATTENDANCE</div><h2>${esc(person.name)}</h2><p>Click a blue present date to display its check-in and check-out photos.</p></div><button class="close" type="button" data-close>×</button></div><div class="advanced-calendar-toolbar individual-month-toolbar"><button class="calendar-nav-button" type="button" data-person-month="${previous}">‹</button><div class="calendar-title-block"><small>SELECTED MONTH</small><h3>${current.toLocaleString('en-IN',{month:'long',year:'numeric'})}</h3></div><button class="calendar-nav-button" type="button" data-person-month="${next}">›</button><div class="calendar-month-year-picker"><label>Month<select id="individual-attendance-month">${monthOptions}</select></label><label>Year<select id="individual-attendance-year">${yearOptions}</select></label><button type="button" class="calendar-today-button" id="individual-attendance-today">Today</button></div></div><div class="admin-person-weekdays">${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day=>`<b>${day}</b>`).join('')}</div><div class="attendance-calendar admin-person-calendar">${'<i></i>'.repeat(firstDay)}${days}</div><div class="calendar-legend admin-person-calendar-legend"><span class="present">Blue · Present</span><span class="absent">Red · Absent</span><b>${warning?esc(warning):'Attendance database connected'}</b></div><section class="admin-person-selected-day" id="admin-person-selected-day"><p>Select a date to view attendance and photos.</p></section></section></div>`;
+  const panel=modalRoot.querySelector('.individual-attendance-modal');
+  panel.querySelector('[data-close]').onclick=()=>{modalRoot.innerHTML=''};
+  panel.querySelectorAll('[data-person-month]').forEach(button=>button.onclick=()=>openIndividualAttendanceCalendarV33(person,button.dataset.personMonth));
+  const changeMonth=()=>{const selectedYear=Number(panel.querySelector('#individual-attendance-year').value),selectedMonth=Number(panel.querySelector('#individual-attendance-month').value);openIndividualAttendanceCalendarV33(person,`${selectedYear}-${String(selectedMonth).padStart(2,'0')}`)};
+  panel.querySelector('#individual-attendance-month').onchange=changeMonth;
+  panel.querySelector('#individual-attendance-year').onchange=changeMonth;
+  panel.querySelector('#individual-attendance-today').onclick=()=>openIndividualAttendanceCalendarV33(person,new Date().toISOString().slice(0,7));
+  panel.querySelectorAll('[data-admin-attendance-date]').forEach(button=>button.onclick=async()=>{const date=button.dataset.adminAttendanceDate,selected=panel.querySelector('#admin-person-selected-day'),localRecord=byDate.get(date);if(button.dataset.noRecord==='yes'){selected.innerHTML=adminAttendancePhotoPanelV33({attendance:null},date);return}selected.innerHTML=adminAttendancePhotoPanelV33({attendance:localRecord},date)+'<p>Loading permanently saved photos…</p>';try{const detail=await adminAttendanceRequestV33(`/api/admin/employee-attendance-detail?employee_id=${encodeURIComponent(person.id)}&date=${encodeURIComponent(date)}`);selected.innerHTML=adminAttendancePhotoPanelV33(detail,date)}catch(error){selected.insertAdjacentHTML('beforeend',`<p class="login-error">Photos unavailable: ${esc(error.message)} The Render backend must finish deploying the latest commit.</p>`)}});
 }
 
 async function openIndividualAttendanceCalendarV33(person, monthValue = new Date().toISOString().slice(0, 7)) {
-  const modalRoot = document.getElementById('modal-root');
-  modalRoot.innerHTML = `<div class="modal-backdrop"><section class="modal individual-attendance-modal"><div class="modal-head"><div><div class="eyebrow">INDIVIDUAL ATTENDANCE</div><h2>${esc(person.name)}</h2><p>Monthly attendance and permanently saved check-in/check-out photos.</p></div><button class="close" type="button" data-close>×</button></div><p class="individual-attendance-loading">Loading attendance…</p></section></div>`;
-  modalRoot.querySelector('[data-close]').onclick = () => { modalRoot.innerHTML = ''; };
+  const localRecords=localIndividualAttendanceV34(person,monthValue);
+  renderIndividualAttendanceCalendarV34(person,monthValue,localRecords,'Loading permanent database records…');
   try {
-    const payload = await adminAttendanceRequestV33(`/api/admin/employee-attendance-month?employee_id=${encodeURIComponent(person.id)}&month=${encodeURIComponent(monthValue)}`);
-    if (!modalRoot.querySelector('.individual-attendance-modal')) return;
-    const [year, monthNumber] = monthValue.split('-').map(Number);
-    const monthIndex = monthNumber - 1;
-    const firstDay = (new Date(year, monthIndex, 1).getDay() + 6) % 7;
-    const lastDay = new Date(year, monthIndex + 1, 0).getDate();
-    const today = new Date().toISOString().slice(0, 10);
-    const byDate = new Map(payload.attendance.map(item => [item.work_date, item]));
-    const days = Array.from({length:lastDay},(_,index)=>{
-      const date=`${monthValue}-${String(index+1).padStart(2,'0')}`;
-      const record=byDate.get(date);
-      const state=record?'present':date<today?'absent':'future';
-      return `<button type="button" class="admin-person-attendance-day ${state}" data-admin-attendance-date="${date}" ${record?'':'data-no-record="yes"'}><b>${index+1}</b><small>${record?(record.status==='COMPLETED'?'Present':'Checked in'):(date<today?'Absent':'—')}</small></button>`;
-    }).join('');
-    const current = new Date(year, monthIndex, 1);
-    const monthKey = value => `${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,'0')}`;
-    const previous = monthKey(new Date(year, monthIndex - 1, 1));
-    const next = monthKey(new Date(year, monthIndex + 1, 1));
-    const panel = modalRoot.querySelector('.individual-attendance-modal');
-    panel.innerHTML = `<div class="modal-head"><div><div class="eyebrow">INDIVIDUAL ATTENDANCE</div><h2>${esc(person.name)}</h2><p>Click a blue present date to display its check-in and check-out photos.</p></div><button class="close" type="button" data-close>×</button></div><div class="individual-month-toolbar"><button type="button" data-person-month="${previous}">‹</button><h3>${current.toLocaleString('en-IN',{month:'long',year:'numeric'})}</h3><button type="button" data-person-month="${next}">›</button></div><div class="admin-person-weekdays">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=>`<b>${day}</b>`).join('')}</div><div class="admin-person-calendar">${'<i></i>'.repeat(firstDay)}${days}</div><div class="admin-person-calendar-legend"><span class="present">Blue · Present</span><span class="absent">Red · Absent</span></div><section class="admin-person-selected-day" id="admin-person-selected-day"><p>Select a date to view attendance and photos.</p></section>`;
-    panel.querySelector('[data-close]').onclick=()=>{modalRoot.innerHTML=''};
-    panel.querySelectorAll('[data-person-month]').forEach(button=>button.onclick=()=>openIndividualAttendanceCalendarV33(person,button.dataset.personMonth));
-    panel.querySelectorAll('[data-admin-attendance-date]').forEach(button=>button.onclick=async()=>{
-      const date=button.dataset.adminAttendanceDate;
-      const selected=panel.querySelector('#admin-person-selected-day');
-      if(button.dataset.noRecord==='yes'){selected.innerHTML=adminAttendancePhotoPanelV33({attendance:null},date);return}
-      selected.innerHTML='<p>Loading saved photos…</p>';
-      try{const detail=await adminAttendanceRequestV33(`/api/admin/employee-attendance-detail?employee_id=${encodeURIComponent(person.id)}&date=${encodeURIComponent(date)}`);selected.innerHTML=adminAttendancePhotoPanelV33(detail,date)}catch(error){selected.innerHTML=`<p class="login-error">${esc(error.message)}</p>`}
-    });
+    const payload=await adminAttendanceRequestV33(`/api/admin/employee-attendance-month?employee_id=${encodeURIComponent(person.id)}&month=${encodeURIComponent(monthValue)}`);
+    if(!document.querySelector('.individual-attendance-modal'))return;
+    const merged=new Map(localRecords.map(item=>[item.work_date,item]));
+    payload.attendance.forEach(item=>merged.set(item.work_date,item));
+    renderIndividualAttendanceCalendarV34(person,monthValue,[...merged.values()]);
   } catch (error) {
-    const loading = modalRoot.querySelector('.individual-attendance-loading');
-    if (loading) loading.textContent = error.message;
+    if(document.querySelector('.individual-attendance-modal'))renderIndividualAttendanceCalendarV34(person,monthValue,localRecords,`Permanent photo service unavailable: ${error.message}`);
   }
 }
 
