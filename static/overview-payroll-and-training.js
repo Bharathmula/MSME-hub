@@ -1526,16 +1526,51 @@ if (document.readyState === 'loading') {
   function enhanceProfileFields(personId) {
     const form = document.querySelector('#modal-root form');
     if (!form || form.dataset.msmeBsFields === 'yes') return;
-    const person = [...allPayrollPeople(), ...(Array.isArray(exPeople) ? exPeople : [])].find(item => item.id === personId) || {};
+    const person = [...allPayrollPeople(), ...(Array.isArray(exPeople) ? exPeople : [])].find(item => item.id === personId)
+      || (form.id === 'temp-edit' && Array.isArray(temporaryWorkers) ? temporaryWorkers[temporaryWorkers.length - 1] : {})
+      || {};
     const sections = [...form.querySelectorAll('.form-section')];
+    const personalGrid = sections[0]?.nextElementSibling || form.querySelector('.form-grid');
     const workGrid = sections.find(section => /work|employment|attendance/i.test(section.textContent))?.nextElementSibling;
-    const familyGrid = sections.find(section => /family/i.test(section.textContent))?.nextElementSibling;
+    const familyGrid = sections.find(section => /family/i.test(section.textContent))?.nextElementSibling || form.querySelector('.form-grid');
     addProfileField(workGrid, 'Monthly salary (₹)', 'monthly_salary', 'number', person.monthly_salary);
     addProfileField(workGrid, 'Daily rate (₹, optional)', 'daily_rate', 'number', person.daily_rate);
     addProfileSelect(familyGrid, 'Father is deceased', 'father_deceased', person.father_deceased);
     addProfileField(familyGrid, "Father's death anniversary", 'father_death_anniversary', 'date', person.father_death_anniversary);
     addProfileSelect(familyGrid, 'Mother is deceased', 'mother_deceased', person.mother_deceased);
     addProfileField(familyGrid, "Mother's death anniversary", 'mother_death_anniversary', 'date', person.mother_death_anniversary);
+    const oldSiblingField = familyGrid?.querySelector('[name="siblings"]')?.closest('label');
+    if (oldSiblingField) oldSiblingField.hidden = true;
+    if (familyGrid && !familyGrid.querySelector('[name="siblings_quantity"]')) {
+      const quantity = Math.max(0, Math.min(10, Number(person.siblings_quantity || 0)));
+      familyGrid.insertAdjacentHTML('beforeend', `<label>Siblings quantity<select name="siblings_quantity">${Array.from({length:11},(_,index)=>`<option value="${index}" ${index===quantity?'selected':''}>${index}</option>`).join('')}</select></label><div class="sibling-name-fields full" data-sibling-names></div>`);
+      const quantitySelect = familyGrid.querySelector('[name="siblings_quantity"]');
+      const namesContainer = familyGrid.querySelector('[data-sibling-names]');
+      const renderSiblingNames = () => {
+        const count = Number(quantitySelect.value || 0);
+        namesContainer.innerHTML = Array.from({length:count},(_,index)=>`<label>Sibling ${index+1} name<input name="sibling_name_${index+1}" value="${esc(person[`sibling_name_${index+1}`] || '')}" required></label>`).join('');
+      };
+      quantitySelect.addEventListener('change', renderSiblingNames);
+      renderSiblingNames();
+    }
+    addProfileSelect(personalGrid, 'Driving skill', 'driving_skill', person.driving_skill);
+    addProfileField(personalGrid, 'Vehicle type', 'driving_vehicle_type', 'text', person.driving_vehicle_type);
+    addProfileField(personalGrid, 'Driving licence number', 'driving_licence_number', 'text', person.driving_licence_number);
+    const drivingSelect = personalGrid?.querySelector('[name="driving_skill"]');
+    const vehicleLabel = personalGrid?.querySelector('[name="driving_vehicle_type"]')?.closest('label');
+    const licenceLabel = personalGrid?.querySelector('[name="driving_licence_number"]')?.closest('label');
+    if (drivingSelect && vehicleLabel && licenceLabel) {
+      drivingSelect.required = true;
+      const updateDrivingFields = () => {
+        const enabled = drivingSelect.value === 'Yes';
+        vehicleLabel.hidden = !enabled;
+        licenceLabel.hidden = !enabled;
+        vehicleLabel.querySelector('input').required = enabled;
+        licenceLabel.querySelector('input').required = enabled;
+      };
+      drivingSelect.addEventListener('change', updateDrivingFields);
+      updateDrivingFields();
+    }
     ['father', 'mother'].forEach(parent => {
       const deceased = form.querySelector(`[name="${parent}_deceased"]`);
       const anniversary = form.querySelector(`[name="${parent}_death_anniversary"]`)?.closest('label');

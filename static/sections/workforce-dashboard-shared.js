@@ -119,6 +119,8 @@
           <td>${esc(text(person.shift, "09:00 AM - 06:00 PM"))}</td>
           <td>${esc(text(today.login || today.login_time))}</td>
           <td>${esc(text(today.logout || today.logout_time))}</td>
+          <td>${esc(text(today.portal_login_at))}</td>
+          <td>${esc(text(today.portal_logout_at))}</td>
           <td>${faceStatus(today.checkin_face_captured || today.checkin_photo)}</td>
           <td>${faceStatus(today.checkout_face_captured || today.checkout_photo)}</td>
           <td>${esc(totalTime)}</td>
@@ -179,6 +181,8 @@
               <th>SHIFT TIMINGS</th>
               <th>CHECK-IN TIME</th>
               <th>CHECK-OUT TIME</th>
+              <th>PORTAL LOGIN</th>
+              <th>PORTAL LOGOUT</th>
               <th>CHECK-IN FACE</th>
               <th>CHECK-OUT FACE</th>
               <th>TOTAL TIME</th>
@@ -191,7 +195,7 @@
           <tbody>
             ${workforceRows(records) || `
               <tr>
-                <td colspan="13" class="empty">No ${esc(label.toLowerCase())} records.</td>
+                <td colspan="15" class="empty">No ${esc(label.toLowerCase())} records.</td>
               </tr>
             `}
           </tbody>

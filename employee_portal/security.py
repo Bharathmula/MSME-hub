@@ -3,7 +3,7 @@ from flask import current_app,g,jsonify,request
 from itsdangerous import BadSignature,SignatureExpired,URLSafeTimedSerializer
 
 def signer(): return URLSafeTimedSerializer(current_app.config['SECRET_KEY'],salt='msme-employee-access-v1')
-def token(email,role,tenant,employee_account_id=None): return signer().dumps({'email':email.lower(),'role':role,'tenant':tenant.lower(),'employee_account_id':employee_account_id})
+def token(email,role,tenant,employee_account_id=None,session_id=None): return signer().dumps({'email':email.lower(),'role':role,'tenant':tenant.lower(),'employee_account_id':employee_account_id,'session_id':session_id})
 def require(*roles):
  def decorate(fn):
   @wraps(fn)

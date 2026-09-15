@@ -31,6 +31,7 @@ The Python service creates all tables automatically. Never commit `DATABASE_URL`
 - `employee_accounts`: Worker, Staff and Temporary Worker access.
 - `employee_shifts`: check-in, check-out and calculated worked minutes.
 - `employee_attendance_events`: immutable face-capture attendance events.
+- `employee_login_sessions`: permanent employee portal login/logout history.
 - `employee_audit_log`: security and account-action audit history.
 
 Inside each `tenant_workspaces.workspace_json`, `storage` contains people, ex-employees, temporary workers, festivals, festival years, attendance, deleted attendance, contractors, recycle bin, training and dashboard visibility settings.

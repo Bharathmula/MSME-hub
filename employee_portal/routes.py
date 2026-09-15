@@ -21,16 +21,20 @@ def audit(db,action,kind,eid,details):
 def current(db):
  row=db.execute('SELECT * FROM employee_accounts WHERE id=?',(g.employee_identity.get('employee_account_id'),)).fetchone()
  return row if row and row['status']=='ACTIVE' and row['tenant_email']==g.employee_identity['tenant'] else None
+def start_login_session(db,row):
+ session_id=uuid4().hex;login_at=stamp()
+ db.execute('INSERT INTO employee_login_sessions(id,employee_account_id,tenant_email,login_at,user_agent,created_at) VALUES(?,?,?,?,?,?)',(session_id,row['id'],row['tenant_email'],login_at,str(request.headers.get('User-Agent',''))[:500],login_at))
+ return session_id,login_at
 
 @employee_api.post('/api/employee/login')
 def login():
  p=data();login_id=str(p.get('email','')).strip().lower();password=str(p.get('password',''))
- db=connect()
- try: row=db.execute('SELECT * FROM employee_accounts WHERE lower(email)=? OR phone=?',(login_id,login_id)).fetchone()
- finally: db.close()
- if not row or not row['password_hash'] or not check_password_hash(row['password_hash'],password):return jsonify({'error':'Incorrect employee email or password.'}),401
- if row['status']!='ACTIVE':return jsonify({'error':f"This account is {row['status'].lower()}."}),403
- return jsonify({'ok':True,'access_token':token(row['email'],'EMPLOYEE',row['tenant_email'],row['id']),'employee':public(row)})
+ with transaction() as db:
+  row=db.execute('SELECT * FROM employee_accounts WHERE lower(email)=? OR phone=?',(login_id,login_id)).fetchone()
+  if not row or not row['password_hash'] or not check_password_hash(row['password_hash'],password):return jsonify({'error':'Incorrect employee email or password.'}),401
+  if row['status']!='ACTIVE':return jsonify({'error':f"This account is {row['status'].lower()}."}),403
+  session_id,login_at=start_login_session(db,row)
+ return jsonify({'ok':True,'access_token':token(row['email'],'EMPLOYEE',row['tenant_email'],row['id'],session_id),'employee':public(row),'login_at':login_at})
 
 @employee_api.post('/api/employee/activate')
 def activate():
@@ -38,12 +42,25 @@ def activate():
  if len(password)<8:return jsonify({'error':'Password must contain at least 8 characters.'}),400
  with transaction() as db:
   row=db.execute('SELECT * FROM employee_accounts WHERE invite_hash=?',(hashlib.sha256(raw.encode()).hexdigest(),)).fetchone()
-  if not row or datetime.fromisoformat(row['invite_expires_at'])<now():return jsonify({'error':'Invitation is invalid or expired.'}),400
+  if not row:return jsonify({'error':'Invitation is invalid or expired.'}),400
+  issued_at=datetime.fromisoformat(row['updated_at'] or row['created_at'])
+  effective_expiry=min(datetime.fromisoformat(row['invite_expires_at']),issued_at+timedelta(hours=24))
+  if effective_expiry<now():return jsonify({'error':'Invitation is invalid or expired.'}),400
   if not contact.endswith('@gmail.com') or contact!=str(row['email']).lower():
    return jsonify({'error':'Enter the Gmail address used for this invitation.'}),400
   db.execute("UPDATE employee_accounts SET password_hash=?,pin_hash=NULL,status='ACTIVE',invite_hash=NULL,invite_expires_at=NULL,updated_at=? WHERE id=?",(generate_password_hash(password),stamp(),row['id']))
   active=db.execute('SELECT * FROM employee_accounts WHERE id=?',(row['id'],)).fetchone()
- return jsonify({'ok':True,'access_token':token(active['email'],'EMPLOYEE',active['tenant_email'],active['id']),'employee':public(active)})
+  session_id,login_at=start_login_session(db,active)
+ return jsonify({'ok':True,'access_token':token(active['email'],'EMPLOYEE',active['tenant_email'],active['id'],session_id),'employee':public(active),'login_at':login_at})
+
+@employee_api.post('/api/employee/logout')
+@require('EMPLOYEE')
+def logout():
+ session_id=str(g.employee_identity.get('session_id') or '')
+ if session_id:
+  with transaction() as db:
+   db.execute('UPDATE employee_login_sessions SET logout_at=? WHERE id=? AND employee_account_id=? AND logout_at IS NULL',(stamp(),session_id,g.employee_identity.get('employee_account_id')))
+ return jsonify({'ok':True,'logout_at':stamp()})
 
 @employee_api.get('/api/employee/password-reset-captcha')
 def employee_reset_captcha():
@@ -72,16 +89,41 @@ def dashboard():
   row=current(db)
   if not row:return jsonify({'error':'Employee account is not active.'}),403
   shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(row['id'],now().date().isoformat())).fetchone()
-  history=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? ORDER BY work_date DESC LIMIT 400',(row['id'],)).fetchall()
+  history=db.execute('''SELECT s.*,
+   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND e.face_capture_data LIKE 'data:image/%') AS checkin_face_captured,
+   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND e.face_capture_data LIKE 'data:image/%') AS checkout_face_captured
+   FROM employee_shifts s WHERE s.employee_account_id=? ORDER BY s.work_date DESC LIMIT 400''',(row['id'],)).fetchall()
+  sessions=db.execute('SELECT id,login_at,logout_at FROM employee_login_sessions WHERE employee_account_id=? ORDER BY login_at DESC LIMIT 50',(row['id'],)).fetchall()
+  current_session=next((item for item in sessions if item['id']==g.employee_identity.get('session_id')),None)
+  previous_logout=next((item['logout_at'] for item in sessions if item['logout_at']),None)
   return jsonify({
    'employee':public(row),
    'server_time':stamp(),
    'today':dict(shift) if shift else None,
    'next_action':'CHECK_OUT' if shift and shift['status']=='OPEN' else 'CHECK_IN',
    'history':[dict(x) for x in history],
+   'session':dict(current_session) if current_session else None,
+   'last_logout_at':previous_logout,
+   'login_history':[dict(item) for item in sessions],
    'verification_method':'FACE_CAPTURE',
    'biometric_ready':True,
   })
+ finally:db.close()
+
+@employee_api.get('/api/employee/attendance-detail')
+@require('EMPLOYEE')
+def attendance_detail():
+ work_date=str(request.args.get('date','')).strip()
+ if not work_date:return jsonify({'error':'Attendance date is required.'}),400
+ db=connect()
+ try:
+  row=current(db)
+  if not row:return jsonify({'error':'Employee account is not active.'}),403
+  shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(row['id'],work_date)).fetchone()
+  if not shift:return jsonify({'date':work_date,'attendance':None,'check_in_photo':'','check_out_photo':''})
+  events=db.execute('SELECT event_type,server_timestamp,face_capture_data FROM employee_attendance_events WHERE shift_id=? ORDER BY server_timestamp',(shift['id'],)).fetchall()
+  photos={item['event_type']:item['face_capture_data'] or '' for item in events}
+  return jsonify({'date':work_date,'attendance':dict(shift),'check_in_photo':photos.get('CHECK_IN',''),'check_out_photo':photos.get('CHECK_OUT','')})
  finally:db.close()
 
 @employee_api.patch('/api/employee/profile-photo')
@@ -145,7 +187,7 @@ def accounts():
   direct=bool(password or pin)
   if direct and len(password)<8:return jsonify({'error':'Employee password must contain at least 8 characters.'}),400
   if direct and not(pin.isdigit() and len(pin)==6):return jsonify({'error':'Attendance PIN must contain exactly 6 digits.'}),400
-  raw=secrets.token_urlsafe(32);expires=(now()+timedelta(hours=48)).isoformat()
+  raw=secrets.token_urlsafe(32);expires=(now()+timedelta(hours=24)).isoformat()
   existing=db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? AND (lower(email)=? OR employee_id=?)',(tenant,email,eid)).fetchone()
   if existing:
    if existing['status']=='ACTIVE':return jsonify({'error':'That employee already has an active account.'}),409
@@ -204,6 +246,8 @@ def employee_attendance():
   SELECT s.work_date,s.check_in_at,s.check_out_at,s.worked_minutes,s.status,
          EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND e.face_capture_data LIKE 'data:image/%') AS checkin_face_captured,
          EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND e.face_capture_data LIKE 'data:image/%') AS checkout_face_captured,
+         (SELECT ls.login_at FROM employee_login_sessions ls WHERE ls.employee_account_id=a.id ORDER BY ls.login_at DESC LIMIT 1) AS portal_login_at,
+         (SELECT ls.logout_at FROM employee_login_sessions ls WHERE ls.employee_account_id=a.id AND ls.logout_at IS NOT NULL ORDER BY ls.login_at DESC LIMIT 1) AS portal_logout_at,
          a.employee_id,a.name,a.email,a.workforce_role
   FROM employee_shifts s
   JOIN employee_accounts a ON a.id=s.employee_account_id

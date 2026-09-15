@@ -540,6 +540,8 @@ async function syncAutomaticAttendanceV21(date, force = false) {
       checkin_face_captured: Boolean(item.checkin_face_captured),
       checkout_face_captured: Boolean(item.checkout_face_captured),
       face_captured: Boolean(item.checkin_face_captured || item.checkout_face_captured),
+      portal_login_at: automaticTimeV21(item.portal_login_at),
+      portal_logout_at: automaticTimeV21(item.portal_logout_at),
       source: 'Face check-in / check-out'
       };
     });

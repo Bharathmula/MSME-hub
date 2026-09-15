@@ -10,6 +10,7 @@
   let currentPage = 'overview';
   let cameraStream = null;
   let capturedFace = '';
+  let selectedAttendanceDetail = null;
   let attendanceCalendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   let selectedAttendanceDate = new Date().toISOString().slice(0, 10);
   const defaultGlobalSearchHandler = document.getElementById('global-search')?.oninput || null;
@@ -59,13 +60,13 @@
 
   function invitationShareButtons(invitationUrl, employeeName, employeeEmail) {
     const subject = 'Your MSME Hub employee invitation';
-    const message = `Hello ${employeeName},\n\nUse this secure invitation to create your MSME Hub employee account:\n${invitationUrl}\n\nThis invitation is valid for 48 hours.`;
+    const message = `Hello ${employeeName},\n\nUse this secure invitation to create your MSME Hub employee account:\n${invitationUrl}\n\nThis invitation is valid for 24 hours.`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     const mailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(employeeEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
     const whatsappIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a9.7 9.7 0 0 0-8.4 14.6L2 22l5.5-1.5A9.8 9.8 0 1 0 12 2Zm0 17.8c-1.5 0-3-.4-4.2-1.2l-.3-.2-3.2.9.9-3.1-.2-.3A7.8 7.8 0 1 1 12 19.8Zm4.3-5.8c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.6.1l-.7.9c-.1.2-.3.2-.5.1-1.4-.7-2.4-1.3-3.3-2.9-.2-.3.2-.5.6-1 .1-.2.1-.4 0-.5l-.7-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.8.8-1.1 1.9-.7 3 1 2.9 3.5 5.1 6.5 5.9 1.1.3 2.1.2 2.9-.2.9-.4 1.4-1.4 1.4-2.1 0-.3-.1-.5-.3-.6Z"/></svg>`;
     const mailIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm9 7.2L20.4 7H3.6L12 12.2ZM3 17h18V9.2l-8.5 5.2a1 1 0 0 1-1 0L3 9.2V17Z"/></svg>`;
     const copyIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 7V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h3Zm2 1h5a2 2 0 0 1 2 2v4h2V5h-9v3Zm-5 2v9h10v-9H5Z"/></svg>`;
-    return `<div class="ea-share-actions"><b>Invitation created (valid 48 hours).</b><p>Choose how you want to send it:</p><button type="button" class="secondary ea-share-button ea-copy-link" data-copy-invitation="${esc(invitationUrl)}">${copyIcon}<span>Copy invitation link</span></button><a class="secondary ea-share-button ea-whatsapp" href="${esc(whatsappUrl)}" target="_blank" rel="noopener">${whatsappIcon}<span>Send via WhatsApp</span></a><a class="secondary ea-share-button ea-mail" href="${esc(mailUrl)}" target="_blank" rel="noopener">${mailIcon}<span>Send via Gmail</span></a></div>`;
+    return `<div class="ea-share-actions"><b>Invitation created (valid 24 hours).</b><p>Choose how you want to send it:</p><button type="button" class="secondary ea-share-button ea-copy-link" data-copy-invitation="${esc(invitationUrl)}">${copyIcon}<span>Copy invitation link</span></button><a class="secondary ea-share-button ea-whatsapp" href="${esc(whatsappUrl)}" target="_blank" rel="noopener">${whatsappIcon}<span>Send via WhatsApp</span></a><a class="secondary ea-share-button ea-mail" href="${esc(mailUrl)}" target="_blank" rel="noopener">${mailIcon}<span>Send via Gmail</span></a></div>`;
   }
 
   function duration(minutes = 0) {
@@ -114,6 +115,7 @@
           body: JSON.stringify(Object.fromEntries(new FormData(event.target)))
         }, '');
         sessionStorage.setItem('msme-employee-token', result.access_token);
+        selectedAttendanceDetail = null;
         currentPage = 'overview';
         await loadDashboard();
       } catch (error) {
@@ -163,10 +165,13 @@
         ${content}
       </main>
     </div>`;
-    root.querySelector('#ep-logout').onclick = () => {
+    root.querySelector('#ep-logout').onclick = async event => {
+      event.currentTarget.disabled = true;
       stopCamera();
+      try { await request('/api/employee/logout', { method: 'POST' }); } catch (_error) {}
       sessionStorage.removeItem('msme-employee-token');
       sessionStorage.removeItem('msme-employee-page');
+      selectedAttendanceDetail = null;
       root.style.display = 'none';
       root.innerHTML = '';
       window.dispatchEvent(new CustomEvent('msme-employee-session-expired'));
@@ -187,7 +192,7 @@
     employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">TODAY</p><h1>${action === 'CHECK_IN' ? 'Ready to check in?' : 'Ready to check out?'}</h1><p>Capture a current live face photo to record your attendance.</p></section>
       <div class="ep-overview-grid">
         <section class="ep-card"><h2>Attendance status</h2><div class="ep-status ${(today?.status || 'not-started').toLowerCase()}">${esc(today?.status || 'NOT STARTED')}</div>
-          <dl class="ep-details"><div><dt>Check-in</dt><dd>${dateTime(today?.check_in_at)}</dd></div><div><dt>Check-out</dt><dd>${dateTime(today?.check_out_at)}</dd></div><div><dt>Total time</dt><dd>${duration(today?.worked_minutes || 0)}</dd></div></dl>
+          <dl class="ep-details"><div><dt>Portal login</dt><dd>${dateTime(dashboard.session?.login_at)}</dd></div><div><dt>Previous logout</dt><dd>${dateTime(dashboard.last_logout_at)}</dd></div><div><dt>Check-in</dt><dd>${dateTime(today?.check_in_at)}</dd></div><div><dt>Check-out</dt><dd>${dateTime(today?.check_out_at)}</dd></div><div><dt>Total time</dt><dd>${duration(today?.worked_minutes || 0)}</dd></div></dl>
         </section>
         <section class="ep-card ep-camera-card"><h2>${esc(action.replace('_', ' '))} face capture</h2>
           <div class="ep-camera-stage"><video id="ep-camera" autoplay playsinline></video><canvas id="ep-canvas" hidden></canvas><img id="ep-face-preview" alt="Captured face" hidden><span id="ep-camera-placeholder">Camera preview</span></div>
@@ -200,6 +205,7 @@
 
   function renderAttendance() {
     const rows = dashboard.history.map(item => `<tr><td>${esc(item.work_date)}</td><td>${dateTime(item.check_in_at)}</td><td>${dateTime(item.check_out_at)}</td><td>${duration(item.worked_minutes || 0)}</td><td><span class="ep-table-status">${esc(item.status)}</span></td></tr>`).join('');
+    const loginRows = (dashboard.login_history || []).map(item => `<tr><td>${dateTime(item.login_at)}</td><td>${dateTime(item.logout_at)}</td><td>${item.logout_at ? 'Logged out' : 'Current / open session'}</td></tr>`).join('');
     const monthStart = new Date(attendanceCalendarMonth);
     const year = monthStart.getFullYear(), month = monthStart.getMonth(), days = new Date(year, month + 1, 0).getDate(), offset = (monthStart.getDay() + 6) % 7;
     const monthOptions = Array.from({length: 12}, (_, index) => `<option value="${index}" ${index === month ? 'selected' : ''}>${new Date(2000, index, 1).toLocaleString('en-IN', {month:'long'})}</option>`).join('');
@@ -207,17 +213,32 @@
     const byDate = new Map(dashboard.history.map(item => [item.work_date, item]));
     const todayKey = new Date().toISOString().slice(0, 10);
     const calendar = `${'<i></i>'.repeat(offset)}${Array.from({length:days},(_,index)=>{const day=index+1,key=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`,record=byDate.get(key),isPast=key<todayKey,status=record?(record.status==='COMPLETED'?'present':'checked-in'):(isPast?'absent':'future'),label=record?(record.status==='COMPLETED'?'Present':'Checked in'):(isPast?'Absent':'—');return `<button type="button" class="ep-calendar-day attendance-day ${status} ${key===selectedAttendanceDate?'selected':''} ${key===todayKey?'today-date':''}" data-ep-attendance-date="${key}"><span class="calendar-date-number">${day}</span><small>${label}</small>${key===todayKey?'<span class="today-check">TODAY</span>':''}</button>`}).join('')}`;
-    const selected = byDate.get(selectedAttendanceDate);
+    const selected = selectedAttendanceDetail?.date === selectedAttendanceDate
+      ? selectedAttendanceDetail.attendance
+      : byDate.get(selectedAttendanceDate);
     const selectedStatus = selected ? (selected.status === 'COMPLETED' ? 'Present' : 'Checked in') : (selectedAttendanceDate < todayKey ? 'Absent' : 'No attendance recorded');
     const selectedDetails = `<div class="ep-selected-day"><div><span>Selected date</span><b>${esc(selectedAttendanceDate)}</b></div><div><span>Status</span><b class="${selectedStatus==='Present'?'present-text':selectedStatus==='Absent'?'absent-text':''}">${esc(selectedStatus)}</b></div><div><span>Check-in</span><b>${dateTime(selected?.check_in_at)}</b></div><div><span>Check-out</span><b>${dateTime(selected?.check_out_at)}</b></div><div><span>Total time</span><b>${duration(selected?.worked_minutes || 0)}</b></div></div>`;
-    employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">MY RECORDS</p><h1>Attendance</h1><p>Choose a month and click a date to see that day's attendance below the calendar.</p></section><section class="ep-card ep-personal-calendar attendance-calendar-panel advanced-calendar-panel"><div class="advanced-calendar-toolbar"><button type="button" class="calendar-nav-button" id="ep-calendar-previous" aria-label="Previous month">‹</button><div class="calendar-title-block"><small>SELECTED MONTH</small><h2>${monthStart.toLocaleString('en-IN',{month:'long',year:'numeric'})}</h2></div><button type="button" class="calendar-nav-button" id="ep-calendar-next" aria-label="Next month">›</button><div class="calendar-month-year-picker"><label>Month<select id="ep-calendar-month">${monthOptions}</select></label><label>Year<select id="ep-calendar-year">${yearOptions}</select></label><button type="button" id="ep-calendar-today" class="calendar-today-button">Today</button></div></div><div class="ep-calendar-weekdays">${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day=>`<b>${day}</b>`).join('')}</div><div class="ep-calendar-grid attendance-calendar">${calendar}</div><div class="calendar-legend"><span><i class="legend-today">✓</i> Today</span><span><i class="ep-legend-present"></i> Present</span><span><i class="ep-legend-absent"></i> Absent</span><b>Click a date for details</b></div>${selectedDetails}</section><section class="ep-card"><div class="ep-table-wrap"><table><thead><tr><th>Date</th><th>Check-in</th><th>Check-out</th><th>Total time</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="5">No attendance recorded.</td></tr>'}</tbody></table></div></section>`);
+    const attendancePhotos = selectedAttendanceDetail?.date === selectedAttendanceDate
+      ? `<div class="ep-attendance-photos"><figure><figcaption>Check-in photo</figcaption>${selectedAttendanceDetail.check_in_photo ? `<img src="${esc(selectedAttendanceDetail.check_in_photo)}" alt="Check-in face captured on ${esc(selectedAttendanceDate)}">` : '<span>No check-in photo</span>'}</figure><figure><figcaption>Check-out photo</figcaption>${selectedAttendanceDetail.check_out_photo ? `<img src="${esc(selectedAttendanceDetail.check_out_photo)}" alt="Check-out face captured on ${esc(selectedAttendanceDate)}">` : '<span>No check-out photo</span>'}</figure></div>`
+      : '<p class="ep-photo-loading">Loading selected date photos…</p>';
+    employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">MY RECORDS</p><h1>Attendance</h1><p>Choose a month and click a date to see that day's attendance, working hours and saved face photos.</p></section><section class="ep-card ep-personal-calendar attendance-calendar-panel advanced-calendar-panel"><div class="advanced-calendar-toolbar"><button type="button" class="calendar-nav-button" id="ep-calendar-previous" aria-label="Previous month">‹</button><div class="calendar-title-block"><small>SELECTED MONTH</small><h2>${monthStart.toLocaleString('en-IN',{month:'long',year:'numeric'})}</h2></div><button type="button" class="calendar-nav-button" id="ep-calendar-next" aria-label="Next month">›</button><div class="calendar-month-year-picker"><label>Month<select id="ep-calendar-month">${monthOptions}</select></label><label>Year<select id="ep-calendar-year">${yearOptions}</select></label><button type="button" id="ep-calendar-today" class="calendar-today-button">Today</button></div></div><div class="ep-calendar-weekdays">${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day=>`<b>${day}</b>`).join('')}</div><div class="ep-calendar-grid attendance-calendar">${calendar}</div><div class="calendar-legend"><span><i class="legend-today">✓</i> Today</span><span><i class="ep-legend-present"></i> Present</span><span><i class="ep-legend-absent"></i> Absent</span><b>Click a date for details</b></div>${selectedDetails}${attendancePhotos}</section><section class="ep-card"><h2>Attendance history</h2><div class="ep-table-wrap"><table><thead><tr><th>Date</th><th>Check-in</th><th>Check-out</th><th>Total time</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="5">No attendance recorded.</td></tr>'}</tbody></table></div></section><section class="ep-card"><h2>Portal login and logout history</h2><div class="ep-table-wrap"><table><thead><tr><th>Login time</th><th>Logout time</th><th>Session status</th></tr></thead><tbody>${loginRows || '<tr><td colspan="3">No login sessions recorded.</td></tr>'}</tbody></table></div></section>`);
     root.querySelector('#ep-calendar-previous').onclick=()=>{attendanceCalendarMonth=new Date(year,month-1,1);selectedAttendanceDate=`${attendanceCalendarMonth.getFullYear()}-${String(attendanceCalendarMonth.getMonth()+1).padStart(2,'0')}-01`;renderAttendance()};
     root.querySelector('#ep-calendar-next').onclick=()=>{attendanceCalendarMonth=new Date(year,month+1,1);selectedAttendanceDate=`${attendanceCalendarMonth.getFullYear()}-${String(attendanceCalendarMonth.getMonth()+1).padStart(2,'0')}-01`;renderAttendance()};
     const changeCalendarMonth=()=>{const nextYear=Number(root.querySelector('#ep-calendar-year').value),nextMonth=Number(root.querySelector('#ep-calendar-month').value);attendanceCalendarMonth=new Date(nextYear,nextMonth,1);selectedAttendanceDate=`${nextYear}-${String(nextMonth+1).padStart(2,'0')}-01`;renderAttendance()};
     root.querySelector('#ep-calendar-month').onchange=changeCalendarMonth;
     root.querySelector('#ep-calendar-year').onchange=changeCalendarMonth;
     root.querySelector('#ep-calendar-today').onclick=()=>{attendanceCalendarMonth=new Date();selectedAttendanceDate=new Date().toISOString().slice(0,10);renderAttendance()};
-    root.querySelectorAll('[data-ep-attendance-date]').forEach(button=>button.onclick=()=>{selectedAttendanceDate=button.dataset.epAttendanceDate;renderAttendance()});
+    root.querySelectorAll('[data-ep-attendance-date]').forEach(button=>button.onclick=()=>{selectedAttendanceDate=button.dataset.epAttendanceDate;selectedAttendanceDetail=null;renderAttendance()});
+    if (!selectedAttendanceDetail || selectedAttendanceDetail.date !== selectedAttendanceDate) {
+      request(`/api/employee/attendance-detail?date=${encodeURIComponent(selectedAttendanceDate)}`).then(detail => {
+        if (selectedAttendanceDate !== detail.date || currentPage !== 'attendance') return;
+        selectedAttendanceDetail = detail;
+        renderAttendance();
+      }).catch(error => {
+        const loading = root.querySelector('.ep-photo-loading');
+        if (loading) loading.textContent = error.message;
+      });
+    }
   }
 
   function renderProfile() {
@@ -351,7 +372,10 @@
 
   async function loadDashboard(page = currentPage) {
     try {
-      dashboard = await request('/api/employee/dashboard');
+      const previousEmployeeId = dashboard?.employee?.id;
+      const nextDashboard = await request('/api/employee/dashboard');
+      if (previousEmployeeId && previousEmployeeId !== nextDashboard.employee?.id) selectedAttendanceDetail = null;
+      dashboard = nextDashboard;
       currentPage = page;
       renderPage();
     } catch (_error) {

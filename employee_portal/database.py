@@ -133,8 +133,18 @@ CREATE TABLE IF NOT EXISTS employee_audit_log (
     details_json TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS employee_login_sessions (
+    id TEXT PRIMARY KEY,
+    employee_account_id BIGINT NOT NULL REFERENCES employee_accounts(id) ON DELETE CASCADE,
+    tenant_email TEXT NOT NULL,
+    login_at TEXT NOT NULL,
+    logout_at TEXT,
+    user_agent TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_employee_accounts_tenant_role ON employee_accounts(tenant_email, workforce_role);
 CREATE INDEX IF NOT EXISTS idx_employee_events_time ON employee_attendance_events(server_timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_employee_login_sessions_account ON employee_login_sessions(employee_account_id, login_at DESC);
 """
 
 
@@ -150,6 +160,9 @@ def initialize() -> None:
         )
         db.executescript(
             (ROOT / "migrations" / "003_persistent_workspaces.sql").read_text(encoding="utf-8")
+        )
+        db.executescript(
+            (ROOT / "migrations" / "004_employee_login_sessions.sql").read_text(encoding="utf-8")
         )
         event_columns = {
             row["name"]

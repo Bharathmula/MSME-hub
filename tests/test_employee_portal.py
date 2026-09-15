@@ -1,4 +1,5 @@
 import os,tempfile,unittest
+from datetime import datetime,timezone
 from pathlib import Path
 TMP=tempfile.TemporaryDirectory();os.environ.pop('DATABASE_URL',None);os.environ['MSME_EMPLOYEE_DB']=str(Path(TMP.name)/'employees.db');os.environ['MSME_SECRET_KEY']='tests-only'
 from backend import app
@@ -30,11 +31,13 @@ class EmployeePortalTests(unittest.TestCase):
   invite=r.json['invite_token'];activation=self.c.post('/api/employee/activate',json={'invite_token':invite,'contact':'worker100@gmail.com','password':'Testing123!'});self.assertEqual(activation.status_code,200);self.assertTrue(activation.json['access_token'])
   self.assertEqual(self.c.get('/api/employee/dashboard',headers=self.headers(activation.json['access_token'])).status_code,200)
   login=self.c.post('/api/employee/login',json={'email':'worker100@gmail.com','password':'Testing123!'});self.assertEqual(login.status_code,200);employee=login.json['access_token']
+  session_dashboard=self.c.get('/api/employee/dashboard',headers=self.headers(employee));self.assertTrue(session_dashboard.json['session']['login_at'])
   phone_login=self.c.post('/api/employee/login',json={'email':'9876543210','password':'Testing123!'});self.assertEqual(phone_login.status_code,200,phone_login.text)
   self.assertEqual(self.c.get('/api/admin/employee-accounts',headers=self.headers(employee)).status_code,403)
   first=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face},headers=self.headers(employee,{'Idempotency-Key':'in'}));self.assertEqual(first.status_code,200,first.text);self.assertEqual(first.json['event']['event_type'],'CHECK_IN')
   retry=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face},headers=self.headers(employee,{'Idempotency-Key':'in'}));self.assertTrue(retry.json['duplicate'])
   out=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face},headers=self.headers(employee,{'Idempotency-Key':'out'}));self.assertEqual(out.json['event']['event_type'],'CHECK_OUT')
+  detail=self.c.get('/api/employee/attendance-detail',query_string={'date':datetime.now(timezone.utc).date().isoformat()},headers=self.headers(employee));self.assertEqual(detail.status_code,200,detail.text);self.assertEqual(detail.json['check_in_photo'],face);self.assertEqual(detail.json['check_out_photo'],face)
   admin_attendance=self.c.get('/api/admin/employee-attendance',headers=self.headers(self.admin));self.assertEqual(admin_attendance.status_code,200,admin_attendance.text);self.assertEqual(admin_attendance.json['attendance'][0]['employee_id'],'W-100')
   self.assertEqual(admin_attendance.json['attendance'][0]['email'],'worker100@gmail.com')
   self.assertEqual(admin_attendance.json['attendance'][0]['checkin_face_captured'],1);self.assertEqual(admin_attendance.json['attendance'][0]['checkout_face_captured'],1)
@@ -47,6 +50,8 @@ class EmployeePortalTests(unittest.TestCase):
   captcha=self.c.get('/api/employee/password-reset-captcha');self.assertEqual(captcha.status_code,200,captcha.text)
   reset=self.c.post('/api/employee/reset-password',json={'email':'worker100@gmail.com','password':'Reset123!','captcha_id':captcha.json['captcha_id'],'captcha_answer':captcha.json['captcha_code']});self.assertEqual(reset.status_code,200,reset.text)
   self.assertEqual(self.c.post('/api/employee/login',json={'email':'worker100@gmail.com','password':'Reset123!'}).status_code,200)
+  logout=self.c.post('/api/employee/logout',headers=self.headers(employee));self.assertEqual(logout.status_code,200,logout.text)
+  after_logout=self.c.get('/api/employee/dashboard',headers=self.headers(employee));self.assertTrue(after_logout.json['last_logout_at'])
 
  def test_admin_can_create_active_employee_credentials(self):
   response=self.c.post('/api/admin/employee-accounts',json={'name':'Direct Staff','employee_id':'ST-DIRECT','email':'direct.staff@gmail.com','phone':'9000000001','workforce_role':'STAFF','password':'Direct123!','pin':'456789'},headers=self.headers(self.admin))
@@ -65,6 +70,7 @@ class EmployeePortalTests(unittest.TestCase):
  def test_admin_can_regenerate_pending_invitation(self):
   payload={'name':'Pending Worker','employee_id':'W-PENDING','email':'pending@gmail.com','workforce_role':'WORKER'}
   first=self.c.post('/api/admin/employee-accounts',json=payload,headers=self.headers(self.admin));self.assertEqual(first.status_code,201,first.text)
+  remaining=(datetime.fromisoformat(first.json['expires_at'])-datetime.now(timezone.utc)).total_seconds();self.assertGreater(remaining,23*3600);self.assertLessEqual(remaining,24*3600)
   second=self.c.post('/api/admin/employee-accounts',json=payload,headers=self.headers(self.admin));self.assertEqual(second.status_code,200,second.text);self.assertTrue(second.json['regenerated'])
   self.assertNotEqual(first.json['invite_token'],second.json['invite_token'])
   old_activation=self.c.post('/api/employee/activate',json={'invite_token':first.json['invite_token'],'contact':'pending@gmail.com','password':'Testing123!','pin':'123456'})

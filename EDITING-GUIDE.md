@@ -18,6 +18,7 @@
 | Employee login, invitations, shifts and attendance API | `employee_portal/routes.py` |
 | Signed manager/employee sessions and role checks | `employee_portal/security.py` |
 | Employee SQL tables | `migrations/002_employee_portal.sql` |
+| Employee portal login/logout sessions | `migrations/004_employee_login_sessions.sql` |
 | Employee login/dashboard UI | `static/employee-portal/employee-portal.js` |
 | Employee UI design | `static/employee-portal/employee-portal.css` |
 
