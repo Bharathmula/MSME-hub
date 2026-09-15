@@ -816,7 +816,7 @@ function renderHabitualLeaveRows(periodMonths = 1) {
 
 const dashboardBeforeAttendanceEnhancements = window.dashboard;
 function greetingForCurrentTime(date = new Date()) {
-  const hour = date.getHours();
+  const hour = indiaHour(date);
   if (hour >= 5 && hour < 12) return 'Good morning';
   if (hour >= 12 && hour < 17) return 'Good afternoon';
   if (hour >= 17 && hour < 21) return 'Good evening';
