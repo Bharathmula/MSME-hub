@@ -11,6 +11,9 @@ class EmployeePortalTests(unittest.TestCase):
   app.config['TESTING']=True;cls.c=app.test_client()
   with app.app_context():cls.admin=token('admin@example.com','ADMIN','admin@example.com')
  def headers(self,t,extra=None):return {'Authorization':'Bearer '+t,**(extra or {})}
+ def test_health_reports_photo_api_schema(self):
+  response=self.c.get('/api/health');self.assertEqual(response.status_code,200,response.text)
+  self.assertTrue(response.json['attendance_photo_api']);self.assertGreaterEqual(response.json['schema_version'],5)
  def test_admin_account_is_saved_in_database(self):
   captcha=self.c.get('/api/auth/captcha').json
   registered=self.c.post('/api/auth/register',json={'email':'owner.persistence@example.com','password':'OwnerTest123!','name':'Database Owner','company':'Persistent Company','captcha_id':captcha['captcha_id'],'captcha_answer':captcha['captcha_code']})

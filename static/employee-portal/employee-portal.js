@@ -21,7 +21,9 @@
     const response = await fetch(`${apiBase()}${path}`, { ...options, headers });
     let body = {};
     try { body = await response.json(); } catch (_error) {}
-    if (!response.ok) throw Error(body.error || 'Request failed.');
+    if (!response.ok) {
+      throw Error(body.error || `Request failed (HTTP ${response.status}).`);
+    }
     return body;
   }
 

@@ -108,7 +108,9 @@ async function adminAttendanceRequestV33(path) {
   if (!base || !token) throw Error('The employee attendance service is not connected.');
   const response = await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token}` } });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw Error(payload.error || 'Attendance request failed.');
+  if (!response.ok) {
+    throw Error(payload.error || `Attendance request failed (HTTP ${response.status}).`);
+  }
   return payload;
 }
 
@@ -180,7 +182,7 @@ function renderIndividualAttendanceCalendarV34(person, monthValue, records, warn
   panel.querySelector('#individual-attendance-month').onchange=changeMonth;
   panel.querySelector('#individual-attendance-year').onchange=changeMonth;
   panel.querySelector('#individual-attendance-today').onclick=()=>openIndividualAttendanceCalendarV33(person,new Date().toISOString().slice(0,7));
-  panel.querySelectorAll('[data-admin-attendance-date]').forEach(button=>button.onclick=async()=>{const date=button.dataset.adminAttendanceDate,selected=panel.querySelector('#admin-person-selected-day'),localRecord=byDate.get(date);if(button.dataset.noRecord==='yes'){selected.innerHTML=adminAttendancePhotoPanelV33({attendance:null},date);return}selected.innerHTML=adminAttendancePhotoPanelV33({attendance:localRecord},date)+'<p>Loading permanently saved photos…</p>';try{const detail=await adminAttendanceRequestV33(`/api/admin/employee-attendance-detail?employee_id=${encodeURIComponent(person.id)}&date=${encodeURIComponent(date)}`);selected.innerHTML=adminAttendancePhotoPanelV33(detail,date)}catch(error){selected.insertAdjacentHTML('beforeend',`<p class="login-error">Photos unavailable: ${esc(error.message)} The Render backend must finish deploying the latest commit.</p>`)}});
+  panel.querySelectorAll('[data-admin-attendance-date]').forEach(button=>button.onclick=async()=>{const date=button.dataset.adminAttendanceDate,selected=panel.querySelector('#admin-person-selected-day'),localRecord=byDate.get(date);if(button.dataset.noRecord==='yes'){selected.innerHTML=adminAttendancePhotoPanelV33({attendance:null},date);return}selected.innerHTML=adminAttendancePhotoPanelV33({attendance:localRecord},date)+'<p>Loading permanently saved photos…</p>';try{const detail=await adminAttendanceRequestV33(`/api/admin/employee-attendance-detail?employee_id=${encodeURIComponent(person.id)}&date=${encodeURIComponent(date)}`);selected.innerHTML=adminAttendancePhotoPanelV33(detail,date)}catch(error){selected.insertAdjacentHTML('beforeend',`<p class="login-error">Photos unavailable: ${esc(error.message)} Confirm that Render successfully deployed this Git commit and that DATABASE_URL is configured.</p>`)}});
   const automaticDate = monthValue === today.slice(0,7)
     ? today
     : [...byDate.keys()].sort().reverse()[0];

@@ -153,6 +153,21 @@ def initialize() -> None:
     try:
         if db.postgres:
             db.executescript(POSTGRES_SCHEMA)
+            # CREATE TABLE IF NOT EXISTS does not add columns to tables that
+            # already exist. Public Render/Neon databases created before photo
+            # persistence was introduced therefore need these safe upgrades.
+            db.execute(
+                "ALTER TABLE employee_attendance_events "
+                "ADD COLUMN IF NOT EXISTS face_capture_data TEXT"
+            )
+            db.execute(
+                "ALTER TABLE employee_accounts "
+                "ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT ''"
+            )
+            db.execute(
+                "ALTER TABLE employee_accounts "
+                "ADD COLUMN IF NOT EXISTS profile_photo_data TEXT NOT NULL DEFAULT ''"
+            )
             return
 
         db.executescript(

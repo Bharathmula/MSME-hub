@@ -178,7 +178,12 @@ def home():
 @app.get("/api/health")
 def health():
     """Render health check endpoint; it does not expose account information."""
-    return jsonify({"ok": True, "service": "msme-employee-api"})
+    return jsonify({
+        "ok": True,
+        "service": "msme-employee-api",
+        "schema_version": 5,
+        "attendance_photo_api": True,
+    })
 
 
 @app.get("/api/auth/config")
