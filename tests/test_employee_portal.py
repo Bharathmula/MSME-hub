@@ -2,7 +2,7 @@ import os,tempfile,unittest
 from datetime import datetime,timezone
 from pathlib import Path
 TMP=tempfile.TemporaryDirectory();os.environ.pop('DATABASE_URL',None);os.environ['MSME_EMPLOYEE_DB']=str(Path(TMP.name)/'employees.db');os.environ['MSME_SECRET_KEY']='tests-only'
-from backend import app
+from backend import app,token_signer
 from employee_portal.security import token
 
 class EmployeePortalTests(unittest.TestCase):
@@ -14,6 +14,16 @@ class EmployeePortalTests(unittest.TestCase):
  def test_health_reports_photo_api_schema(self):
   response=self.c.get('/api/health');self.assertEqual(response.status_code,200,response.text)
   self.assertTrue(response.json['attendance_photo_api']);self.assertGreaterEqual(response.json['schema_version'],7)
+ def test_legacy_manager_becomes_a_persistent_editable_account(self):
+  login=self.c.post('/api/auth/login',json={'email':'manager@msme.com','password':'Manager@123'});self.assertEqual(login.status_code,200,login.text)
+  workspace={'account':{'email':'manager@msme.com','company':'MSME Hub'},'storage':{'people':[],'attendance':[]}}
+  self.assertEqual(self.c.put('/api/workspace',json=workspace,headers=self.headers(login.json['access_token'])).status_code,200)
+  employee=self.c.post('/api/admin/employee-accounts',json={'name':'Manager Worker','employee_id':'MW-1','email':'manager.worker@gmail.com','workforce_role':'WORKER'},headers=self.headers(login.json['access_token']));self.assertEqual(employee.status_code,201,employee.text)
+  new_email='renamed.manager@example.com';verification=token_signer.dumps({'email':new_email,'purpose':'change_email'})
+  updated=self.c.post('/api/auth/update-admin',json={'current_email':'manager@msme.com','new_email':new_email,'current_password':'Manager@123','new_password':'ManagerChanged123!','name':'Updated MSME Manager','phone':'9000000000','verification_token':verification});self.assertEqual(updated.status_code,200,updated.text)
+  self.assertEqual(self.c.post('/api/auth/login',json={'email':'manager@msme.com','password':'Manager@123'}).status_code,401)
+  changed=self.c.post('/api/auth/login',json={'email':new_email,'password':'ManagerChanged123!'});self.assertEqual(changed.status_code,200,changed.text);self.assertEqual(changed.json['account']['name'],'Updated MSME Manager')
+  moved_accounts=self.c.get('/api/admin/employee-accounts',headers=self.headers(changed.json['access_token']));self.assertEqual(moved_accounts.status_code,200,moved_accounts.text);self.assertTrue(any(item['employee_id']=='MW-1' for item in moved_accounts.json['employees']))
  def test_admin_account_is_saved_in_database(self):
   captcha=self.c.get('/api/auth/captcha').json
   registered=self.c.post('/api/auth/register',json={'email':'owner.persistence@example.com','password':'OwnerTest123!','name':'Database Owner','company':'Persistent Company','captcha_id':captcha['captcha_id'],'captcha_answer':captcha['captcha_code']})

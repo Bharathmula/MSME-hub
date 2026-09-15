@@ -58,10 +58,20 @@ class WorkspaceDatabase:
                 "SELECT workspace_json, updated_at FROM tenant_workspaces WHERE tenant_email=?",
                 (old_tenant,),
             ).fetchone()
-            if not current:
-                return
-            db.execute("DELETE FROM tenant_workspaces WHERE tenant_email=?", (new_tenant,))
+            if current:
+                db.execute("DELETE FROM tenant_workspaces WHERE tenant_email=?", (new_tenant,))
+                db.execute(
+                    "UPDATE tenant_workspaces SET tenant_email=? WHERE tenant_email=?",
+                    (new_tenant, old_tenant),
+                )
+            # Employee credentials, attendance ownership and login history must
+            # remain attached to the same company after its administrator
+            # changes the login email.
             db.execute(
-                "UPDATE tenant_workspaces SET tenant_email=? WHERE tenant_email=?",
+                "UPDATE employee_accounts SET tenant_email=? WHERE tenant_email=?",
+                (new_tenant, old_tenant),
+            )
+            db.execute(
+                "UPDATE employee_login_sessions SET tenant_email=? WHERE tenant_email=?",
                 (new_tenant, old_tenant),
             )

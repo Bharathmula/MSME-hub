@@ -308,7 +308,25 @@ def login_account():
     password = str(payload.get("password") or "")
     account = next((item for item in load_auth_accounts() if item.get("email") == email), None)
     if not account and email==LEGACY_ADMIN_EMAIL and secrets.compare_digest(password,LEGACY_ADMIN_PASSWORD):
-        account={"name":"MSME Manager","email":email,"country":"India","provider":"default","password_hash":generate_password_hash(password)}
+        # Convert the original built-in manager into a normal persistent
+        # database account on its first successful login. This keeps the
+        # existing company workspace untouched while allowing Account
+        # Controls to permanently change the manager name, email or password.
+        account = {
+            "name": "MSME Manager",
+            "company": "MSME Hub",
+            "phone": "",
+            "email": email,
+            "country": "India",
+            "role": "Owner",
+            "email_updates": False,
+            "provider": "default",
+            "password_hash": generate_password_hash(password),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        accounts = load_auth_accounts()
+        accounts.append(account)
+        save_auth_accounts(accounts)
     if not account or not account.get("password_hash") or not check_password_hash(account["password_hash"], password):
         return jsonify({"error": "Incorrect email or password."}), 401
     return jsonify({"ok": True, "account": public_account(account),"access_token":access_token(email,"ADMIN",email)})
@@ -371,6 +389,16 @@ def update_admin_account():
     if new_password:
         account["password_hash"] = generate_password_hash(new_password)
         account["password_changed_at"] = datetime.now(timezone.utc).isoformat()
+    if current_email == LEGACY_ADMIN_EMAIL and new_email != LEGACY_ADMIN_EMAIL:
+        # Keep a disabled marker at the original address so the historical
+        # built-in credential cannot be recreated after the manager renames it.
+        accounts.append({
+            "name": "Retired default manager",
+            "email": LEGACY_ADMIN_EMAIL,
+            "provider": "retired-default",
+            "disabled": True,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        })
     save_auth_accounts(accounts)
     WorkspaceDatabase().rename(current_email, new_email)
     return jsonify({
