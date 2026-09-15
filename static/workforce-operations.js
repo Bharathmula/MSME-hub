@@ -128,11 +128,26 @@ function adminAttendancePhotoPanelV33(detail, date) {
 }
 
 function localIndividualAttendanceV34(person, monthValue) {
-  return attendanceLog.filter(day => String(day.date || '').startsWith(`${monthValue}-`)).map(day => {
-    const record = (day.records || []).find(item => item.id === person.id);
+  const days = new Map(attendanceLog
+    .filter(day => String(day.date || '').startsWith(`${monthValue}-`))
+    .map(day => [day.date, [...(day.records || [])]]));
+  if (typeof automaticAttendanceDraftsV21 !== 'undefined') {
+    automaticAttendanceDraftsV21.forEach((records, date) => {
+      if (!String(date).startsWith(`${monthValue}-`)) return;
+      const combined = days.get(date) || [];
+      records.forEach(record => {
+        const index = combined.findIndex(item => item.id === record.id);
+        if (index < 0) combined.push(record);
+        else if (combined[index].source !== 'Manual attendance') combined[index] = { ...combined[index], ...record };
+      });
+      days.set(date, combined);
+    });
+  }
+  return [...days.entries()].map(([date, records]) => {
+    const record = records.find(item => item.id === person.id);
     if (!record || record.status !== 'Present') return null;
     return {
-      work_date: day.date,
+      work_date: date,
       status: record.logout ? 'COMPLETED' : 'OPEN',
       check_in_at: record.login || '',
       check_out_at: record.logout || '',
@@ -166,6 +181,16 @@ function renderIndividualAttendanceCalendarV34(person, monthValue, records, warn
   panel.querySelector('#individual-attendance-year').onchange=changeMonth;
   panel.querySelector('#individual-attendance-today').onclick=()=>openIndividualAttendanceCalendarV33(person,new Date().toISOString().slice(0,7));
   panel.querySelectorAll('[data-admin-attendance-date]').forEach(button=>button.onclick=async()=>{const date=button.dataset.adminAttendanceDate,selected=panel.querySelector('#admin-person-selected-day'),localRecord=byDate.get(date);if(button.dataset.noRecord==='yes'){selected.innerHTML=adminAttendancePhotoPanelV33({attendance:null},date);return}selected.innerHTML=adminAttendancePhotoPanelV33({attendance:localRecord},date)+'<p>Loading permanently saved photos…</p>';try{const detail=await adminAttendanceRequestV33(`/api/admin/employee-attendance-detail?employee_id=${encodeURIComponent(person.id)}&date=${encodeURIComponent(date)}`);selected.innerHTML=adminAttendancePhotoPanelV33(detail,date)}catch(error){selected.insertAdjacentHTML('beforeend',`<p class="login-error">Photos unavailable: ${esc(error.message)} The Render backend must finish deploying the latest commit.</p>`)}});
+  const automaticDate = monthValue === today.slice(0,7)
+    ? today
+    : [...byDate.keys()].sort().reverse()[0];
+  const automaticButton = automaticDate
+    ? panel.querySelector(`[data-admin-attendance-date="${automaticDate}"]`)
+    : null;
+  if (automaticButton) {
+    automaticButton.classList.add('selected');
+    setTimeout(() => automaticButton.click(), 0);
+  }
 }
 
 async function openIndividualAttendanceCalendarV33(person, monthValue = new Date().toISOString().slice(0, 7)) {
@@ -206,6 +231,9 @@ function roleOverflowV22(roleName) {
       <div class="overflow-person-grid">${rolePeople.map(person => {
         const stats = individualMonthStatsV22(person);
         const calculation = attendanceCalculationV21(person);
+        const currentWorkTotal = person.login_time && !person.logout_time
+          ? 'In progress'
+          : durationTextV21(calculation.total);
         return `<article class="overflow-person-card" data-overflow-profile="${esc(person.id)}" tabindex="0" role="button"
           aria-label="Open complete profile for ${esc(person.name)}">
           <div class="overflow-person-head"><span class="avatar">${ini(person.name)}</span><div>
@@ -213,7 +241,7 @@ function roleOverflowV22(roleName) {
             <span class="tag ${cls(person.status || 'Absent')}">${esc(person.status || 'Absent')}</span></div>
           <div class="overflow-person-details">
             <div><span>Shift</span><b>${esc(person.shift || '09:00 AM - 06:00 PM')}</b></div>
-            <div><span>Current work total</span><b>${durationTextV21(calculation.total)}</b></div>
+            <div><span>Current work total</span><b>${currentWorkTotal}</b></div>
             <div><span>Monthly present</span><button type="button" class="monthly-present-button" data-person-attendance="${esc(person.id)}">${stats.present}</button></div>
             <div><span>Monthly absent</span><b>${stats.absent}</b></div>
             <div><span>Monthly leave</span><b>${stats.leave}</b></div>
