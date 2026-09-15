@@ -37,6 +37,7 @@ Passwords are hashed and are never included in the company workspace JSON. Each 
 | Entrepreneur records and forms | `static/application-core-and-profiles.js` plus `static/sections/entrepreneur-dashboard.js` |
 | Shared workforce attendance/salary table | `static/sections/workforce-dashboard-shared.js` |
 | Worker Replacement | `static/application-core-and-profiles.js` — `coverage` |
+| Individual monthly present/absent calendar and administrator photo viewer | `static/workforce-operations.js` — `openIndividualAttendanceCalendarV33` |
 | Attendance Calendar and manual entry switch | `static/dashboard-attendance-controls.js` |
 | Festival calendar and yearly holidays | `static/attendance-and-calendar.js` |
 | Payroll and monthly salary editing | `static/overview-payroll-and-training.js` — `payrollPage` |

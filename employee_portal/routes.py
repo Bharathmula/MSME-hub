@@ -25,6 +25,10 @@ def start_login_session(db,row):
  session_id=uuid4().hex;login_at=stamp()
  db.execute('INSERT INTO employee_login_sessions(id,employee_account_id,tenant_email,login_at,user_agent,created_at) VALUES(?,?,?,?,?,?)',(session_id,row['id'],row['tenant_email'],login_at,str(request.headers.get('User-Agent',''))[:500],login_at))
  return session_id,login_at
+def shift_photos(db,shift_id):
+ events=db.execute('SELECT event_type,face_capture_data FROM employee_attendance_events WHERE shift_id=? ORDER BY server_timestamp',(shift_id,)).fetchall()
+ photos={item['event_type']:item['face_capture_data'] or '' for item in events}
+ return photos.get('CHECK_IN',''),photos.get('CHECK_OUT','')
 
 @employee_api.post('/api/employee/login')
 def login():
@@ -121,9 +125,8 @@ def attendance_detail():
   if not row:return jsonify({'error':'Employee account is not active.'}),403
   shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(row['id'],work_date)).fetchone()
   if not shift:return jsonify({'date':work_date,'attendance':None,'check_in_photo':'','check_out_photo':''})
-  events=db.execute('SELECT event_type,server_timestamp,face_capture_data FROM employee_attendance_events WHERE shift_id=? ORDER BY server_timestamp',(shift['id'],)).fetchall()
-  photos={item['event_type']:item['face_capture_data'] or '' for item in events}
-  return jsonify({'date':work_date,'attendance':dict(shift),'check_in_photo':photos.get('CHECK_IN',''),'check_out_photo':photos.get('CHECK_OUT','')})
+  check_in_photo,check_out_photo=shift_photos(db,shift['id'])
+  return jsonify({'date':work_date,'attendance':dict(shift),'check_in_photo':check_in_photo,'check_out_photo':check_out_photo})
  finally:db.close()
 
 @employee_api.patch('/api/employee/profile-photo')
@@ -262,3 +265,33 @@ def employee_attendance():
  try:rows=db.execute(query,parameters).fetchall()
  finally:db.close()
  return jsonify({'attendance':[dict(row) for row in rows]})
+
+@employee_api.get('/api/admin/employee-attendance-month')
+@require('ADMIN','HR')
+def employee_attendance_month():
+ tenant=g.employee_identity['tenant'];employee_id=str(request.args.get('employee_id','')).strip();month=str(request.args.get('month','')).strip()
+ if not employee_id or len(month)!=7:return jsonify({'error':'Employee ID and month are required.'}),400
+ db=connect()
+ try:
+  account=db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? AND employee_id=?',(tenant,employee_id)).fetchone()
+  if not account:return jsonify({'error':'Employee attendance account was not found.'}),404
+  shifts=db.execute('''SELECT s.*,
+   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND e.face_capture_data LIKE 'data:image/%') AS checkin_face_captured,
+   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND e.face_capture_data LIKE 'data:image/%') AS checkout_face_captured
+   FROM employee_shifts s WHERE s.employee_account_id=? AND s.work_date LIKE ? ORDER BY s.work_date''',(account['id'],month+'-%')).fetchall()
+  return jsonify({'employee':public(account),'month':month,'attendance':[dict(item) for item in shifts]})
+ finally:db.close()
+
+@employee_api.get('/api/admin/employee-attendance-detail')
+@require('ADMIN','HR')
+def admin_employee_attendance_detail():
+ tenant=g.employee_identity['tenant'];employee_id=str(request.args.get('employee_id','')).strip();work_date=str(request.args.get('date','')).strip()
+ if not employee_id or not work_date:return jsonify({'error':'Employee ID and attendance date are required.'}),400
+ db=connect()
+ try:
+  shift=db.execute('''SELECT s.* FROM employee_shifts s JOIN employee_accounts a ON a.id=s.employee_account_id
+   WHERE a.tenant_email=? AND a.employee_id=? AND s.work_date=?''',(tenant,employee_id,work_date)).fetchone()
+  if not shift:return jsonify({'date':work_date,'attendance':None,'check_in_photo':'','check_out_photo':''})
+  check_in_photo,check_out_photo=shift_photos(db,shift['id'])
+  return jsonify({'date':work_date,'attendance':dict(shift),'check_in_photo':check_in_photo,'check_out_photo':check_out_photo})
+ finally:db.close()

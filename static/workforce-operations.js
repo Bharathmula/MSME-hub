@@ -102,6 +102,66 @@ function individualMonthStatsV22(person) {
   };
 }
 
+async function adminAttendanceRequestV33(path) {
+  const base = String(window.MSME_EMPLOYEE_API_URL || '').replace(/\/$/, '');
+  const token = sessionStorage.getItem('msme-admin-api-token') || '';
+  if (!base || !token) throw Error('The employee attendance service is not connected.');
+  const response = await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw Error(payload.error || 'Attendance request failed.');
+  return payload;
+}
+
+function adminAttendancePhotoPanelV33(detail, date) {
+  const shift = detail?.attendance;
+  const status = shift ? (shift.status === 'COMPLETED' ? 'Present' : 'Checked in') : 'Absent';
+  const total = shift?.status === 'COMPLETED' ? durationTextV21(shift.worked_minutes || 0) : (shift ? 'In progress' : '—');
+  const photo = (title, source) => `<figure><figcaption>${title}</figcaption>${source
+    ? `<img src="${esc(source)}" alt="${title} for ${esc(date)}">`
+    : `<span>No ${title.toLowerCase()}</span>`}</figure>`;
+  return `<div class="admin-person-day-summary"><div><span>Date</span><b>${esc(date)}</b></div><div><span>Status</span><b>${status}</b></div><div><span>Check-in</span><b>${shift?.check_in_at ? new Date(shift.check_in_at).toLocaleString('en-IN') : '—'}</b></div><div><span>Check-out</span><b>${shift?.check_out_at ? new Date(shift.check_out_at).toLocaleString('en-IN') : '—'}</b></div><div><span>Working hours</span><b>${total}</b></div></div><div class="admin-attendance-photos">${photo('Check-in photo',detail?.check_in_photo)}${photo('Check-out photo',detail?.check_out_photo)}</div>`;
+}
+
+async function openIndividualAttendanceCalendarV33(person, monthValue = new Date().toISOString().slice(0, 7)) {
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `<div class="modal-backdrop"><section class="modal individual-attendance-modal"><div class="modal-head"><div><div class="eyebrow">INDIVIDUAL ATTENDANCE</div><h2>${esc(person.name)}</h2><p>Monthly attendance and permanently saved check-in/check-out photos.</p></div><button class="close" type="button" data-close>×</button></div><p class="individual-attendance-loading">Loading attendance…</p></section></div>`;
+  modalRoot.querySelector('[data-close]').onclick = () => { modalRoot.innerHTML = ''; };
+  try {
+    const payload = await adminAttendanceRequestV33(`/api/admin/employee-attendance-month?employee_id=${encodeURIComponent(person.id)}&month=${encodeURIComponent(monthValue)}`);
+    if (!modalRoot.querySelector('.individual-attendance-modal')) return;
+    const [year, monthNumber] = monthValue.split('-').map(Number);
+    const monthIndex = monthNumber - 1;
+    const firstDay = (new Date(year, monthIndex, 1).getDay() + 6) % 7;
+    const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+    const today = new Date().toISOString().slice(0, 10);
+    const byDate = new Map(payload.attendance.map(item => [item.work_date, item]));
+    const days = Array.from({length:lastDay},(_,index)=>{
+      const date=`${monthValue}-${String(index+1).padStart(2,'0')}`;
+      const record=byDate.get(date);
+      const state=record?'present':date<today?'absent':'future';
+      return `<button type="button" class="admin-person-attendance-day ${state}" data-admin-attendance-date="${date}" ${record?'':'data-no-record="yes"'}><b>${index+1}</b><small>${record?(record.status==='COMPLETED'?'Present':'Checked in'):(date<today?'Absent':'—')}</small></button>`;
+    }).join('');
+    const current = new Date(year, monthIndex, 1);
+    const monthKey = value => `${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,'0')}`;
+    const previous = monthKey(new Date(year, monthIndex - 1, 1));
+    const next = monthKey(new Date(year, monthIndex + 1, 1));
+    const panel = modalRoot.querySelector('.individual-attendance-modal');
+    panel.innerHTML = `<div class="modal-head"><div><div class="eyebrow">INDIVIDUAL ATTENDANCE</div><h2>${esc(person.name)}</h2><p>Click a blue present date to display its check-in and check-out photos.</p></div><button class="close" type="button" data-close>×</button></div><div class="individual-month-toolbar"><button type="button" data-person-month="${previous}">‹</button><h3>${current.toLocaleString('en-IN',{month:'long',year:'numeric'})}</h3><button type="button" data-person-month="${next}">›</button></div><div class="admin-person-weekdays">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=>`<b>${day}</b>`).join('')}</div><div class="admin-person-calendar">${'<i></i>'.repeat(firstDay)}${days}</div><div class="admin-person-calendar-legend"><span class="present">Blue · Present</span><span class="absent">Red · Absent</span></div><section class="admin-person-selected-day" id="admin-person-selected-day"><p>Select a date to view attendance and photos.</p></section>`;
+    panel.querySelector('[data-close]').onclick=()=>{modalRoot.innerHTML=''};
+    panel.querySelectorAll('[data-person-month]').forEach(button=>button.onclick=()=>openIndividualAttendanceCalendarV33(person,button.dataset.personMonth));
+    panel.querySelectorAll('[data-admin-attendance-date]').forEach(button=>button.onclick=async()=>{
+      const date=button.dataset.adminAttendanceDate;
+      const selected=panel.querySelector('#admin-person-selected-day');
+      if(button.dataset.noRecord==='yes'){selected.innerHTML=adminAttendancePhotoPanelV33({attendance:null},date);return}
+      selected.innerHTML='<p>Loading saved photos…</p>';
+      try{const detail=await adminAttendanceRequestV33(`/api/admin/employee-attendance-detail?employee_id=${encodeURIComponent(person.id)}&date=${encodeURIComponent(date)}`);selected.innerHTML=adminAttendancePhotoPanelV33(detail,date)}catch(error){selected.innerHTML=`<p class="login-error">${esc(error.message)}</p>`}
+    });
+  } catch (error) {
+    const loading = modalRoot.querySelector('.individual-attendance-loading');
+    if (loading) loading.textContent = error.message;
+  }
+}
+
 function roleOverflowV22(roleName) {
   const rolePeople = group(roleName);
   const present = rolePeople.filter(person => person.status === 'Present').length;
@@ -134,7 +194,7 @@ function roleOverflowV22(roleName) {
           <div class="overflow-person-details">
             <div><span>Shift</span><b>${esc(person.shift || '09:00 AM - 06:00 PM')}</b></div>
             <div><span>Current work total</span><b>${durationTextV21(calculation.total)}</b></div>
-            <div><span>Monthly present</span><b>${stats.present}</b></div>
+            <div><span>Monthly present</span><button type="button" class="monthly-present-button" data-person-attendance="${esc(person.id)}">${stats.present}</button></div>
             <div><span>Monthly absent</span><b>${stats.absent}</b></div>
             <div><span>Monthly leave</span><b>${stats.leave}</b></div>
             <div><span>Days stored</span><b>${stats.stored}</b></div>
@@ -150,6 +210,7 @@ function roleOverflowV22(roleName) {
 document.addEventListener('click', event => {
   const roleCard = event.target.closest('#view-root .metric-group[data-overflow-role]');
   const profileCard = event.target.closest('[data-overflow-profile]');
+  const attendanceButton = event.target.closest('[data-person-attendance]');
   const backButton = event.target.closest('#back-to-overview');
   if (!roleCard && !profileCard && !backButton) return;
 
@@ -158,6 +219,11 @@ document.addEventListener('click', event => {
 
   event.preventDefault();
   event.stopImmediatePropagation();
+  if (attendanceButton) {
+    const person = [...people, ...temporaryWorkers].find(item => item.id === attendanceButton.dataset.personAttendance);
+    if (person) openIndividualAttendanceCalendarV33(person);
+    return;
+  }
   if (roleCard) roleOverflowV22(roleCard.dataset.overflowRole);
   if (profileCard) editor(profileCard.dataset.overflowProfile);
   if (backButton) {

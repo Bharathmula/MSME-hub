@@ -192,7 +192,7 @@
     employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">TODAY</p><h1>${action === 'CHECK_IN' ? 'Ready to check in?' : 'Ready to check out?'}</h1><p>Capture a current live face photo to record your attendance.</p></section>
       <div class="ep-overview-grid">
         <section class="ep-card"><h2>Attendance status</h2><div class="ep-status ${(today?.status || 'not-started').toLowerCase()}">${esc(today?.status || 'NOT STARTED')}</div>
-          <dl class="ep-details"><div><dt>Portal login</dt><dd>${dateTime(dashboard.session?.login_at)}</dd></div><div><dt>Previous logout</dt><dd>${dateTime(dashboard.last_logout_at)}</dd></div><div><dt>Check-in</dt><dd>${dateTime(today?.check_in_at)}</dd></div><div><dt>Check-out</dt><dd>${dateTime(today?.check_out_at)}</dd></div><div><dt>Total time</dt><dd>${duration(today?.worked_minutes || 0)}</dd></div></dl>
+          <dl class="ep-details"><div><dt>Portal login</dt><dd>${dateTime(dashboard.session?.login_at)}</dd></div><div><dt>Previous logout</dt><dd>${dateTime(dashboard.last_logout_at)}</dd></div><div><dt>Check-in</dt><dd>${dateTime(today?.check_in_at)}</dd></div><div><dt>Check-out</dt><dd>${dateTime(today?.check_out_at)}</dd></div><div><dt>Total time</dt><dd>${today?.status==='OPEN'?'In progress':duration(today?.worked_minutes || 0)}</dd></div></dl>
         </section>
         <section class="ep-card ep-camera-card"><h2>${esc(action.replace('_', ' '))} face capture</h2>
           <div class="ep-camera-stage"><video id="ep-camera" autoplay playsinline></video><canvas id="ep-canvas" hidden></canvas><img id="ep-face-preview" alt="Captured face" hidden><span id="ep-camera-placeholder">Camera preview</span></div>
@@ -333,6 +333,7 @@
           headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
           body: JSON.stringify({ device_identifier: navigator.userAgent, face_capture: capturedFace })
         });
+        selectedAttendanceDetail = null;
         alert(`${action === 'CHECK_IN' ? 'Check-in' : 'Check-out'} captured successfully.`);
         currentPage = 'overview';
         await loadDashboard();
