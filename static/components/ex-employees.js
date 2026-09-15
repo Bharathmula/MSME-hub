@@ -1,1 +1,0 @@
-MSMEComponentFactories.standard({ id:'ex-employees', view:'exemployees', label:'Ex-employees', heading:'ALUMNI ARCHIVE', required:[{name:'Archive table',selector:'.table-wrap table'},{name:'Bulk-selection controls',selector:'.ex-employee-bulk-toolbar'}]});

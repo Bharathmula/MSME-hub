@@ -153,9 +153,11 @@ def accounts():
    db.execute("UPDATE employee_accounts SET name=?,workforce_role=?,phone=?,status='INVITED',invite_hash=?,invite_expires_at=?,updated_at=? WHERE id=?",(name,role,phone,hashlib.sha256(raw.encode()).hexdigest(),expires,stamp(),existing['id']))
    audit(db,'EMPLOYEE_INVITATION_REGENERATED','employee_account',existing['id'],{'employee_id':eid,'role':role})
    return jsonify({'ok':True,'credentials_created':False,'invite_token':raw,'expires_at':expires,'regenerated':True}),200
-  try:cur=db.execute('INSERT INTO employee_accounts(tenant_email,employee_id,name,email,workforce_role,phone,password_hash,pin_hash,status,invite_hash,invite_expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(tenant,eid,name,email,role,phone,generate_password_hash(password) if direct else None,generate_password_hash(pin) if direct else None,'ACTIVE' if direct else 'INVITED',None if direct else hashlib.sha256(raw.encode()).hexdigest(),None if direct else expires,stamp(),stamp()))
+  try:
+   db.execute('INSERT INTO employee_accounts(tenant_email,employee_id,name,email,workforce_role,phone,password_hash,pin_hash,status,invite_hash,invite_expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(tenant,eid,name,email,role,phone,generate_password_hash(password) if direct else None,generate_password_hash(pin) if direct else None,'ACTIVE' if direct else 'INVITED',None if direct else hashlib.sha256(raw.encode()).hexdigest(),None if direct else expires,stamp(),stamp()))
   except Exception:return jsonify({'error':'That employee ID or email already has an account.'}),409
-  audit(db,'EMPLOYEE_CREDENTIALS_CREATED' if direct else 'EMPLOYEE_INVITED','employee_account',cur.lastrowid,{'employee_id':eid,'role':role})
+  created=db.execute('SELECT id FROM employee_accounts WHERE tenant_email=? AND employee_id=?',(tenant,eid)).fetchone()
+  audit(db,'EMPLOYEE_CREDENTIALS_CREATED' if direct else 'EMPLOYEE_INVITED','employee_account',created['id'],{'employee_id':eid,'role':role})
  return jsonify({'ok':True,'credentials_created':direct,'invite_token':None if direct else raw,'expires_at':None if direct else expires}),201
 
 @employee_api.patch('/api/admin/employee-accounts/<int:account_id>')

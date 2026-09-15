@@ -41,12 +41,8 @@ def bundled_application() -> str:
     html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
     try:
         configured_api_url = str(st.secrets.get("MSME_EMPLOYEE_API_URL", ""))
-        clerk_publishable_key = str(st.secrets.get("CLERK_PUBLISHABLE_KEY", ""))
-        clerk_frontend_api_url = str(st.secrets.get("CLERK_FRONTEND_API_URL", ""))
     except Exception:
         configured_api_url = ""
-        clerk_publishable_key = ""
-        clerk_frontend_api_url = ""
 
     configured_api_url = configured_api_url or os.environ.get(
         "MSME_EMPLOYEE_API_URL",
@@ -82,8 +78,6 @@ def bundled_application() -> str:
             f"window.MSME_APPLICATION_URL={json.dumps(application_url)};"
             f"window.MSME_EMPLOYEE_INVITE={json.dumps(invite_token)};"
             f"window.MSME_EMPLOYEE_EMAIL={json.dumps(invite_email)};"
-            f"window.MSME_CLERK_PUBLISHABLE_KEY={json.dumps(clerk_publishable_key)};"
-            f"window.MSME_CLERK_FRONTEND_API_URL={json.dumps(clerk_frontend_api_url.rstrip('/'))};"
             "</script>"
         ),
         1,

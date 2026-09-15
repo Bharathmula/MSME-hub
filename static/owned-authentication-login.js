@@ -50,6 +50,11 @@ async function enter(account,password=''){
   try{localStorage.setItem('msme-accounts',JSON.stringify(tenantAccounts))}catch(_){}
   admin=a;
   sessionStorage.setItem('msme-admin-auth',email);
+  try{
+    if(window.MSMEWorkspaceDatabase)await window.MSMEWorkspaceDatabase.load(email);
+  }catch(error){
+    console.error('MSME database sync unavailable; keeping this browser copy.',error);
+  }
   const savedView=sessionStorage.getItem('msme-active-view');
   const safeViews=['dashboard','reminders','temporary','workers','staff','entrepreneurs','coverage','attendance','payroll','training','contractors','exemployees','recycle'];
   view=safeViews.includes(savedView)?savedView:'dashboard';

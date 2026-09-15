@@ -375,6 +375,7 @@ async function adminApi(url, body) {
   });
   const data = await response.json().catch(() => ({ error: 'Unexpected server response.' }));
   if (!response.ok) throw new Error(data.error || 'Request failed.');
+  if (data.access_token) sessionStorage.setItem('msme-admin-api-token', data.access_token);
   return data;
 }
 

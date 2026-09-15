@@ -1,6 +1,6 @@
 import os,tempfile,unittest
 from pathlib import Path
-TMP=tempfile.TemporaryDirectory();os.environ['MSME_EMPLOYEE_DB']=str(Path(TMP.name)/'employees.db');os.environ['MSME_SECRET_KEY']='tests-only'
+TMP=tempfile.TemporaryDirectory();os.environ.pop('DATABASE_URL',None);os.environ['MSME_EMPLOYEE_DB']=str(Path(TMP.name)/'employees.db');os.environ['MSME_SECRET_KEY']='tests-only'
 from backend import app
 from employee_portal.security import token
 
@@ -10,6 +10,20 @@ class EmployeePortalTests(unittest.TestCase):
   app.config['TESTING']=True;cls.c=app.test_client()
   with app.app_context():cls.admin=token('admin@example.com','ADMIN','admin@example.com')
  def headers(self,t,extra=None):return {'Authorization':'Bearer '+t,**(extra or {})}
+ def test_admin_account_is_saved_in_database(self):
+  captcha=self.c.get('/api/auth/captcha').json
+  registered=self.c.post('/api/auth/register',json={'email':'owner.persistence@example.com','password':'OwnerTest123!','name':'Database Owner','company':'Persistent Company','captcha_id':captcha['captcha_id'],'captcha_answer':captcha['captcha_code']})
+  self.assertEqual(registered.status_code,200,registered.text)
+  login=self.c.post('/api/auth/login',json={'email':'owner.persistence@example.com','password':'OwnerTest123!'})
+  self.assertEqual(login.status_code,200,login.text)
+  workspace=self.c.get('/api/workspace',headers=self.headers(login.json['access_token']))
+  self.assertEqual(workspace.status_code,200,workspace.text);self.assertTrue(workspace.json['exists']);self.assertEqual(workspace.json['account']['company'],'Persistent Company')
+ def test_workspace_is_persistent_and_company_isolated(self):
+  payload={'account':{'email':'admin@example.com','company':'Test Company'},'storage':{'people':[{'id':'W-1','name':'Persisted Worker'}],'attendance':[{'date':'2026-09-15','records':[]}]}}
+  saved=self.c.put('/api/workspace',json=payload,headers=self.headers(self.admin));self.assertEqual(saved.status_code,200,saved.text)
+  loaded=self.c.get('/api/workspace?email=admin@example.com',headers=self.headers(self.admin));self.assertEqual(loaded.status_code,200,loaded.text);self.assertTrue(loaded.json['exists']);self.assertEqual(loaded.json['storage']['people'][0]['name'],'Persisted Worker')
+  with app.app_context():other=token('other@example.com','ADMIN','other@example.com')
+  forbidden=self.c.get('/api/workspace?email=admin@example.com',headers=self.headers(other));self.assertEqual(forbidden.status_code,403,forbidden.text)
  def test_account_activation_and_attendance(self):
   face='data:image/jpeg;base64,/9j/2Q=='
   r=self.c.post('/api/admin/employee-accounts',json={'name':'Test Worker','employee_id':'W-100','email':'worker100@gmail.com','phone':'9876543210','workforce_role':'WORKER'},headers=self.headers(self.admin));self.assertEqual(r.status_code,201,r.text)

@@ -11,6 +11,6 @@ services:
       - key: MSME_SECRET_KEY
         generateValue: true
       - key: MSME_ALLOWED_ORIGINS
-        value: https://replace-with-your-app.streamlit.app
-      - key: MSME_EMPLOYEE_DB
-        value: /tmp/msme-employee-portal.db
+        value: https://msme-app-ignv75tsx32ds4bqvsvsz3.streamlit.app
+      - key: DATABASE_URL
+        sync: false

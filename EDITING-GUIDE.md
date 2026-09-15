@@ -1,103 +1,73 @@
-# MSME Hub — section-by-section editing guide
+# MSME Hub — exact VS Code editing guide
 
-This guide identifies the file to open in VS Code for every visible section and for authentication/data storage.
+`static/index.html` is the browser entry point. `streamlit_app.py` embeds that page and starts the Python API automatically for local use. On a public deployment, Streamlit calls the Render API configured in `MSME_EMPLOYEE_API_URL`.
 
-## Application hosting and database
+## Login, accounts and database
 
-| Feature | File to edit |
+| Visible feature or stored data | Exact file |
 |---|---|
-| Streamlit page hosting and automatic local API startup | `streamlit_app.py` |
-| Python API routes | `backend.py` |
-| Administrator account file reading/writing | `authentication/account_database.py` |
-| Six-character CAPTCHA creation/verification | `authentication/captcha_service.py` |
-| Stored administrator accounts | `data/auth_accounts.json` |
-| Employee SQLite connection/transactions | `employee_portal/database.py` |
-| Employee authentication/session security | `employee_portal/security.py` |
-| Employee database schema | `migrations/002_employee_portal.sql` |
-| Browser-local public-host authentication fallback | `static/public-adapter.js` |
-| Optional Clerk email/Google/phone authentication | `static/clerk-authentication.js` |
-| Clerk button appearance | `static/clerk-authentication.css` |
-| Clerk Streamlit secret injection | `streamlit_app.py` |
+| Workspace sign-in, Create Profile and manager password reset | `static/owned-authentication-login.js` |
+| Login page design | `static/owned-authentication.css` |
+| Manager login/register/reset HTTP endpoints | `backend.py` |
+| Manager accounts table access and old JSON import | `authentication/account_database.py` |
+| Six-character CAPTCHA | `authentication/captcha_service.py` |
+| Company workspace table access | `authentication/workspace_database.py` |
+| Browser-to-database automatic save/load | `static/workspace-database-sync.js` |
+| SQLite/PostgreSQL connection and schema initialization | `employee_portal/database.py` |
+| Manager/workspace SQL tables | `migrations/003_persistent_workspaces.sql` |
+| Employee login, invitations, shifts and attendance API | `employee_portal/routes.py` |
+| Signed manager/employee sessions and role checks | `employee_portal/security.py` |
+| Employee SQL tables | `migrations/002_employee_portal.sql` |
+| Employee login/dashboard UI | `static/employee-portal/employee-portal.js` |
+| Employee UI design | `static/employee-portal/employee-portal.css` |
 
-Do not manually put a plain-text password in `data/auth_accounts.json`. Passwords must be created through the application so Werkzeug stores a secure hash.
+Passwords are hashed and are never included in the company workspace JSON. Each database workspace is keyed by the signed-in manager's normalized email, so one company cannot request another company's data.
 
-## Authentication pages
+## Overview and sidebar sections
 
-| Visible feature | File to edit |
+| Dashboard section | Exact file and useful search text |
 |---|---|
-| Workspace login and Create Profile flow | `static/owned-authentication-login.js` |
-| Login/Create Profile appearance | `static/owned-authentication.css` |
-| Backend create-account/login/reset endpoints | `backend.py` |
-| CAPTCHA backend | `authentication/captcha_service.py` |
-| Account database | `authentication/account_database.py` |
-| Worker/Staff login and activation | `static/employee-portal/employee-portal.js` |
-| Worker/Staff login appearance | `static/employee-portal/employee-portal.css` |
+| Good morning/afternoon/evening/night | `static/sections/dashboard-greeting.js` |
+| Overview cards, date/time, attendance health, deadlines, habitual leave, absence estimate | `static/overview-payroll-and-training.js` — `enhanceOverviewDashboard` |
+| Reminders | `static/overview-payroll-and-training.js` — `reminder` |
+| Temporary Workers records and forms | `static/application-core-and-profiles.js` plus `static/sections/temporary-workers-dashboard.js` |
+| Workers records and forms | `static/application-core-and-profiles.js` plus `static/sections/workers-dashboard.js` |
+| Staff records and forms | `static/application-core-and-profiles.js` plus `static/sections/staff-dashboard.js` |
+| Entrepreneur records and forms | `static/application-core-and-profiles.js` plus `static/sections/entrepreneur-dashboard.js` |
+| Shared workforce attendance/salary table | `static/sections/workforce-dashboard-shared.js` |
+| Worker Replacement | `static/application-core-and-profiles.js` — `coverage` |
+| Attendance Calendar and manual entry switch | `static/dashboard-attendance-controls.js` |
+| Festival calendar and yearly holidays | `static/attendance-and-calendar.js` |
+| Payroll and monthly salary editing | `static/overview-payroll-and-training.js` — `payrollPage` |
+| Training | `static/overview-payroll-and-training.js` — `trainingPage` |
+| Contractors and deadlines | `static/attendance-and-calendar.js` |
+| Ex-employees | `static/application-core-and-profiles.js` — `exemployees` |
+| Recycle Bin | `static/overview-payroll-and-training.js` — `recycle` |
+| Employee Login Setup | `static/employee-portal/employee-portal.js` — `adminView` |
+| Global search behavior | `static/overview-payroll-and-training.js` |
 
-## Overview dashboard
+## Main JavaScript load order
 
-| Visible section | File to edit |
-|---|---|
-| Good morning/afternoon/evening/night heading | `static/sections/dashboard-greeting.js` |
-| Overview workforce cards | `static/overview-payroll-and-training.js` — search `enhanceOverviewDashboard` |
-| Attendance status and deadline overflow | `static/overview-payroll-and-training.js` — search `operations-overview` |
-| Attendance Health | `static/overview-payroll-and-training.js` — search `attendance-health-role-dashboard` |
-| Total attendance by workforce | `static/overview-payroll-and-training.js` — search `Total attendance by workforce` |
-| Temporary Worker overflow | `static/overview-payroll-and-training.js` — search `temporary-overflow` |
-| Contractor overflow | `static/overview-payroll-and-training.js` — search `contractor-overflow` |
-| Estimated next-week absence risk | `static/overview-payroll-and-training.js` — search `absenceEstimatePanel` |
-| Habitual leave records | `static/overview-payroll-and-training.js` — search `habitual-leave-panel` |
-| Festival calendar | `static/attendance-and-calendar.js` — search `festivalCalendar` |
+1. `workspace-database-sync.js` installs persistent storage synchronization.
+2. `application-core-and-profiles.js` creates shared state, navigation and profile forms.
+3. `attendance-and-calendar.js` adds calendars, attendance and contractors.
+4. `dashboard-attendance-controls.js` adds manual attendance controls and calculations.
+5. `workforce-operations.js` adds overflow and workforce operations.
+6. `account-notifications-and-forms.js` adds form validation and compatibility behavior.
+7. `overview-payroll-and-training.js` supplies the final overview, payroll and training renderers.
+8. `sections/*.js` supplies readable role-specific dashboard renderers.
+9. `employee-portal/employee-portal.js` supplies employee access.
+10. `owned-authentication-login.js` supplies the final visible login screen.
 
-## Workforce dashboards
+Later files intentionally extend earlier functions. Keep this order in `static/index.html`.
 
-Manual attendance entry exists only in Attendance Calendar. Workforce dashboards are read-only calculated summaries.
+## CSS guide
 
-| Dashboard | File to edit |
-|---|---|
-| Shared automatic table, attendance lookup and salary calculation | `static/sections/workforce-dashboard-shared.js` |
-| Workers labels and record selection | `static/sections/workers-dashboard.js` |
-| Staff labels and record selection | `static/sections/staff-dashboard.js` |
-| Entrepreneur labels and record selection | `static/sections/entrepreneur-dashboard.js` |
-| Temporary Workers labels and record selection | `static/sections/temporary-workers-dashboard.js` |
-| Automatic table appearance | `static/automatic-workforce-dashboard.css` |
-
-Displayed columns are Name, Phone No., Shift Timings, Check-in Time, Check-out Time, Face Captured, Total Time, Overtime, Total Salary and Monthly Salary.
-
-## Remaining sidebar sections
-
-| Section | Main implementation |
-|---|---|
-| Reminders | `static/overview-payroll-and-training.js` — search `reminder` |
-| Employee Access | `static/employee-portal/employee-portal.js` — search `adminView` |
-| Worker Replacement | `static/application-core-and-profiles.js` — search `coverage` |
-| Attendance Calendar/manual attendance | `static/dashboard-attendance-controls.js` — search `attendanceCalendar` |
-| Payroll | `static/overview-payroll-and-training.js` — search `payrollPage` |
-| Training | `static/overview-payroll-and-training.js` — search `trainingPage` |
-| Contractors | `static/attendance-and-calendar.js` — search `contractor` |
-| Ex-employees | `static/application-core-and-profiles.js` — search `exemployees` |
-| Recycle Bin | `static/overview-payroll-and-training.js` — search `recycle` |
-| Profile forms | `static/application-core-and-profiles.js` and `static/overview-payroll-and-training.js` |
-
-## Diagnostic component files
-
-Every sidebar entry also has a small, readable diagnostic file under `static/components/`:
-
-- `overview.js`
-- `reminders.js`
-- `temporary-workers.js`
-- `workers.js`
-- `staff.js`
-- `entrepreneurs.js`
-- `worker-replacement.js`
-- `attendance-calendar.js`
-- `payroll.js`
-- `training.js`
-- `contractors.js`
-- `ex-employees.js`
-- `recycle-bin.js`
-
-These files validate the visible section. Shared diagnostic behavior is in `static/components/component-utils.js` and `static/components/runtime.js`.
-
-## Main browser load order
-
-`static/index.html` is the only file that loads CSS and JavaScript. Keep its script order unchanged. Later scripts intentionally refine behavior created by earlier scripts.
+- `styles.css`: shell, sidebar, top bar and common cards.
+- `owned-authentication.css`: manager/employee entry page.
+- `automatic-workforce-dashboard.css`: role attendance tables.
+- `dashboard-final-theme-and-form-controls.css`: final form borders and dashboard theme.
+- `dashboard-feature-extensions.css`: overview attendance/deadline panels.
+- `payroll-training.css`: Payroll and Training.
+- `employee-portal/employee-portal.css`: employee personal portal.
+- Remaining CSS filenames directly describe the feature they adjust and are all referenced by `static/index.html`.

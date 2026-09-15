@@ -1,1 +1,0 @@
-MSMEComponentFactories.standard({ id:'contractors', view:'contractors', label:'Contractors', heading:'CONTRACTOR REGISTER', required:[{name:'Contractor register table',selector:'.table-wrap table'},{name:'Add contractor control',selector:'#add-contractor'},{name:'Contract deadline column',selector:'th',minimum:7}]});

@@ -12,13 +12,15 @@ from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from pathlib import Path
 
-from flask import Flask, abort, jsonify, request, send_from_directory
+from flask import Flask, Response, abort, g, jsonify, request, send_from_directory
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 from employee_portal import install as install_employee_portal
 from employee_portal.security import token as access_token
+from employee_portal.security import require
 from authentication.account_database import AccountDatabase
 from authentication.captcha_service import CaptchaService
+from authentication.workspace_database import WorkspaceDatabase
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -136,7 +138,7 @@ def disable_development_cache(response):
     if origin in allowed:
         response.headers['Access-Control-Allow-Origin']=origin;response.headers['Vary']='Origin'
         response.headers['Access-Control-Allow-Headers']='Authorization,Content-Type,Idempotency-Key'
-        response.headers['Access-Control-Allow-Methods']='GET,POST,PATCH,DELETE,OPTIONS'
+        response.headers['Access-Control-Allow-Methods']='GET,POST,PUT,PATCH,DELETE,OPTIONS'
     return response
 
 
@@ -151,17 +153,20 @@ def account_file(email: str) -> Path:
     return DATA_DIR / f"{safe_account_id(email)}.json"
 
 
-def empty_workspace(email: str) -> dict:
+def migrate_legacy_workspace(email: str, legacy: dict) -> dict:
+    """Translate the former per-manager JSON shape without deleting its file."""
     return {
-        "account": {"email": email},
-        "people": [],
-        "temporary_workers": [],
-        "ex_employees": [],
-        "contractors": [],
-        "attendance": [],
-        "festival_calendar": [],
-        "recycle_bin": [],
-        "updated_at": None,
+        "account": legacy.get("account") or {"email": email},
+        "storage": {
+            "people": legacy.get("people", []),
+            "temporary": legacy.get("temporary_workers", []),
+            "ex": legacy.get("ex_employees", []),
+            "contractors": legacy.get("contractors", []),
+            "attendance": legacy.get("attendance", []),
+            "festivals": legacy.get("festival_calendar", []),
+            "recycle-bin": legacy.get("recycle_bin", []),
+        },
+        "schema_version": 1,
     }
 
 
@@ -283,6 +288,11 @@ def register_account():
     }
     accounts.append(account)
     save_auth_accounts(accounts)
+    WorkspaceDatabase().save(email, {
+        "account": public_account(account),
+        "storage": {},
+        "schema_version": 1,
+    })
     return jsonify({"ok": True, "account": public_account(account),"access_token":access_token(email,"ADMIN",email)})
 
 
@@ -347,11 +357,6 @@ def update_admin_account():
     if duplicate:
         return jsonify({"error": "Another account already uses the new email address."}), 409
 
-    old_workspace = account_file(current_email)
-    new_workspace = account_file(new_email)
-    if new_email != current_email and old_workspace.exists() and not new_workspace.exists():
-        old_workspace.replace(new_workspace)
-
     account.update({
         "name": str(payload.get("name") or account.get("name") or "MSME Manager").strip(),
         "phone": str(payload.get("phone") or account.get("phone") or "").strip(),
@@ -362,7 +367,12 @@ def update_admin_account():
         account["password_hash"] = generate_password_hash(new_password)
         account["password_changed_at"] = datetime.now(timezone.utc).isoformat()
     save_auth_accounts(accounts)
-    return jsonify({"ok": True, "account": public_account(account)})
+    WorkspaceDatabase().rename(current_email, new_email)
+    return jsonify({
+        "ok": True,
+        "account": public_account(account),
+        "access_token": access_token(new_email, "ADMIN", new_email),
+    })
 
 
 @app.post("/api/auth/google")
@@ -399,48 +409,72 @@ def google_account():
 
 
 @app.get("/api/workspace")
+@require("ADMIN", "HR")
 def get_workspace():
-    path = account_file(request.args.get("email", ""))
-    if not path.exists():
-        return jsonify(empty_workspace(request.args["email"]))
-    return jsonify(json.loads(path.read_text(encoding="utf-8")))
+    tenant = normalize_email(g.employee_identity["tenant"])
+    requested = normalize_email(request.args.get("email") or tenant)
+    if requested != tenant:
+        return jsonify({"error": "You cannot access another company's workspace."}), 403
+    database = WorkspaceDatabase()
+    stored = database.load(tenant)
+    if stored is not None:
+        stored["exists"] = True
+        return jsonify(stored)
+
+    # One-time import for installations that previously used per-manager JSON.
+    legacy_path = account_file(tenant)
+    if legacy_path.exists():
+        try:
+            legacy = json.loads(legacy_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            legacy = None
+        if isinstance(legacy, dict):
+            migrated = migrate_legacy_workspace(tenant, legacy)
+            database.save(tenant, migrated)
+            migrated["exists"] = True
+            return jsonify(migrated)
+    return jsonify({
+        "account": {"email": tenant},
+        "storage": {},
+        "schema_version": 1,
+        "updated_at": None,
+        "exists": False,
+    })
 
 
 @app.put("/api/workspace")
+@require("ADMIN", "HR")
 def put_workspace():
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
         abort(400, "Send a JSON workspace object.")
-    account = payload.get("account") or {}
-    email = account.get("email", "")
-    path = account_file(email)
-    stored = {
+    tenant = normalize_email(g.employee_identity["tenant"])
+    storage = payload.get("storage")
+    if not isinstance(storage, dict):
+        return jsonify({"error": "Workspace storage must be a JSON object."}), 400
+    account = payload.get("account") if isinstance(payload.get("account"), dict) else {}
+    account = {**account, "email": tenant}
+    updated_at = WorkspaceDatabase().save(tenant, {
         "account": account,
-        "people": payload.get("people", []),
-        "temporary_workers": payload.get("temporary_workers", []),
-        "ex_employees": payload.get("ex_employees", []),
-        "contractors": payload.get("contractors", []),
-        "attendance": payload.get("attendance", []),
-        "festival_calendar": payload.get("festival_calendar", []),
-        "recycle_bin": payload.get("recycle_bin", []),
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-    }
-    path.write_text(json.dumps(stored, ensure_ascii=False, indent=2), encoding="utf-8")
-    return jsonify({"ok": True, "updated_at": stored["updated_at"]})
+        "storage": storage,
+        "schema_version": 1,
+    })
+    return jsonify({"ok": True, "updated_at": updated_at})
 
 
 @app.get("/api/attendance.csv")
+@require("ADMIN", "HR")
 def attendance_csv():
     import csv
     import io
-    from flask import Response
 
-    path = account_file(request.args.get("email", ""))
-    workspace = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    workspace = WorkspaceDatabase().load(g.employee_identity["tenant"]) or {}
+    storage = workspace.get("storage", {})
+    attendance = storage.get("attendance", workspace.get("attendance", []))
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(["Date", "Name", "Role", "Status", "Login", "Logout", "Work", "Half Time", "Overtime"])
-    for day in workspace.get("attendance", []):
+    for day in attendance:
         for record in day.get("records", []):
             writer.writerow([day.get("date"), record.get("name"), record.get("role"), record.get("status"), record.get("login"), record.get("logout"), record.get("work"), record.get("half"), record.get("overtime")])
     return Response(buffer.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=msme-attendance-sheet.csv"})
