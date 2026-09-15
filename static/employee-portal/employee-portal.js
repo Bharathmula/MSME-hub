@@ -245,14 +245,55 @@
 
   function renderProfile() {
     const employee = dashboard.employee;
+    const profile = { ...employee, ...(dashboard.profile || {}) };
     const photo = employee.profile_photo_data
       ? `<img class="ep-profile-photo" src="${employee.profile_photo_data}" alt="Profile photo">`
       : '<div class="ep-profile-photo ep-empty-photo">No photo</div>';
-    employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">READ-ONLY DETAILS</p><h1>My profile</h1><p>Your administrator controls these details. You can only add or replace your profile photo.</p></section>
+    const input = (label, name, type = 'text', wide = false) => `<label class="${wide ? 'full' : ''}">${label}<input class="ep-input" name="${name}" type="${type}" value="${esc(profile[name] || '')}"></label>`;
+    const select = (label, name, choices) => `<label>${label}<select class="ep-input" name="${name}">${choices.map(choice => `<option ${String(profile[name] || '') === choice ? 'selected' : ''}>${choice}</option>`).join('')}</select></label>`;
+    const countOptions = (name) => Array.from({ length: 11 }, (_, value) => `<option value="${value}" ${Number(profile[name] || 0) === value ? 'selected' : ''}>${value}</option>`).join('');
+    employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">PERSONAL DETAILS</p><h1>My profile</h1><p>Update your personal, family, medical and skill details. Attendance, role, employee ID and salary remain controlled by the administrator.</p></section>
       <section class="ep-card ep-profile-layout"><div class="ep-photo-column">${photo}<label class="ep-upload">Add photo to profile<input id="ep-profile-file" type="file" accept="image/*"></label><p id="ep-profile-message"></p></div>
-        <dl class="ep-profile-details"><div><dt>Full name</dt><dd>${esc(employee.name)}</dd></div><div><dt>Employee ID</dt><dd>${esc(employee.employee_id)}</dd></div><div><dt>Role</dt><dd>${esc(roleLabel(employee.workforce_role))}</dd></div><div><dt>Phone number</dt><dd>${esc(employee.phone || 'Not provided')}</dd></div><div><dt>Email</dt><dd>${esc(employee.email)}</dd></div><div><dt>Company account</dt><dd>${esc(employee.tenant_email || 'MSME Hub')}</dd></div><div><dt>Account status</dt><dd>${esc(employee.status)}</dd></div><div><dt>Face attendance</dt><dd>${dashboard.biometric_ready ? 'Enabled' : 'Not enabled'}</dd></div></dl>
-      </section>`);
+        <dl class="ep-profile-details"><div><dt>Employee ID</dt><dd>${esc(employee.employee_id)}</dd></div><div><dt>Role</dt><dd>${esc(roleLabel(employee.workforce_role))}</dd></div><div><dt>Login email</dt><dd>${esc(employee.email)}</dd></div><div><dt>Company account</dt><dd>${esc(employee.tenant_email || 'MSME Hub')}</dd></div><div><dt>Account status</dt><dd>${esc(employee.status)}</dd></div><div><dt>Face attendance</dt><dd>${dashboard.biometric_ready ? 'Enabled' : 'Not enabled'}</dd></div></dl>
+      </section>
+      <section class="ep-card ep-editable-profile"><form id="ep-profile-details-form">
+        <h2>Personal details</h2><div class="form-grid">${input('Full name','name')}${input('Phone number','phone')}${input('Date of birth','dob','date')}${input('Gender','gender')}${input('Marital status','marital_status')}${input('Aadhaar number','aadhaar')}${input('Qualification','qualification')}${input('Hobbies','hobbies')}${input('Passion','passion', 'text', true)}${input('Temporary address','temporary_address','text',true)}${input('Permanent address','address','text',true)}</div>
+        <h2>Family details</h2><div class="form-grid">${input("Father's name",'father_name')}${input("Mother's name",'mother_name')}${input("Father's occupation",'father_occupation')}${input("Mother's occupation",'mother_occupation')}${input("Father's birthday",'father_birthday','date')}${input("Mother's birthday",'mother_birthday','date')}${input('Spouse name','spouse_name')}${input("Spouse's birthday",'spouse_birthday','date')}${input('Wedding anniversary','wedding_anniversary','date')}${input("Parents' anniversary",'parents_anniversary','date')}<label>Siblings count<select class="ep-input" name="siblings_quantity">${countOptions('siblings_quantity')}</select></label><label>Children count<select class="ep-input" name="children_quantity">${countOptions('children_quantity')}</select></label><div class="ep-relative-name-fields full" id="ep-sibling-names"></div><div class="ep-relative-name-fields full" id="ep-child-names"></div></div>
+        <h2>Medical, driving and skills</h2><div class="form-grid">${input('Blood group','blood_group')}${input('Hospital preference','hospital')}${input('Family doctor','family_doctor')}${select('Driving skill','driving_skill',['','No','Yes'])}${input('Vehicle type','driving_vehicle_type')}${input('Driving licence number','driving_licence_number')}${input('Languages known','languages')}${input('Technical / trade skills','technical_skills')}${input('Emergency contact','emergency')}${input('Skills (comma separated)','skills','text',true)}${input('Responsibilities','responsibilities','text',true)}${input('Medical history','medical_history','text',true)}</div>
+        <p id="ep-profile-details-message"></p><div class="ep-profile-save"><button class="ep-primary">Save personal details</button></div>
+      </form></section>`);
     bindProfilePhoto();
+    const form = root.querySelector('#ep-profile-details-form');
+    const renderNames = (kind, countName, prefix) => {
+      const container = form.querySelector(`#ep-${kind}-names`);
+      const count = Number(form.elements[countName].value || 0);
+      const entered = Object.fromEntries(new FormData(form));
+      container.innerHTML = count
+        ? `<h3>${kind === 'sibling' ? 'Sibling' : 'Children'} names</h3><div class="form-grid">${Array.from({length:count},(_,index)=>{const name=`${prefix}${index+1}`;return input(`${kind === 'sibling' ? 'Sibling' : 'Child'} ${index+1} name`,name).replace(`value="${esc(profile[name] || '')}"`,`value="${esc(entered[name] ?? profile[name] ?? '')}"`)}).join('')}</div>`
+        : '';
+    };
+    const renderRelativeNames = () => {
+      renderNames('sibling', 'siblings_quantity', 'sibling_name_');
+      renderNames('child', 'children_quantity', 'child_name_');
+    };
+    form.elements.siblings_quantity.onchange = renderRelativeNames;
+    form.elements.children_quantity.onchange = renderRelativeNames;
+    renderRelativeNames();
+    form.onsubmit = async event => {
+      event.preventDefault();
+      const message = root.querySelector('#ep-profile-details-message');
+      try {
+        const values = Object.fromEntries(new FormData(form));
+        const result = await request('/api/employee/profile-details', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values)
+        });
+        dashboard.profile = result.profile;
+        dashboard.employee.name = result.profile.name || dashboard.employee.name;
+        dashboard.employee.phone = result.profile.phone || dashboard.employee.phone;
+        message.className = 'ep-success';
+        message.textContent = 'Personal details saved permanently and shared with the administrator.';
+      } catch (error) { message.className = 'ep-error'; message.textContent = error.message; }
+    };
   }
 
   function renderAccountControls() {

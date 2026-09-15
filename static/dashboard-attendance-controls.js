@@ -514,6 +514,36 @@ function combinedAttendanceRecordV21(date, savedRecord) {
   return { date, records, automaticDraft: true };
 }
 
+function saveAutomaticAttendanceV35(date, mappedAttendance) {
+  if (!mappedAttendance.length) return;
+  const index = attendanceLog.findIndex(day => day.date === date);
+  const existing = index >= 0 ? attendanceLog[index] : { date, records: [] };
+  const automaticIds = new Set(mappedAttendance.map(record => record.id));
+  const manualIds = new Set((existing.records || [])
+    .filter(record => record.source === 'Manual attendance')
+    .map(record => record.id));
+  const retained = (existing.records || []).filter(record =>
+    !automaticIds.has(record.id) || manualIds.has(record.id)
+  );
+  const automatic = mappedAttendance.filter(record => !manualIds.has(record.id));
+  const saved = { date, records: [...retained, ...automatic] };
+  if (index < 0) attendanceLog.push(saved);
+  else attendanceLog[index] = saved;
+  save();
+}
+
+function refreshAttendanceViewPreservingScrollV35(callback) {
+  const positions = [...document.querySelectorAll('#view-root .table-wrap')]
+    .map(element => ({ left: element.scrollLeft, top: element.scrollTop }));
+  callback();
+  requestAnimationFrame(() => {
+    [...document.querySelectorAll('#view-root .table-wrap')].forEach((element, index) => {
+      element.scrollLeft = positions[index]?.left || 0;
+      element.scrollTop = positions[index]?.top || 0;
+    });
+  });
+}
+
 async function syncAutomaticAttendanceV21(date, force = false) {
   if (!force && automaticAttendanceLoadedV21.has(date)) return;
   const base = String(window.MSME_EMPLOYEE_API_URL || '').replace(/\/$/, '');
@@ -542,6 +572,7 @@ async function syncAutomaticAttendanceV21(date, force = false) {
       face_captured: Boolean(item.checkin_face_captured || item.checkout_face_captured),
       portal_login_at: automaticTimeV21(item.portal_login_at),
       portal_logout_at: automaticTimeV21(item.portal_logout_at),
+      profile_details: item.profile_details || {},
       source: 'Face check-in / check-out'
       };
     });
@@ -552,17 +583,29 @@ async function syncAutomaticAttendanceV21(date, force = false) {
     mappedAttendance.forEach(record => {
       const person = [...people, ...temporaryWorkers].find(item => item.id === record.id);
       if (!person) return;
+      if (record.profile_details && typeof record.profile_details === 'object') {
+        Object.assign(person, record.profile_details);
+      }
       person.status = record.status;
       person.login_time = record.login || '';
       person.logout_time = record.logout || '';
       person.checkin_face_captured = record.checkin_face_captured;
       person.checkout_face_captured = record.checkout_face_captured;
     });
-    if (typeof view !== 'undefined' && view === 'attendance' && calendarDay === date) attendanceCalendar();
-    else if (typeof view !== 'undefined' && view === 'workers') roleDashboard('Worker');
-    else if (typeof view !== 'undefined' && view === 'staff') roleDashboard('Staff');
-    else if (typeof view !== 'undefined' && view === 'temporary') temporaryDashboard();
-    else if (changed && typeof view !== 'undefined' && view === 'dashboard') dashboard();
+    if (changed) {
+      saveAutomaticAttendanceV35(date, mappedAttendance);
+      if (typeof view !== 'undefined' && view === 'attendance' && calendarDay === date) {
+        refreshAttendanceViewPreservingScrollV35(attendanceCalendar);
+      } else if (typeof view !== 'undefined' && view === 'workers') {
+        refreshAttendanceViewPreservingScrollV35(() => roleDashboard('Worker'));
+      } else if (typeof view !== 'undefined' && view === 'staff') {
+        refreshAttendanceViewPreservingScrollV35(() => roleDashboard('Staff'));
+      } else if (typeof view !== 'undefined' && view === 'temporary') {
+        refreshAttendanceViewPreservingScrollV35(temporaryDashboard);
+      } else if (typeof view !== 'undefined' && view === 'dashboard') {
+        dashboard();
+      }
+    }
   } catch (error) {
     automaticAttendanceLoadedV21.delete(date);
     console.error(error);

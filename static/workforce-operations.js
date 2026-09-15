@@ -262,7 +262,7 @@ document.addEventListener('click', event => {
   const profileCard = event.target.closest('[data-overflow-profile]');
   const attendanceButton = event.target.closest('[data-person-attendance]');
   const backButton = event.target.closest('#back-to-overview');
-  if (!roleCard && !profileCard && !backButton) return;
+  if (!roleCard && !profileCard && !attendanceButton && !backButton) return;
 
   /* Bulk-selection controls inside a profile card must not open its editor. */
   if (profileCard && event.target.closest('input, label, [data-bulk-action]')) return;

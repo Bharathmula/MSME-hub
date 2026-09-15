@@ -30,6 +30,39 @@ def shift_photos(db,shift_id):
  photos={item['event_type']:item['face_capture_data'] or '' for item in events}
  return photos.get('CHECK_IN',''),photos.get('CHECK_OUT','')
 
+EMPLOYEE_EDITABLE_PROFILE_FIELDS={
+ 'name','phone','dob','gender','marital_status','aadhaar','qualification','hobbies','passion',
+ 'temporary_address','address','father_name','mother_name','father_occupation','mother_occupation',
+ 'father_birthday','mother_birthday','spouse_name','spouse_birthday','wedding_anniversary',
+ 'parents_anniversary','special_date','siblings_quantity','children_quantity','blood_group',
+ 'hospital','family_doctor','medical_history','languages','technical_skills','responsibilities',
+ 'emergency','driving_skill','driving_vehicle_type','driving_licence_number','skills'
+}
+
+def workspace_profile(db,row):
+ stored=db.execute('SELECT workspace_json FROM tenant_workspaces WHERE tenant_email=?',(row['tenant_email'],)).fetchone()
+ try:workspace=json.loads(stored['workspace_json']) if stored else {'account':{'email':row['tenant_email']},'storage':{},'schema_version':1}
+ except (TypeError,json.JSONDecodeError):workspace={'account':{'email':row['tenant_email']},'storage':{},'schema_version':1}
+ storage=workspace.setdefault('storage',{})
+ preferred='temporary' if row['workforce_role']=='TEMPORARY' else 'people'
+ for collection in (preferred,'people','temporary'):
+  records=storage.get(collection)
+  if not isinstance(records,list):continue
+  for index,profile in enumerate(records):
+   if not isinstance(profile,dict):continue
+   if str(profile.get('id',''))==str(row['employee_id']) or str(profile.get('email','')).strip().lower()==str(row['email']).strip().lower():
+    try:employee_saved=json.loads(row['profile_json'] or '{}')
+    except (KeyError,TypeError,json.JSONDecodeError):employee_saved={}
+    if isinstance(employee_saved,dict):profile.update(employee_saved)
+    return workspace,collection,index,profile
+ role='Temporary Worker' if row['workforce_role']=='TEMPORARY' else row['workforce_role'].title()
+ profile={'id':row['employee_id'],'name':row['name'],'email':row['email'],'phone':row['phone'],'role':role,'skills':[]}
+ try:employee_saved=json.loads(row['profile_json'] or '{}')
+ except (KeyError,TypeError,json.JSONDecodeError):employee_saved={}
+ if isinstance(employee_saved,dict):profile.update(employee_saved)
+ records=storage.setdefault(preferred,[]);records.append(profile)
+ return workspace,preferred,len(records)-1,profile
+
 @employee_api.post('/api/employee/login')
 def login():
  p=data();login_id=str(p.get('email','')).strip().lower();password=str(p.get('password',''))
@@ -100,8 +133,10 @@ def dashboard():
   sessions=db.execute('SELECT id,login_at,logout_at FROM employee_login_sessions WHERE employee_account_id=? ORDER BY login_at DESC LIMIT 50',(row['id'],)).fetchall()
   current_session=next((item for item in sessions if item['id']==g.employee_identity.get('session_id')),None)
   previous_logout=next((item['logout_at'] for item in sessions if item['logout_at']),None)
+  _,_,_,profile=workspace_profile(db,row)
   return jsonify({
    'employee':public(row),
+   'profile':profile,
    'server_time':stamp(),
    'today':dict(shift) if shift else None,
    'next_action':'CHECK_OUT' if shift and shift['status']=='OPEN' else 'CHECK_IN',
@@ -113,6 +148,37 @@ def dashboard():
    'biometric_ready':True,
   })
  finally:db.close()
+
+@employee_api.patch('/api/employee/profile-details')
+@require('EMPLOYEE')
+def profile_details():
+ p=data()
+ with transaction() as db:
+  row=current(db)
+  if not row:return jsonify({'error':'Employee account is not active.'}),403
+  workspace,collection,index,profile=workspace_profile(db,row)
+  updates={}
+  for key,value in p.items():
+   if key in EMPLOYEE_EDITABLE_PROFILE_FIELDS or key.startswith('sibling_name_') or key.startswith('child_name_'):
+    updates[key]=value
+  if not updates:return jsonify({'error':'No editable personal details were provided.'}),400
+  if 'skills' in updates:
+   skills=updates['skills']
+   updates['skills']=skills if isinstance(skills,list) else [item.strip() for item in str(skills).split(',') if item.strip()]
+  for quantity_field,prefix in (('siblings_quantity','sibling_name_'),('children_quantity','child_name_')):
+   if quantity_field not in updates:continue
+   try:count=max(0,min(10,int(updates[quantity_field])))
+   except (TypeError,ValueError):return jsonify({'error':f'{quantity_field.replace("_"," ").title()} must be between 0 and 10.'}),400
+   updates[quantity_field]=str(count)
+   for key in list(profile):
+    if key.startswith(prefix) and key[len(prefix):].isdigit() and int(key[len(prefix):])>count:profile.pop(key,None)
+  profile.update(updates)
+  workspace['storage'][collection][index]=profile
+  db.execute('''INSERT INTO tenant_workspaces(tenant_email,workspace_json,updated_at) VALUES(?,?,?)
+   ON CONFLICT(tenant_email) DO UPDATE SET workspace_json=excluded.workspace_json,updated_at=excluded.updated_at''',(row['tenant_email'],json.dumps(workspace),stamp()))
+  db.execute('UPDATE employee_accounts SET name=?,phone=?,profile_json=?,updated_at=? WHERE id=?',(str(profile.get('name') or row['name']),str(profile.get('phone') or row['phone']),json.dumps(profile),stamp(),row['id']))
+  audit(db,'EMPLOYEE_PROFILE_UPDATED','employee_account',row['id'],{'fields':sorted(updates)})
+ return jsonify({'ok':True,'profile':profile})
 
 @employee_api.get('/api/employee/attendance-detail')
 @require('EMPLOYEE')
@@ -251,7 +317,7 @@ def employee_attendance():
          EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND e.face_capture_data LIKE 'data:image/%') AS checkout_face_captured,
          (SELECT ls.login_at FROM employee_login_sessions ls WHERE ls.employee_account_id=a.id ORDER BY ls.login_at DESC LIMIT 1) AS portal_login_at,
          (SELECT ls.logout_at FROM employee_login_sessions ls WHERE ls.employee_account_id=a.id AND ls.logout_at IS NOT NULL ORDER BY ls.login_at DESC LIMIT 1) AS portal_logout_at,
-         a.employee_id,a.name,a.email,a.workforce_role
+         a.employee_id,a.name,a.email,a.workforce_role,a.profile_json
   FROM employee_shifts s
   JOIN employee_accounts a ON a.id=s.employee_account_id
   WHERE a.tenant_email=?
@@ -264,7 +330,13 @@ def employee_attendance():
  db=connect()
  try:rows=db.execute(query,parameters).fetchall()
  finally:db.close()
- return jsonify({'attendance':[dict(row) for row in rows]})
+ attendance=[]
+ for row in rows:
+  item=dict(row)
+  try:item['profile_details']=json.loads(item.pop('profile_json') or '{}')
+  except (TypeError,json.JSONDecodeError):item['profile_details']={}
+  attendance.append(item)
+ return jsonify({'attendance':attendance})
 
 @employee_api.get('/api/admin/employee-attendance-month')
 @require('ADMIN','HR')

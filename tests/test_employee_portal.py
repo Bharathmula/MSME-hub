@@ -13,7 +13,7 @@ class EmployeePortalTests(unittest.TestCase):
  def headers(self,t,extra=None):return {'Authorization':'Bearer '+t,**(extra or {})}
  def test_health_reports_photo_api_schema(self):
   response=self.c.get('/api/health');self.assertEqual(response.status_code,200,response.text)
-  self.assertTrue(response.json['attendance_photo_api']);self.assertGreaterEqual(response.json['schema_version'],5)
+  self.assertTrue(response.json['attendance_photo_api']);self.assertGreaterEqual(response.json['schema_version'],7)
  def test_admin_account_is_saved_in_database(self):
   captcha=self.c.get('/api/auth/captcha').json
   registered=self.c.post('/api/auth/register',json={'email':'owner.persistence@example.com','password':'OwnerTest123!','name':'Database Owner','company':'Persistent Company','captcha_id':captcha['captcha_id'],'captcha_answer':captcha['captcha_code']})
@@ -31,17 +31,23 @@ class EmployeePortalTests(unittest.TestCase):
  def test_account_activation_and_attendance(self):
   face='data:image/jpeg;base64,/9j/2Q=='
   r=self.c.post('/api/admin/employee-accounts',json={'name':'Test Worker','employee_id':'W-100','email':'worker100@gmail.com','phone':'9876543210','workforce_role':'WORKER'},headers=self.headers(self.admin));self.assertEqual(r.status_code,201,r.text)
+  workspace={'account':{'email':'admin@example.com','company':'Test Company'},'storage':{'people':[{'id':'W-100','name':'Test Worker','email':'worker100@gmail.com','phone':'9876543210','role':'Worker','skills':['Assembly']}],'temporary':[],'attendance':[]}}
+  self.assertEqual(self.c.put('/api/workspace',json=workspace,headers=self.headers(self.admin)).status_code,200)
   invite=r.json['invite_token'];activation=self.c.post('/api/employee/activate',json={'invite_token':invite,'contact':'worker100@gmail.com','password':'Testing123!'});self.assertEqual(activation.status_code,200);self.assertTrue(activation.json['access_token'])
   self.assertEqual(self.c.get('/api/employee/dashboard',headers=self.headers(activation.json['access_token'])).status_code,200)
   login=self.c.post('/api/employee/login',json={'email':'worker100@gmail.com','password':'Testing123!'});self.assertEqual(login.status_code,200);employee=login.json['access_token']
   session_dashboard=self.c.get('/api/employee/dashboard',headers=self.headers(employee));self.assertTrue(session_dashboard.json['session']['login_at'])
-  phone_login=self.c.post('/api/employee/login',json={'email':'9876543210','password':'Testing123!'});self.assertEqual(phone_login.status_code,200,phone_login.text)
+  self.assertEqual(session_dashboard.json['profile']['skills'],['Assembly'])
+  profile=self.c.patch('/api/employee/profile-details',json={'phone':'9000011111','children_quantity':'2','child_name_1':'Asha','child_name_2':'Arun','skills':'Assembly, Welding'},headers=self.headers(employee));self.assertEqual(profile.status_code,200,profile.text);self.assertEqual(profile.json['profile']['child_name_2'],'Arun')
+  saved_workspace=self.c.get('/api/workspace',headers=self.headers(self.admin));saved_person=saved_workspace.json['storage']['people'][0];self.assertEqual(saved_person['children_quantity'],'2');self.assertEqual(saved_person['phone'],'9000011111')
+  phone_login=self.c.post('/api/employee/login',json={'email':'9000011111','password':'Testing123!'});self.assertEqual(phone_login.status_code,200,phone_login.text)
   self.assertEqual(self.c.get('/api/admin/employee-accounts',headers=self.headers(employee)).status_code,403)
   first=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face},headers=self.headers(employee,{'Idempotency-Key':'in'}));self.assertEqual(first.status_code,200,first.text);self.assertEqual(first.json['event']['event_type'],'CHECK_IN')
   retry=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face},headers=self.headers(employee,{'Idempotency-Key':'in'}));self.assertTrue(retry.json['duplicate'])
   out=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face},headers=self.headers(employee,{'Idempotency-Key':'out'}));self.assertEqual(out.json['event']['event_type'],'CHECK_OUT')
   detail=self.c.get('/api/employee/attendance-detail',query_string={'date':datetime.now(timezone.utc).date().isoformat()},headers=self.headers(employee));self.assertEqual(detail.status_code,200,detail.text);self.assertEqual(detail.json['check_in_photo'],face);self.assertEqual(detail.json['check_out_photo'],face)
   admin_attendance=self.c.get('/api/admin/employee-attendance',headers=self.headers(self.admin));self.assertEqual(admin_attendance.status_code,200,admin_attendance.text);self.assertEqual(admin_attendance.json['attendance'][0]['employee_id'],'W-100')
+  self.assertEqual(admin_attendance.json['attendance'][0]['profile_details']['child_name_2'],'Arun')
   self.assertEqual(admin_attendance.json['attendance'][0]['email'],'worker100@gmail.com')
   self.assertEqual(admin_attendance.json['attendance'][0]['checkin_face_captured'],1);self.assertEqual(admin_attendance.json['attendance'][0]['checkout_face_captured'],1)
   month=datetime.now(timezone.utc).strftime('%Y-%m')
@@ -49,7 +55,7 @@ class EmployeePortalTests(unittest.TestCase):
   admin_detail=self.c.get('/api/admin/employee-attendance-detail',query_string={'employee_id':'W-100','date':datetime.now(timezone.utc).date().isoformat()},headers=self.headers(self.admin));self.assertEqual(admin_detail.status_code,200,admin_detail.text);self.assertEqual(admin_detail.json['check_in_photo'],face);self.assertEqual(admin_detail.json['check_out_photo'],face)
   photo=self.c.patch('/api/employee/profile-photo',json={'profile_photo':face},headers=self.headers(employee));self.assertEqual(photo.status_code,200,photo.text)
   dash=self.c.get('/api/employee/dashboard',headers=self.headers(employee));self.assertEqual(dash.json['today']['status'],'COMPLETED');self.assertEqual(dash.json['employee']['employee_id'],'W-100')
-  self.assertEqual(dash.json['employee']['phone'],'9876543210');self.assertTrue(dash.json['employee']['profile_photo_data'].startswith('data:image/'))
+  self.assertEqual(dash.json['employee']['phone'],'9000011111');self.assertTrue(dash.json['employee']['profile_photo_data'].startswith('data:image/'))
   controls=self.c.patch('/api/employee/account-controls',json={'current_password':'Testing123!','new_password':'Changed123!','new_pin':'654321'},headers=self.headers(employee));self.assertEqual(controls.status_code,200,controls.text)
   self.assertEqual(self.c.post('/api/employee/login',json={'email':'worker100@gmail.com','password':'Testing123!'}).status_code,401)
   self.assertEqual(self.c.post('/api/employee/login',json={'email':'worker100@gmail.com','password':'Changed123!'}).status_code,200)

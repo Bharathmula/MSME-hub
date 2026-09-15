@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS employee_accounts (
     biometric_status TEXT NOT NULL DEFAULT 'NOT_CONFIGURED',
     phone TEXT NOT NULL DEFAULT '',
     profile_photo_data TEXT NOT NULL DEFAULT '',
+    profile_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     UNIQUE (tenant_email, employee_id)
@@ -168,6 +169,10 @@ def initialize() -> None:
                 "ALTER TABLE employee_accounts "
                 "ADD COLUMN IF NOT EXISTS profile_photo_data TEXT NOT NULL DEFAULT ''"
             )
+            db.execute(
+                "ALTER TABLE employee_accounts "
+                "ADD COLUMN IF NOT EXISTS profile_json TEXT NOT NULL DEFAULT '{}'"
+            )
             return
 
         db.executescript(
@@ -198,6 +203,10 @@ def initialize() -> None:
         if "profile_photo_data" not in account_columns:
             db.execute(
                 "ALTER TABLE employee_accounts ADD COLUMN profile_photo_data TEXT NOT NULL DEFAULT ''"
+            )
+        if "profile_json" not in account_columns:
+            db.execute(
+                "ALTER TABLE employee_accounts ADD COLUMN profile_json TEXT NOT NULL DEFAULT '{}'"
             )
     finally:
         db.close()

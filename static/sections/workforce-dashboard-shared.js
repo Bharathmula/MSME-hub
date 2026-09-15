@@ -80,7 +80,7 @@
     const monthlySalary = Number(person.monthly_salary || 0);
     const dailyRate = Number(person.daily_rate || 0);
     const estimatedSalary = dailyRate > 0
-      ? dailyRate * presentRecords.length
+      ? dailyRate * (workedMinutes / (8 * 60))
       : monthlySalary > 0
         ? monthlySalary * Math.min(workedMinutes / (26 * 8 * 60), 1)
         : 0;

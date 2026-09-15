@@ -1367,10 +1367,16 @@ if (document.readyState === 'loading') {
     const dailyRate = Number(person.daily_rate || 0);
     const monthlySalary = Number(person.monthly_salary || 0);
     const pay = dailyRate
-      ? dailyRate * records.length
+      ? dailyRate * (minutes / (8 * 60))
       : monthlySalary
         ? monthlySalary * (minutes / (8 * 60 * 26))
         : 0;
+    const today = new Date().toISOString().slice(0, 10);
+    const todayRecords = (Array.isArray(attendanceLog) ? attendanceLog : [])
+      .filter(day => day.date === today)
+      .flatMap(day => (day.records || []).filter(record => record.id === person.id && record.status === 'Present'));
+    const todayMinutes = todayRecords.reduce((sum, record) => sum + parseDuration(record.total || record.work), 0);
+    const hourlyRate = dailyRate > 0 ? dailyRate / 8 : monthlySalary > 0 ? monthlySalary / (26 * 8) : 0;
     return {
       id: person.id,
       name: person.name || 'Unnamed',
@@ -1379,6 +1385,8 @@ if (document.readyState === 'loading') {
       minutes,
       monthlySalary,
       dailyRate,
+      todayMinutes,
+      todayPay: hourlyRate * (todayMinutes / 60),
       rate: dailyRate ? `₹${dailyRate}/day` : monthlySalary ? `₹${monthlySalary}/month` : 'Set salary in profile',
       pay
     };
@@ -1394,16 +1402,16 @@ if (document.readyState === 'loading') {
     ].map(([role, title]) => {
       const roleRows = rows.filter(row => row.role === role);
       const totalPay = roleRows.reduce((total, row) => total + row.pay, 0);
-      return `<section class="panel payroll-panel payroll-role-section"><div class="panel-header"><div><span class="eyebrow">${title.toUpperCase()}</span><h2>${title} monthly salary</h2></div><div class="payroll-role-total"><small>${roleRows.length} people</small><b>₹${totalPay.toFixed(2)}</b></div></div><div class="table-wrap"><table><thead><tr><th>NAME</th><th>PRESENT DAYS</th><th>WORKED HOURS</th><th>MONTHLY SALARY</th><th>DAILY RATE</th><th>CALCULATED MONTHLY PAY</th><th>EDIT</th></tr></thead><tbody>${roleRows.map(row => `<tr><td><b>${esc(row.name)}</b></td><td>${row.days}</td><td>${Math.floor(row.minutes / 60)}h ${row.minutes % 60}m</td><td>₹${row.monthlySalary.toFixed(2)}</td><td>₹${row.dailyRate.toFixed(2)}</td><td><b>₹${row.pay.toFixed(2)}</b></td><td><button class="action" data-edit-payroll-salary="${esc(row.id)}">Edit salary</button></td></tr>`).join('') || '<tr><td colspan="7" class="empty">No records in this section.</td></tr>'}</tbody></table></div></section>`;
+      return `<section class="panel payroll-panel payroll-role-section"><div class="panel-header"><div><span class="eyebrow">${title.toUpperCase()}</span><h2>${title} monthly salary</h2></div><div class="payroll-role-total"><small>${roleRows.length} people</small><b>₹${totalPay.toFixed(2)}</b></div></div><div class="table-wrap"><table><thead><tr><th>NAME</th><th>TODAY WORKED</th><th>TODAY SALARY</th><th>PRESENT DAYS</th><th>MONTH WORKED</th><th>MONTHLY SALARY</th><th>DAILY RATE (8 HR)</th><th>CALCULATED MONTHLY PAY</th><th>EDIT</th></tr></thead><tbody>${roleRows.map(row => `<tr><td><b>${esc(row.name)}</b></td><td>${Math.floor(row.todayMinutes / 60)}h ${row.todayMinutes % 60}m</td><td><b>₹${row.todayPay.toFixed(2)}</b></td><td>${row.days}</td><td>${Math.floor(row.minutes / 60)}h ${row.minutes % 60}m</td><td>₹${row.monthlySalary.toFixed(2)}</td><td>₹${row.dailyRate.toFixed(2)}</td><td><b>₹${row.pay.toFixed(2)}</b></td><td><button class="action" data-edit-payroll-salary="${esc(row.id)}">Edit salary</button></td></tr>`).join('') || '<tr><td colspan="9" class="empty">No records in this section.</td></tr>'}</tbody></table></div></section>`;
     }).join('');
     root.innerHTML = `<div class="page-heading"><div><div class="eyebrow">PAYROLL</div>
-      <h1>Monthly salary calculation.</h1><p>Calculated from saved attendance and each person's salary rate.</p></div>
+      <h1>Daily and monthly salary calculation.</h1><p>Daily salary is calculated from actual working hours. A daily rate represents eight working hours.</p></div>
       <button class="primary" id="download-payroll">⇩ Download payroll CSV</button></div>
       <section class="payroll-month-banner"><span>PAYROLL MONTH</span><b>${now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</b><strong>${rows.length} people</strong></section>${payrollSections}`;
     document.getElementById('download-payroll').onclick = () => {
       const content = [
-        'Name,Role,Present days,Worked hours,Rate,Calculated pay',
-        ...rows.map(row => [row.name, row.role, row.days, `${Math.floor(row.minutes / 60)}h ${row.minutes % 60}m`, row.rate, row.pay.toFixed(2)].map(csvCell).join(','))
+        'Name,Role,Today worked,Today salary,Present days,Month worked,Rate,Calculated monthly pay',
+        ...rows.map(row => [row.name, row.role, `${Math.floor(row.todayMinutes / 60)}h ${row.todayMinutes % 60}m`, row.todayPay.toFixed(2), row.days, `${Math.floor(row.minutes / 60)}h ${row.minutes % 60}m`, row.rate, row.pay.toFixed(2)].map(csvCell).join(','))
       ].join('\n');
       const anchor = document.createElement('a');
       anchor.href = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' }));
@@ -1552,6 +1560,24 @@ if (document.readyState === 'loading') {
       };
       quantitySelect.addEventListener('change', renderSiblingNames);
       renderSiblingNames();
+    }
+    const oldChildrenField = familyGrid?.querySelector('[name="children"]')?.closest('label');
+    if (oldChildrenField) oldChildrenField.hidden = true;
+    if (familyGrid && !familyGrid.querySelector('[name="children_quantity"]')) {
+      const quantity = Math.max(0, Math.min(10, Number(person.children_quantity || 0)));
+      familyGrid.insertAdjacentHTML('beforeend', `<label>Children count<select name="children_quantity">${Array.from({length:11},(_,index)=>`<option value="${index}" ${index===quantity?'selected':''}>${index}</option>`).join('')}</select></label><div class="children-name-fields full" data-children-names></div>`);
+      const quantitySelect = familyGrid.querySelector('[name="children_quantity"]');
+      const namesContainer = familyGrid.querySelector('[data-children-names]');
+      const renderChildrenNames = () => {
+        const count = Number(quantitySelect.value || 0);
+        const entered = Object.fromEntries(new FormData(form));
+        namesContainer.innerHTML = Array.from({length:count},(_,index)=>{
+          const field = `child_name_${index+1}`;
+          return `<label>Child ${index+1} name<input name="${field}" value="${esc(entered[field] ?? person[field] ?? '')}" required></label>`;
+        }).join('');
+      };
+      quantitySelect.addEventListener('change', renderChildrenNames);
+      renderChildrenNames();
     }
     addProfileSelect(personalGrid, 'Driving skill', 'driving_skill', person.driving_skill);
     addProfileField(personalGrid, 'Vehicle type', 'driving_vehicle_type', 'text', person.driving_vehicle_type);
