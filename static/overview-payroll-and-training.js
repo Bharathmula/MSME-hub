@@ -1041,7 +1041,6 @@ function installFinalRenderSafeguards() {
   const modalRoot = document.getElementById('modal-root');
   if (viewRoot && !viewRoot.dataset.finalSafeguards) {
     viewRoot.dataset.finalSafeguards = 'true';
-    new MutationObserver(refreshAdminGreeting).observe(viewRoot, { childList: true, subtree: true });
   }
   if (modalRoot && !modalRoot.dataset.finalSafeguards) {
     modalRoot.dataset.finalSafeguards = 'true';
@@ -1294,7 +1293,6 @@ function installOperationsEnhancements() {
   const modalRoot = document.getElementById('modal-root');
   if (viewRoot && !viewRoot.dataset.operationsEnhancements) {
     viewRoot.dataset.operationsEnhancements = 'true';
-    new MutationObserver(refreshOperationsEnhancements).observe(viewRoot, { childList: true, subtree: true });
   }
   if (modalRoot && !modalRoot.dataset.contractDeadlineEnhancement) {
     modalRoot.dataset.contractDeadlineEnhancement = 'true';
@@ -1664,6 +1662,9 @@ if (document.readyState === 'loading') {
     if (view === 'payroll') return payrollPage();
     if (view === 'training') return trainingPage();
     const result = previousRender.apply(this, args);
+    refreshAdminGreeting();
+    refreshUpdateLabel();
+    refreshOperationsEnhancements();
     if (view === 'dashboard') setTimeout(installDashboardVisibility, 0);
     return result;
   };

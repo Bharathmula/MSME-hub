@@ -40,13 +40,8 @@
     }
   }
 
-  const root = document.getElementById("view-root");
-  if (root) {
-    new MutationObserver(updateGreeting).observe(root, {
-      childList: true,
-      subtree: true,
-    });
-  }
-
+  // Dashboard rendering applies the greeting synchronously. Avoid a global
+  // subtree observer here: several dashboard extensions also add content,
+  // and observer-to-observer updates can otherwise starve the browser UI.
   updateGreeting();
 })();
