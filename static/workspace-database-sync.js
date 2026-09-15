@@ -116,7 +116,7 @@
         method: "PUT",
         body: JSON.stringify(snapshot(email)),
       });
-      return;
+      return { exists: false, storage: {} };
     }
     const storage = workspace.storage || {};
     hydrating = true;
@@ -132,6 +132,7 @@
     } finally {
       hydrating = false;
     }
+    return workspace;
   }
 
   const originalSetItem = Storage.prototype.setItem;

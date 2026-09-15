@@ -53,7 +53,9 @@ async function enter(account,password=''){
   try{
     if(window.MSMEWorkspaceDatabase)await window.MSMEWorkspaceDatabase.load(email);
   }catch(error){
-    console.error('MSME database sync unavailable; keeping this browser copy.',error);
+    console.error('MSME database sync unavailable; refusing to replace saved data with a browser fallback.',error);
+    sessionStorage.removeItem('msme-admin-auth');
+    throw Error('Your saved company database could not be loaded. No demo data was opened or saved. Check the Render database connection and try again.');
   }
   const savedView=sessionStorage.getItem('msme-active-view');
   const safeViews=['dashboard','reminders','temporary','workers','staff','entrepreneurs','coverage','attendance','payroll','training','contractors','exemployees','recycle'];
