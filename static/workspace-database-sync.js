@@ -15,6 +15,9 @@
   ];
   let hydrating = false;
   let saveTimer = null;
+  let serverUpdatedAt = null;
+  let saveQueue = Promise.resolve();
+  let saveErrorShown = false;
 
   function tenantEmail() {
     return String(sessionStorage.getItem("msme-admin-auth") || "")
@@ -24,6 +27,14 @@
 
   function tenantStorageKey(email, collection) {
     return `msme-tenant-${encodeURIComponent(email)}-${collection}`;
+  }
+
+  function pendingKey(email) {
+    return `msme-workspace-pending-${encodeURIComponent(email)}`;
+  }
+
+  function revisionKey(email) {
+    return `msme-workspace-revision-${encodeURIComponent(email)}`;
   }
 
   function parse(value) {
@@ -93,17 +104,37 @@
   async function save() {
     const email = tenantEmail();
     if (!email || hydrating) return;
-    await api(`/api/workspace?email=${encodeURIComponent(email)}`, {
+    const result = await api(`/api/workspace?email=${encodeURIComponent(email)}`, {
       method: "PUT",
-      body: JSON.stringify(snapshot(email)),
+      body: JSON.stringify({
+        ...snapshot(email),
+        expected_updated_at: serverUpdatedAt,
+      }),
     });
+    serverUpdatedAt = result.updated_at || serverUpdatedAt;
+    originalSetItem.call(localStorage, revisionKey(email), serverUpdatedAt || "");
+    originalRemoveItem.call(localStorage, pendingKey(email));
+    saveErrorShown = false;
+    return result;
   }
 
   function scheduleSave() {
     if (hydrating || !tenantEmail()) return;
+    originalSetItem.call(localStorage, pendingKey(tenantEmail()), "1");
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      save().catch((error) => console.error("MSME workspace save failed", error));
+      saveQueue = saveQueue
+        .then(() => save())
+        .catch((error) => {
+          console.error("MSME workspace save failed", error);
+          window.dispatchEvent(new CustomEvent("msme-workspace-save-error", {
+            detail: { message: error.message },
+          }));
+          if (!saveErrorShown) {
+            saveErrorShown = true;
+            window.alert(`${error.message}\n\nReload this page before making more changes. Your newer database records were protected.`);
+          }
+        });
     }, 250);
   }
 
@@ -111,13 +142,37 @@
     const email = String(emailValue || tenantEmail()).trim().toLowerCase();
     if (!email) return;
     const workspace = await api(`/api/workspace?email=${encodeURIComponent(email)}`);
+    const pending = localStorage.getItem(pendingKey(email)) === "1";
+    const localRevision = localStorage.getItem(revisionKey(email)) || null;
+    if (pending) {
+      const canRetry = !workspace.exists || !localRevision || localRevision === workspace.updated_at;
+      if (!canRetry) {
+        throw new Error("This company workspace changed after an earlier save failed. Your browser copy was kept; contact the administrator before replacing either version.");
+      }
+      serverUpdatedAt = workspace.updated_at || null;
+      const recovered = await api(`/api/workspace?email=${encodeURIComponent(email)}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          ...snapshot(email),
+          expected_updated_at: serverUpdatedAt,
+        }),
+      });
+      serverUpdatedAt = recovered.updated_at || serverUpdatedAt;
+      originalSetItem.call(localStorage, revisionKey(email), serverUpdatedAt || "");
+      originalRemoveItem.call(localStorage, pendingKey(email));
+      return { ...snapshot(email), exists: true, updated_at: serverUpdatedAt };
+    }
     if (!workspace.exists) {
-      await api(`/api/workspace?email=${encodeURIComponent(email)}`, {
+      const created = await api(`/api/workspace?email=${encodeURIComponent(email)}`, {
         method: "PUT",
         body: JSON.stringify(snapshot(email)),
       });
+      serverUpdatedAt = created.updated_at || null;
+      originalSetItem.call(localStorage, revisionKey(email), serverUpdatedAt || "");
       return { exists: false, storage: {} };
     }
+    serverUpdatedAt = workspace.updated_at || null;
+    originalSetItem.call(localStorage, revisionKey(email), serverUpdatedAt || "");
     const storage = workspace.storage || {};
     hydrating = true;
     try {
@@ -151,20 +206,6 @@
       scheduleSave();
     }
   };
-
-  window.addEventListener("beforeunload", () => {
-    if (!tenantEmail() || hydrating) return;
-    const token = sessionStorage.getItem("msme-admin-api-token") || "";
-    const base = String(window.MSME_EMPLOYEE_API_URL || "").replace(/\/$/, "");
-    if (base && token) {
-      fetch(`${base}/api/workspace`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(snapshot(tenantEmail())),
-        keepalive: true,
-      }).catch(() => {});
-    }
-  });
 
   window.MSMEWorkspaceDatabase = { load, save, snapshot };
 })();

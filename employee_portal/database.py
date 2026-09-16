@@ -82,6 +82,13 @@ CREATE TABLE IF NOT EXISTS tenant_workspaces (
     workspace_json TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS tenant_workspace_backups (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_email TEXT NOT NULL,
+    workspace_json TEXT NOT NULL,
+    source_updated_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS employee_accounts (
     id BIGSERIAL PRIMARY KEY,
     tenant_email TEXT NOT NULL,
@@ -144,6 +151,7 @@ CREATE TABLE IF NOT EXISTS employee_login_sessions (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_employee_accounts_tenant_role ON employee_accounts(tenant_email, workforce_role);
+CREATE INDEX IF NOT EXISTS idx_workspace_backups_tenant_created ON tenant_workspace_backups(tenant_email, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_employee_events_time ON employee_attendance_events(server_timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_employee_login_sessions_account ON employee_login_sessions(employee_account_id, login_at DESC);
 """
@@ -183,6 +191,19 @@ def initialize() -> None:
         )
         db.executescript(
             (ROOT / "migrations" / "004_employee_login_sessions.sql").read_text(encoding="utf-8")
+        )
+        db.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS tenant_workspace_backups (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tenant_email TEXT NOT NULL,
+                workspace_json TEXT NOT NULL,
+                source_updated_at TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_workspace_backups_tenant_created
+                ON tenant_workspace_backups(tenant_email, created_at DESC);
+            """
         )
         event_columns = {
             row["name"]
