@@ -16,12 +16,12 @@ from flask import Flask, Response, abort, g, jsonify, request, send_from_directo
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 from employee_portal import install as install_employee_portal
-from employee_portal.database import database_url
+from employee_portal.database import connect, database_url
 from employee_portal.security import token as access_token
 from employee_portal.security import require
 from authentication.account_database import AccountDatabase
 from authentication.captcha_service import CaptchaService
-from authentication.workspace_database import WorkspaceDatabase
+from authentication.workspace_database import WorkspaceConflictError, WorkspaceDatabase
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -171,6 +171,66 @@ def migrate_legacy_workspace(email: str, legacy: dict) -> dict:
     }
 
 
+def reconcile_employee_accounts(tenant: str, workspace: dict) -> bool:
+    """Add orphaned Employee Access rows to the matching company directory.
+
+    Employee credentials and the editable workforce directory are intentionally
+    separate records. This reconciliation never deletes or replaces an existing
+    profile; it only restores a missing profile with the fields still available
+    in the permanent employee account.
+    """
+    storage = workspace.setdefault("storage", {})
+    people = storage.setdefault("people", [])
+    temporary = storage.setdefault("temporary", [])
+    if not isinstance(people, list) or not isinstance(temporary, list):
+        return False
+    db = connect()
+    try:
+        rows = db.execute(
+            """SELECT employee_id, name, email, phone, workforce_role, profile_json
+               FROM employee_accounts WHERE tenant_email=?""",
+            (tenant,),
+        ).fetchall()
+    finally:
+        db.close()
+    changed = False
+    for row in rows:
+        target = temporary if row["workforce_role"] == "TEMPORARY" else people
+        employee_id = str(row["employee_id"] or "").strip()
+        email = normalize_email(row["email"])
+        exists = any(
+            isinstance(item, dict)
+            and (
+                str(item.get("id") or "").strip() == employee_id
+                or normalize_email(item.get("email")) == email
+            )
+            for item in target
+        )
+        if exists:
+            continue
+        try:
+            saved_profile = json.loads(row["profile_json"] or "{}")
+        except (TypeError, json.JSONDecodeError):
+            saved_profile = {}
+        role = (
+            "Temporary Worker"
+            if row["workforce_role"] == "TEMPORARY"
+            else str(row["workforce_role"]).title()
+        )
+        target.append({
+            "id": employee_id,
+            "name": row["name"],
+            "email": email,
+            "phone": row["phone"] or "",
+            "role": role,
+            "status": "Not checked in",
+            "skills": [],
+            **(saved_profile if isinstance(saved_profile, dict) else {}),
+        })
+        changed = True
+    return changed
+
+
 @app.get("/")
 def home():
     return send_from_directory(STATIC_DIR, "index.html")
@@ -182,7 +242,7 @@ def health():
     return jsonify({
         "ok": True,
         "service": "msme-employee-api",
-        "schema_version": 10,
+        "schema_version": 11,
         "attendance_photo_api": True,
         "database": "postgresql" if database_url() else "sqlite",
     })
@@ -453,6 +513,17 @@ def get_workspace():
     database = WorkspaceDatabase()
     stored = database.load(tenant)
     if stored is not None:
+        if reconcile_employee_accounts(tenant, stored):
+            try:
+                database.save(
+                    tenant,
+                    stored,
+                    expected_updated_at=stored.get("updated_at"),
+                )
+            except WorkspaceConflictError:
+                stored = database.load(tenant) or stored
+            else:
+                stored = database.load(tenant) or stored
         stored["exists"] = True
         return jsonify(stored)
 
@@ -489,11 +560,35 @@ def put_workspace():
         return jsonify({"error": "Workspace storage must be a JSON object."}), 400
     account = payload.get("account") if isinstance(payload.get("account"), dict) else {}
     account = {**account, "email": tenant}
-    updated_at = WorkspaceDatabase().save(tenant, {
-        "account": account,
-        "storage": storage,
-        "schema_version": 1,
-    })
+    expected_updated_at = payload.get("expected_updated_at")
+    try:
+        updated_at = WorkspaceDatabase().save(tenant, {
+            "account": account,
+            "storage": storage,
+            "schema_version": 1,
+        }, expected_updated_at=expected_updated_at)
+    except WorkspaceConflictError as error:
+        return jsonify({
+            "error": "This company workspace was updated in another browser. Reload before saving so newer records are not overwritten.",
+            "current_updated_at": error.current_updated_at,
+        }), 409
+    return jsonify({"ok": True, "updated_at": updated_at})
+
+
+@app.get("/api/workspace/backups")
+@require("ADMIN", "HR")
+def workspace_backups():
+    tenant = normalize_email(g.employee_identity["tenant"])
+    return jsonify({"backups": WorkspaceDatabase().backups(tenant)})
+
+
+@app.post("/api/workspace/backups/<int:backup_id>/restore")
+@require("ADMIN", "HR")
+def restore_workspace_backup(backup_id: int):
+    tenant = normalize_email(g.employee_identity["tenant"])
+    updated_at = WorkspaceDatabase().restore(tenant, backup_id)
+    if not updated_at:
+        return jsonify({"error": "Workspace backup was not found."}), 404
     return jsonify({"ok": True, "updated_at": updated_at})
 
 

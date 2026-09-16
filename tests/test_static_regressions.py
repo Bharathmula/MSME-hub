@@ -89,6 +89,21 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("/api/health", streamlit)
         self.assertIn(".catch(()=>{})", streamlit)
 
+    def test_workspace_sync_retries_unsent_browser_edits_after_refresh(self):
+        sync = (ROOT / "static" / "workspace-database-sync.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("msme-workspace-pending-", sync)
+        self.assertIn("msme-workspace-revision-", sync)
+        self.assertIn("if (pending)", sync)
+        self.assertIn("expected_updated_at: serverUpdatedAt", sync)
+
+    def test_orphaned_employee_accounts_are_reconciled_without_deletion(self):
+        backend = (ROOT / "backend.py").read_text(encoding="utf-8")
+        self.assertIn("def reconcile_employee_accounts", backend)
+        self.assertIn("if exists:", backend)
+        self.assertNotIn("DELETE FROM employee_accounts", backend)
+
 
 if __name__ == "__main__":
     unittest.main()

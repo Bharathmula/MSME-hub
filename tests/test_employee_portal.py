@@ -39,6 +39,28 @@ class EmployeePortalTests(unittest.TestCase):
   loaded=self.c.get('/api/workspace?email=admin@example.com',headers=self.headers(self.admin));self.assertEqual(loaded.status_code,200,loaded.text);self.assertTrue(loaded.json['exists']);self.assertEqual(loaded.json['storage']['people'][0]['name'],'Persisted Worker')
   with app.app_context():other=token('other@example.com','ADMIN','other@example.com')
   forbidden=self.c.get('/api/workspace?email=admin@example.com',headers=self.headers(other));self.assertEqual(forbidden.status_code,403,forbidden.text)
+
+ def test_workspace_revisions_prevent_stale_overwrite_and_create_backup(self):
+  first={'account':{'email':'revision@example.com'},'storage':{'people':[{'id':'W-R1','name':'Original Worker'}]}}
+  with app.app_context():admin=token('revision@example.com','ADMIN','revision@example.com')
+  created=self.c.put('/api/workspace',json=first,headers=self.headers(admin));self.assertEqual(created.status_code,200,created.text)
+  revision=created.json['updated_at']
+  second={'account':{'email':'revision@example.com'},'storage':{'people':[{'id':'W-R1','name':'Updated Worker'}]},'expected_updated_at':revision}
+  updated=self.c.put('/api/workspace',json=second,headers=self.headers(admin));self.assertEqual(updated.status_code,200,updated.text)
+  stale={'account':{'email':'revision@example.com'},'storage':{'people':[]},'expected_updated_at':revision}
+  rejected=self.c.put('/api/workspace',json=stale,headers=self.headers(admin));self.assertEqual(rejected.status_code,409,rejected.text)
+  loaded=self.c.get('/api/workspace',headers=self.headers(admin));self.assertEqual(loaded.json['storage']['people'][0]['name'],'Updated Worker')
+  backups=self.c.get('/api/workspace/backups',headers=self.headers(admin));self.assertEqual(backups.status_code,200,backups.text);self.assertGreaterEqual(len(backups.json['backups']),1)
+
+ def test_employee_access_account_is_reconciled_into_empty_overview(self):
+  tenant='reconcile@example.com'
+  with app.app_context():admin=token(tenant,'ADMIN',tenant)
+  empty={'account':{'email':tenant},'storage':{'people':[],'temporary':[]}}
+  self.assertEqual(self.c.put('/api/workspace',json=empty,headers=self.headers(admin)).status_code,200)
+  account=self.c.post('/api/admin/employee-accounts',json={'name':'Recovered Worker','employee_id':'WR-RECOVER','email':'recovered.worker@gmail.com','workforce_role':'WORKER','password':'Recovered123!'},headers=self.headers(admin))
+  self.assertEqual(account.status_code,201,account.text)
+  workspace=self.c.get('/api/workspace',headers=self.headers(admin));self.assertEqual(workspace.status_code,200,workspace.text)
+  people=workspace.json['storage']['people'];self.assertEqual(len(people),1);self.assertEqual(people[0]['id'],'WR-RECOVER');self.assertEqual(people[0]['status'],'Not checked in')
  def test_account_activation_and_attendance(self):
   face='data:image/jpeg;base64,/9j/2Q=='
   r=self.c.post('/api/admin/employee-accounts',json={'name':'Test Worker','employee_id':'W-100','email':'worker100@gmail.com','phone':'9876543210','workforce_role':'WORKER'},headers=self.headers(self.admin));self.assertEqual(r.status_code,201,r.text)
