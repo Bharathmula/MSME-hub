@@ -10,6 +10,9 @@
   let currentPage = 'overview';
   let cameraStream = null;
   let capturedFace = '';
+  let capturedAttendanceAction = '';
+  let attendanceCaptureId = '';
+  let attendanceSubmitting = false;
   let selectedAttendanceDetail = null;
   let attendanceCalendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   let selectedAttendanceDate = new Date().toISOString().slice(0, 10);
@@ -360,6 +363,8 @@
     canvas.height = Math.round(480 * video.videoHeight / video.videoWidth);
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
     capturedFace = canvas.toDataURL('image/jpeg', 0.78);
+    capturedAttendanceAction = dashboard.next_action;
+    attendanceCaptureId = crypto.randomUUID();
     const preview = root.querySelector('#ep-face-preview');
     preview.src = capturedFace;
     preview.hidden = false;
@@ -374,6 +379,9 @@
 
   function bindCamera() {
     capturedFace = '';
+    capturedAttendanceAction = '';
+    attendanceCaptureId = '';
+    attendanceSubmitting = false;
     root.querySelector('#ep-start-camera').onclick = startCamera;
     root.querySelector('#ep-capture-face').onclick = async () => {
       if (cameraStream) captureCameraFrame();
@@ -382,22 +390,33 @@
     root.querySelector('#ep-attendance').onsubmit = async event => {
       event.preventDefault();
       const message = root.querySelector('#ep-attendance-message');
+      const submitButton = root.querySelector('#ep-attendance-submit');
+      if (attendanceSubmitting) return;
       if (!capturedFace) {
         message.textContent = 'Capture your current face before continuing.';
         return;
       }
+      attendanceSubmitting = true;
+      submitButton.disabled = true;
+      submitButton.textContent = 'Saving attendance…';
       try {
-        const action = dashboard.next_action;
+        const action = capturedAttendanceAction;
         await request('/api/employee/attendance', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
-          body: JSON.stringify({ device_identifier: navigator.userAgent, face_capture: capturedFace })
+          headers: { 'Content-Type': 'application/json', 'Idempotency-Key': attendanceCaptureId },
+          body: JSON.stringify({ device_identifier: navigator.userAgent, face_capture: capturedFace, expected_action: action })
         });
         selectedAttendanceDetail = null;
         alert(`${action === 'CHECK_IN' ? 'Check-in' : 'Check-out'} captured successfully.`);
         currentPage = 'overview';
         await loadDashboard();
-      } catch (error) { message.textContent = error.message; }
+      } catch (error) {
+        attendanceSubmitting = false;
+        submitButton.disabled = false;
+        submitButton.textContent = capturedAttendanceAction.replace('_', ' ');
+        message.className = 'ep-error';
+        message.textContent = error.message;
+      }
     };
   }
 

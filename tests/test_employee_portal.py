@@ -14,7 +14,7 @@ class EmployeePortalTests(unittest.TestCase):
  def headers(self,t,extra=None):return {'Authorization':'Bearer '+t,**(extra or {})}
  def test_health_reports_photo_api_schema(self):
   response=self.c.get('/api/health');self.assertEqual(response.status_code,200,response.text)
-  self.assertTrue(response.json['attendance_photo_api']);self.assertGreaterEqual(response.json['schema_version'],7)
+  self.assertTrue(response.json['attendance_photo_api']);self.assertGreaterEqual(response.json['schema_version'],7);self.assertEqual(response.json['database'],'sqlite')
  def test_legacy_manager_becomes_a_persistent_editable_account(self):
   login=self.c.post('/api/auth/login',json={'email':'manager@msme.com','password':'Manager@123'});self.assertEqual(login.status_code,200,login.text)
   workspace={'account':{'email':'manager@msme.com','company':'MSME Hub'},'storage':{'people':[],'attendance':[]}}
@@ -53,9 +53,11 @@ class EmployeePortalTests(unittest.TestCase):
   saved_workspace=self.c.get('/api/workspace',headers=self.headers(self.admin));saved_person=saved_workspace.json['storage']['people'][0];self.assertEqual(saved_person['children_quantity'],'2');self.assertEqual(saved_person['phone'],'9000011111')
   phone_login=self.c.post('/api/employee/login',json={'email':'9000011111','password':'Testing123!'});self.assertEqual(phone_login.status_code,200,phone_login.text)
   self.assertEqual(self.c.get('/api/admin/employee-accounts',headers=self.headers(employee)).status_code,403)
-  first=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face},headers=self.headers(employee,{'Idempotency-Key':'in'}));self.assertEqual(first.status_code,200,first.text);self.assertEqual(first.json['event']['event_type'],'CHECK_IN')
-  retry=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face},headers=self.headers(employee,{'Idempotency-Key':'in'}));self.assertTrue(retry.json['duplicate'])
-  out=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face},headers=self.headers(employee,{'Idempotency-Key':'out'}));self.assertEqual(out.json['event']['event_type'],'CHECK_OUT')
+  first=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face,'expected_action':'CHECK_IN'},headers=self.headers(employee,{'Idempotency-Key':'in'}));self.assertEqual(first.status_code,200,first.text);self.assertEqual(first.json['event']['event_type'],'CHECK_IN')
+  retry=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face,'expected_action':'CHECK_IN'},headers=self.headers(employee,{'Idempotency-Key':'in'}));self.assertTrue(retry.json['duplicate'])
+  accidental_checkout=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face,'expected_action':'CHECK_IN'},headers=self.headers(employee,{'Idempotency-Key':'second-checkin-submit'}));self.assertEqual(accidental_checkout.status_code,409,accidental_checkout.text)
+  after_checkin=self.c.get('/api/employee/dashboard',headers=self.headers(employee));self.assertEqual(after_checkin.json['today']['status'],'OPEN');self.assertIsNone(after_checkin.json['today']['check_out_at'])
+  out=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face,'expected_action':'CHECK_OUT'},headers=self.headers(employee,{'Idempotency-Key':'out'}));self.assertEqual(out.json['event']['event_type'],'CHECK_OUT')
   detail=self.c.get('/api/employee/attendance-detail',query_string={'date':datetime.now(timezone.utc).date().isoformat()},headers=self.headers(employee));self.assertEqual(detail.status_code,200,detail.text);self.assertEqual(detail.json['check_in_photo'],face);self.assertEqual(detail.json['check_out_photo'],face)
   admin_attendance=self.c.get('/api/admin/employee-attendance',headers=self.headers(self.admin));self.assertEqual(admin_attendance.status_code,200,admin_attendance.text);self.assertEqual(admin_attendance.json['attendance'][0]['employee_id'],'W-100')
   self.assertEqual(admin_attendance.json['attendance'][0]['profile_details']['child_name_2'],'Arun')

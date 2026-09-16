@@ -78,6 +78,7 @@ def bundled_application() -> str:
             f"window.MSME_APPLICATION_URL={json.dumps(application_url)};"
             f"window.MSME_EMPLOYEE_INVITE={json.dumps(invite_token)};"
             f"window.MSME_EMPLOYEE_EMAIL={json.dumps(invite_email)};"
+            "if(window.MSME_EMPLOYEE_API_URL){fetch(window.MSME_EMPLOYEE_API_URL+'/api/health',{cache:'no-store'}).catch(()=>{});}"
             "</script>"
         ),
         1,

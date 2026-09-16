@@ -76,6 +76,19 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertNotIn("LIKE 'data:image/%'", routes)
         self.assertGreaterEqual(routes.count("LIKE 'data:image/%%'"), 6)
 
+    def test_attendance_capture_is_single_submission_and_backend_action_guarded(self):
+        portal = (ROOT / "static" / "employee-portal" / "employee-portal.js").read_text(encoding="utf-8")
+        routes = (ROOT / "employee_portal" / "routes.py").read_text(encoding="utf-8")
+        self.assertIn("if (attendanceSubmitting) return", portal)
+        self.assertIn("'Idempotency-Key': attendanceCaptureId", portal)
+        self.assertIn("expected_action: action", portal)
+        self.assertIn("expected_action!=action", routes)
+
+    def test_public_page_prewarms_employee_api_without_blocking_render(self):
+        streamlit = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        self.assertIn("/api/health", streamlit)
+        self.assertIn(".catch(()=>{})", streamlit)
+
 
 if __name__ == "__main__":
     unittest.main()

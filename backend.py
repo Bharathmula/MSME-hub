@@ -16,6 +16,7 @@ from flask import Flask, Response, abort, g, jsonify, request, send_from_directo
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 from employee_portal import install as install_employee_portal
+from employee_portal.database import database_url
 from employee_portal.security import token as access_token
 from employee_portal.security import require
 from authentication.account_database import AccountDatabase
@@ -181,8 +182,9 @@ def health():
     return jsonify({
         "ok": True,
         "service": "msme-employee-api",
-        "schema_version": 9,
+        "schema_version": 10,
         "attendance_photo_api": True,
+        "database": "postgresql" if database_url() else "sqlite",
     })
 
 

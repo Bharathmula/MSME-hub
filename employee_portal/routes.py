@@ -240,7 +240,7 @@ def profile_photo():
 @employee_api.post('/api/employee/attendance')
 @require('EMPLOYEE')
 def attendance():
- p=data();key=request.headers.get('Idempotency-Key','').strip();device=str(p.get('device_identifier','')).strip()[:250];face=str(p.get('face_capture',''))
+ p=data();key=request.headers.get('Idempotency-Key','').strip();device=str(p.get('device_identifier','')).strip()[:250];face=str(p.get('face_capture',''));expected_action=str(p.get('expected_action','')).upper()
  if not key or not device:return jsonify({'error':'Idempotency key and device identifier are required.'}),400
  if not face.startswith('data:image/') or len(face)>1_500_000:return jsonify({'error':'Capture a current face photo before recording attendance.'}),400
  with transaction() as db:
@@ -250,10 +250,12 @@ def attendance():
   if duplicate:return jsonify({'ok':True,'duplicate':True,'event':dict(duplicate)})
   date=now().date().isoformat();shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(row['id'],date)).fetchone();event_time=stamp()
   if shift and shift['status']=='COMPLETED':return jsonify({'error':'Today’s attendance is already completed.'}),409
+  action='CHECK_IN' if not shift else 'CHECK_OUT'
+  if expected_action and expected_action!=action:return jsonify({'error':'Attendance status changed before this photo was saved. Refresh and capture a new photo.'}),409
   if not shift:
-   action='CHECK_IN';sid=uuid4().hex;db.execute('INSERT INTO employee_shifts(id,employee_account_id,work_date,check_in_at,status) VALUES(?,?,?,?,?)',(sid,row['id'],date,event_time,'OPEN'))
+   sid=uuid4().hex;db.execute('INSERT INTO employee_shifts(id,employee_account_id,work_date,check_in_at,status) VALUES(?,?,?,?,?)',(sid,row['id'],date,event_time,'OPEN'))
   else:
-   action='CHECK_OUT';sid=shift['id'];minutes=max(0,int((now()-datetime.fromisoformat(shift['check_in_at'])).total_seconds()//60));db.execute("UPDATE employee_shifts SET check_out_at=?,worked_minutes=?,status='COMPLETED' WHERE id=?",(event_time,minutes,sid))
+   sid=shift['id'];minutes=max(0,int((now()-datetime.fromisoformat(shift['check_in_at'])).total_seconds()//60));db.execute("UPDATE employee_shifts SET check_out_at=?,worked_minutes=?,status='COMPLETED' WHERE id=?",(event_time,minutes,sid))
   eid=uuid4().hex;db.execute('INSERT INTO employee_attendance_events(id,employee_account_id,shift_id,event_type,server_timestamp,verification_method,idempotency_key,device_identifier,face_capture_data) VALUES(?,?,?,?,?,?,?,?,?)',(eid,row['id'],sid,action,event_time,'FACE_CAPTURE',key,device,face));event=db.execute('SELECT * FROM employee_attendance_events WHERE id=?',(eid,)).fetchone()
  return jsonify({'ok':True,'event':dict(event)})
 
