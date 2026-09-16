@@ -1,6 +1,7 @@
 import os,tempfile,unittest
 from datetime import datetime,timezone
 from pathlib import Path
+from unittest.mock import patch
 TMP=tempfile.TemporaryDirectory();os.environ.pop('DATABASE_URL',None);os.environ['MSME_EMPLOYEE_DB']=str(Path(TMP.name)/'employees.db');os.environ['MSME_SECRET_KEY']='tests-only'
 from backend import app,token_signer
 from employee_portal.security import token
@@ -83,6 +84,26 @@ class EmployeePortalTests(unittest.TestCase):
   accounts=self.c.get('/api/admin/employee-accounts',headers=self.headers(self.admin)).json['employees'];account_id=next(item['id'] for item in accounts if item['email']=='direct.staff@gmail.com')
   removed=self.c.delete(f'/api/admin/employee-accounts/{account_id}',headers=self.headers(self.admin));self.assertEqual(removed.status_code,200,removed.text)
   self.assertEqual(self.c.post('/api/employee/login',json={'email':'direct.staff@gmail.com','password':'Direct123!'}).status_code,401)
+
+ def test_admin_can_send_one_private_bulk_category_action(self):
+  workspace={'account':{'email':'admin@example.com','company':'Test Company'},'storage':{'people':[{'id':'W-BULK','name':'Bulk Worker','email':'bulk.worker@gmail.com','phone':'9000000099','role':'Worker'}],'temporary':[],'attendance':[]}}
+  self.assertEqual(self.c.put('/api/workspace',json=workspace,headers=self.headers(self.admin)).status_code,200)
+  with patch.dict(os.environ,{'MSME_SMTP_HOST':'smtp.example.com','MSME_SMTP_FROM':'admin@example.com'}),patch('employee_portal.routes.send_employee_invitation') as send:
+   response=self.c.post('/api/admin/employee-invitations/bulk',json={'workforce_role':'WORKER','application_url':'https://example.streamlit.app/'},headers=self.headers(self.admin))
+  self.assertEqual(response.status_code,200,response.text);self.assertEqual(response.json['sent'],1);self.assertEqual(response.json['total_profiles'],1)
+  self.assertEqual(send.call_count,1);self.assertEqual(send.call_args.args[0],'bulk.worker@gmail.com');self.assertIn('employee_invite=',send.call_args.args[2])
+  login=self.c.post('/api/employee/login',json={'email':'bulk.worker@gmail.com','password':'unknown'})
+  self.assertEqual(login.status_code,401)
+
+ def test_bulk_category_does_not_resend_to_active_accounts(self):
+  workspace={'account':{'email':'admin@example.com','company':'Test Company'},'storage':{'people':[{'id':'W-ACTIVE','name':'Active Worker','email':'active.worker@gmail.com','phone':'9000000088','role':'Worker'}],'temporary':[],'attendance':[]}}
+  self.assertEqual(self.c.put('/api/workspace',json=workspace,headers=self.headers(self.admin)).status_code,200)
+  created=self.c.post('/api/admin/employee-accounts',json={'name':'Active Worker','employee_id':'W-ACTIVE','email':'active.worker@gmail.com','workforce_role':'WORKER','password':'Active123!','pin':'123456'},headers=self.headers(self.admin))
+  self.assertEqual(created.status_code,201,created.text)
+  with patch.dict(os.environ,{'MSME_SMTP_HOST':'smtp.example.com','MSME_SMTP_FROM':'admin@example.com'}),patch('employee_portal.routes.send_employee_invitation') as send:
+   response=self.c.post('/api/admin/employee-invitations/bulk',json={'workforce_role':'WORKER','application_url':'https://example.streamlit.app/'},headers=self.headers(self.admin))
+  self.assertEqual(response.status_code,200,response.text);self.assertEqual(response.json['sent'],0);self.assertEqual(response.json['active_accounts'],1)
+  send.assert_not_called()
 
  def test_employee_password_reset_captcha_is_required(self):
   captcha=self.c.get('/api/employee/password-reset-captcha');self.assertEqual(captcha.status_code,200,captcha.text);self.assertEqual(len(captcha.json['captcha_code']),6)

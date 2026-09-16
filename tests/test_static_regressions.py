@@ -67,7 +67,14 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("await window.MSMEEmployeePortal?.open()", login)
         self.assertIn("The employee server took too long to respond", login)
         self.assertIn("data-bulk-invite-role", portal)
-        self.assertIn("Active accounts are not changed", portal)
+        self.assertIn("Send invitations to a complete category", portal)
+        self.assertIn("/api/admin/employee-invitations/bulk", portal)
+        self.assertNotIn('id="ea-create"', portal)
+
+    def test_postgres_photo_patterns_escape_percent_placeholders(self):
+        routes = (ROOT / "employee_portal" / "routes.py").read_text(encoding="utf-8")
+        self.assertNotIn("LIKE 'data:image/%'", routes)
+        self.assertGreaterEqual(routes.count("LIKE 'data:image/%%'"), 6)
 
 
 if __name__ == "__main__":

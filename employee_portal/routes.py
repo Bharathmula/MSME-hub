@@ -1,5 +1,7 @@
-import hashlib,json,secrets
+import hashlib,json,os,secrets,smtplib
 from datetime import datetime,timedelta,timezone
+from email.message import EmailMessage
+from urllib.parse import urlencode
 from uuid import uuid4
 from flask import Blueprint,current_app,g,jsonify,request
 from itsdangerous import BadSignature,SignatureExpired,URLSafeTimedSerializer
@@ -29,6 +31,33 @@ def shift_photos(db,shift_id):
  events=db.execute('SELECT event_type,face_capture_data FROM employee_attendance_events WHERE shift_id=? ORDER BY server_timestamp',(shift_id,)).fetchall()
  photos={item['event_type']:item['face_capture_data'] or '' for item in events}
  return photos.get('CHECK_IN',''),photos.get('CHECK_OUT','')
+
+def invitation_mail_configured():
+ return bool(os.environ.get('MSME_SMTP_HOST') and os.environ.get('MSME_SMTP_FROM'))
+
+def send_employee_invitation(email,name,invitation_url,active=False):
+ message=EmailMessage();message['From']=os.environ['MSME_SMTP_FROM'];message['To']=email
+ message['Subject']='Your MSME Hub employee access'
+ if active:
+  message.set_content(f'''Hello {name},
+
+Your MSME Hub employee account is already active. Sign in using your registered email and password:
+{invitation_url}
+
+You do not need another invitation for daily sign-in.''')
+ else:
+  message.set_content(f'''Hello {name},
+
+Use your private link to create your MSME Hub employee account:
+{invitation_url}
+
+This invitation expires after 24 hours. Do not share it with another person.''')
+ host=os.environ['MSME_SMTP_HOST'];port=int(os.environ.get('MSME_SMTP_PORT','587'))
+ with smtplib.SMTP(host,port,timeout=30) as smtp:
+  if os.environ.get('MSME_SMTP_TLS','true').lower() not in {'0','false','no'}:smtp.starttls()
+  username=os.environ.get('MSME_SMTP_USER');password=os.environ.get('MSME_SMTP_PASSWORD')
+  if username and password:smtp.login(username,password)
+  smtp.send_message(message)
 
 EMPLOYEE_EDITABLE_PROFILE_FIELDS={
  'name','phone','dob','gender','marital_status','aadhaar','qualification','hobbies','passion',
@@ -127,8 +156,8 @@ def dashboard():
   if not row:return jsonify({'error':'Employee account is not active.'}),403
   shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(row['id'],now().date().isoformat())).fetchone()
   history=db.execute('''SELECT s.*,
-   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND e.face_capture_data LIKE 'data:image/%') AS checkin_face_captured,
-   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND e.face_capture_data LIKE 'data:image/%') AS checkout_face_captured
+   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND e.face_capture_data LIKE 'data:image/%%') AS checkin_face_captured,
+   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND e.face_capture_data LIKE 'data:image/%%') AS checkout_face_captured
    FROM employee_shifts s WHERE s.employee_account_id=? ORDER BY s.work_date DESC LIMIT 400''',(row['id'],)).fetchall()
   sessions=db.execute('SELECT id,login_at,logout_at FROM employee_login_sessions WHERE employee_account_id=? ORDER BY login_at DESC LIMIT 50',(row['id'],)).fetchall()
   current_session=next((item for item in sessions if item['id']==g.employee_identity.get('session_id')),None)
@@ -271,6 +300,54 @@ def accounts():
   audit(db,'EMPLOYEE_CREDENTIALS_CREATED' if direct else 'EMPLOYEE_INVITED','employee_account',created['id'],{'employee_id':eid,'role':role})
  return jsonify({'ok':True,'credentials_created':direct,'invite_token':None if direct else raw,'expires_at':None if direct else expires}),201
 
+@employee_api.post('/api/admin/employee-invitations/bulk')
+@require('ADMIN','HR')
+def bulk_employee_invitations():
+ p=data();role=str(p.get('workforce_role','')).upper();application_url=str(p.get('application_url','')).strip()
+ if role not in {'WORKER','STAFF','TEMPORARY'}:return jsonify({'error':'Choose Workers, Staff or Temporary Workers.'}),400
+ if not application_url.startswith(('https://','http://localhost:')):return jsonify({'error':'A valid application URL is required.'}),400
+ if not invitation_mail_configured():
+  return jsonify({'error':'Bulk invitation email requires MSME_SMTP_HOST and MSME_SMTP_FROM in Render. No employee accounts were changed.'}),503
+ tenant=g.employee_identity['tenant'];db=connect()
+ try:
+  stored=db.execute('SELECT workspace_json FROM tenant_workspaces WHERE tenant_email=?',(tenant,)).fetchone()
+  workspace=json.loads(stored['workspace_json']) if stored else {}
+ finally:db.close()
+ storage=workspace.get('storage',{}) if isinstance(workspace,dict) else {}
+ collection='temporary' if role=='TEMPORARY' else 'people'
+ expected_role='Temporary Worker' if role=='TEMPORARY' else role.title()
+ profiles=[item for item in storage.get(collection,[]) if isinstance(item,dict) and (role=='TEMPORARY' or item.get('role')==expected_role)]
+ sent=0;active_count=0;skipped=[]
+ for profile in profiles:
+  email=str(profile.get('email','')).strip().lower();eid=str(profile.get('id','')).strip();name=str(profile.get('name','')).strip()
+  if not email.endswith('@gmail.com') or not eid or not name:
+   skipped.append(eid or name or 'Incomplete profile');continue
+  raw='';active=False;base=application_url.split('?',1)[0].rstrip('/')+'/'
+  try:
+   with transaction() as db:
+    account=db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? AND (lower(email)=? OR employee_id=?)',(tenant,email,eid)).fetchone()
+    if account and account['status']=='ACTIVE':
+     active=True
+    else:
+     raw=secrets.token_urlsafe(32);expires=(now()+timedelta(hours=24)).isoformat();invite_hash=hashlib.sha256(raw.encode()).hexdigest()
+     if account:
+      if str(account['email']).lower()!=email or str(account['employee_id'])!=eid:raise ValueError('Employee ID and email belong to different accounts.')
+      db.execute("UPDATE employee_accounts SET name=?,workforce_role=?,phone=?,status='INVITED',invite_hash=?,invite_expires_at=?,updated_at=? WHERE id=?",(name,role,str(profile.get('phone','')),invite_hash,expires,stamp(),account['id']))
+      audit(db,'EMPLOYEE_INVITATION_REGENERATED','employee_account',account['id'],{'employee_id':eid,'role':role,'bulk':True})
+     else:
+      db.execute('INSERT INTO employee_accounts(tenant_email,employee_id,name,email,workforce_role,phone,password_hash,pin_hash,status,invite_hash,invite_expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(tenant,eid,name,email,role,str(profile.get('phone','')),None,None,'INVITED',invite_hash,expires,stamp(),stamp()))
+      created=db.execute('SELECT id FROM employee_accounts WHERE tenant_email=? AND employee_id=?',(tenant,eid)).fetchone()
+      audit(db,'EMPLOYEE_INVITED','employee_account',created['id'],{'employee_id':eid,'role':role,'bulk':True})
+    if not active:
+     invitation_url=base+'?'+urlencode({'employee_invite':raw,'employee_email':email})
+     send_employee_invitation(email,name,invitation_url)
+  except Exception:
+   current_app.logger.exception('Bulk employee invitation email failed for %s',eid)
+   skipped.append(eid);continue
+  if active:active_count+=1
+  if not active:sent+=1
+ return jsonify({'ok':True,'role':role,'sent':sent,'active_accounts':active_count,'skipped':skipped,'total_profiles':len(profiles)})
+
 @employee_api.patch('/api/admin/employee-accounts/<int:account_id>')
 @require('ADMIN','HR')
 def account_status(account_id):
@@ -313,8 +390,8 @@ def employee_attendance():
  work_date=str(request.args.get('date','')).strip()
  query='''
   SELECT s.work_date,s.check_in_at,s.check_out_at,s.worked_minutes,s.status,
-         EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND e.face_capture_data LIKE 'data:image/%') AS checkin_face_captured,
-         EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND e.face_capture_data LIKE 'data:image/%') AS checkout_face_captured,
+          EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND e.face_capture_data LIKE 'data:image/%%') AS checkin_face_captured,
+          EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND e.face_capture_data LIKE 'data:image/%%') AS checkout_face_captured,
          (SELECT ls.login_at FROM employee_login_sessions ls WHERE ls.employee_account_id=a.id ORDER BY ls.login_at DESC LIMIT 1) AS portal_login_at,
          (SELECT ls.logout_at FROM employee_login_sessions ls WHERE ls.employee_account_id=a.id AND ls.logout_at IS NOT NULL ORDER BY ls.login_at DESC LIMIT 1) AS portal_logout_at,
          a.employee_id,a.name,a.email,a.workforce_role,a.profile_json
@@ -348,8 +425,8 @@ def employee_attendance_month():
   account=db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? AND employee_id=?',(tenant,employee_id)).fetchone()
   if not account:return jsonify({'error':'Employee attendance account was not found.'}),404
   shifts=db.execute('''SELECT s.*,
-   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND e.face_capture_data LIKE 'data:image/%') AS checkin_face_captured,
-   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND e.face_capture_data LIKE 'data:image/%') AS checkout_face_captured
+   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND e.face_capture_data LIKE 'data:image/%%') AS checkin_face_captured,
+   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND e.face_capture_data LIKE 'data:image/%%') AS checkout_face_captured
    FROM employee_shifts s WHERE s.employee_account_id=? AND s.work_date LIKE ? ORDER BY s.work_date''',(account['id'],month+'-%')).fetchall()
   return jsonify({'employee':public(account),'month':month,'attendance':[dict(item) for item in shifts]})
  finally:db.close()

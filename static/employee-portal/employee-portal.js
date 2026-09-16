@@ -53,7 +53,7 @@
     return role.charAt(0) + role.slice(1).toLowerCase();
   }
 
-  function employeeInvitationUrl(inviteToken, employeeEmail) {
+  function employeeApplicationUrl() {
     const candidates = [window.MSME_APPLICATION_URL];
     try { candidates.push(window.parent.location.href); } catch (_error) {}
     candidates.push(document.referrer, window.location.href);
@@ -64,21 +64,8 @@
       if (url.hostname.endsWith('.streamlit.app')) url.pathname = '/';
       url.search = '';
       url.hash = '';
-      url.searchParams.set('employee_invite', inviteToken);
-      url.searchParams.set('employee_email', employeeEmail);
       return url.toString();
     } catch (_error) { return ''; }
-  }
-
-  function invitationShareButtons(invitationUrl, employeeName, employeeEmail) {
-    const subject = 'Your MSME Hub employee invitation';
-    const message = `Hello ${employeeName},\n\nUse this secure invitation to create your MSME Hub employee account:\n${invitationUrl}\n\nThis invitation is valid for 24 hours.`;
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    const mailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(employeeEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
-    const whatsappIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a9.7 9.7 0 0 0-8.4 14.6L2 22l5.5-1.5A9.8 9.8 0 1 0 12 2Zm0 17.8c-1.5 0-3-.4-4.2-1.2l-.3-.2-3.2.9.9-3.1-.2-.3A7.8 7.8 0 1 1 12 19.8Zm4.3-5.8c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.6.1l-.7.9c-.1.2-.3.2-.5.1-1.4-.7-2.4-1.3-3.3-2.9-.2-.3.2-.5.6-1 .1-.2.1-.4 0-.5l-.7-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.8.8-1.1 1.9-.7 3 1 2.9 3.5 5.1 6.5 5.9 1.1.3 2.1.2 2.9-.2.9-.4 1.4-1.4 1.4-2.1 0-.3-.1-.5-.3-.6Z"/></svg>`;
-    const mailIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm9 7.2L20.4 7H3.6L12 12.2ZM3 17h18V9.2l-8.5 5.2a1 1 0 0 1-1 0L3 9.2V17Z"/></svg>`;
-    const copyIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 7V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h3Zm2 1h5a2 2 0 0 1 2 2v4h2V5h-9v3Zm-5 2v9h10v-9H5Z"/></svg>`;
-    return `<div class="ea-share-actions"><b>Invitation created (valid 24 hours).</b><p>Choose how you want to send it:</p><button type="button" class="secondary ea-share-button ea-copy-link" data-copy-invitation="${esc(invitationUrl)}">${copyIcon}<span>Copy invitation link</span></button><a class="secondary ea-share-button ea-whatsapp" href="${esc(whatsappUrl)}" target="_blank" rel="noopener">${whatsappIcon}<span>Send via WhatsApp</span></a><a class="secondary ea-share-button ea-mail" href="${esc(mailUrl)}" target="_blank" rel="noopener">${mailIcon}<span>Send via Gmail</span></a></div>`;
   }
 
   function duration(minutes = 0) {
@@ -477,34 +464,15 @@
     return person.role === 'Temporary Worker' ? 'TEMPORARY' : String(person.role || '').toUpperCase();
   }
 
-  function fillEmployeeInvitationForm(person) {
-    const form = document.querySelector('#ea-create');
-    if (!form || !person) return;
-    form.elements.name.value = person.name || '';
-    form.elements.email.value = person.email || '';
-    form.elements.employee_id.value = person.id || '';
-    form.elements.workforce_role.value = employeeRoleValue(person);
-    document.querySelector('#ea-selected-profile').textContent = `${person.name} · ${person.id} · ${person.role} · ${person.email || 'No email saved'}`;
-  }
-
-  function employeeSearchResults(query) {
-    const results = document.querySelector('#ea-profile-results');
-    if (!results) return;
-    const normalized = String(query || '').trim().toLowerCase();
-    const profiles = existingWorkforceProfiles().filter(person => !normalized || JSON.stringify(person).toLowerCase().includes(normalized));
-    results.innerHTML = profiles.map(person => `<button type="button" class="ea-profile-result" data-ea-profile-id="${esc(person.id)}"><b>${esc(person.name)}</b><span>${esc(person.id)} · ${esc(person.email || 'No email')} · ${esc(person.role)}</span><i>Use this profile →</i></button>`).join('') || '<p class="empty">No existing worker, staff or temporary-worker profile matches this search.</p>';
-    results.querySelectorAll('[data-ea-profile-id]').forEach(button => button.onclick = () => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.id === button.dataset.eaProfileId)));
-  }
-
   function bulkInvitationControls(profiles) {
     const groups = [
       ['WORKER', 'Workers'],
       ['STAFF', 'Staff'],
       ['TEMPORARY', 'Temporary Workers']
     ];
-    return `<section class="panel ea-bulk-invitations"><div class="panel-header"><div><p class="eyebrow">CATEGORY-WISE INVITATIONS</p><h2>Create links for a complete category</h2></div></div><p>Create secure, individual 24-hour links for everyone in one category. Active accounts are not changed and can continue signing in every day without another invitation.</p><div class="ea-category-actions">${groups.map(([role, label]) => {
+    return `<section class="panel ea-bulk-invitations"><div class="panel-header"><div><p class="eyebrow">CATEGORY-WISE INVITATIONS</p><h2>Send invitations to a complete category</h2></div></div><p>Select one category once. Every saved email address in that category receives its own private message. Individual employee names and send buttons are not displayed.</p><div class="ea-category-actions">${groups.map(([role, label]) => {
       const count = profiles.filter(person => employeeRoleValue(person) === role).length;
-      return `<button type="button" class="secondary" data-bulk-invite-role="${role}">Create ${esc(label)} links (${count})</button>`;
+      return `<button type="button" class="secondary" data-bulk-invite-role="${role}">Send to all ${esc(label)} (${count})</button>`;
     }).join('')}</div><div id="ea-bulk-results"></div></section>`;
   }
 
@@ -516,34 +484,19 @@
       return;
     }
     trigger.disabled = true;
-    trigger.textContent = 'Creating secure links…';
-    results.innerHTML = '<p>Creating category invitations. Existing active accounts will remain unchanged.</p>';
-    const rows = [];
-    for (const person of profiles) {
-      if (!String(person.email || '').trim().toLowerCase().endsWith('@gmail.com')) {
-        rows.push(`<article class="ea-bulk-result"><b>${esc(person.name)}</b><span>Add a valid Gmail address to this profile first.</span></article>`);
-        continue;
-      }
-      try {
-        const fields = {
-          name: person.name,
-          employee_id: person.id,
-          email: person.email,
-          workforce_role: employeeRoleValue(person)
-        };
-        const created = await request('/api/admin/employee-accounts', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields)
-        }, adminToken);
-        const url = employeeInvitationUrl(created.invite_token, person.email);
-        rows.push(`<article class="ea-bulk-result"><div><b>${esc(person.name)}</b><span>${esc(person.email)} · valid for 24 hours</span></div>${invitationShareButtons(url, person.name, person.email)}</article>`);
-      } catch (error) {
-        const active = /already has an active account/i.test(error.message);
-        rows.push(`<article class="ea-bulk-result"><b>${esc(person.name)}</b><span>${active ? 'Account already active — use the normal employee sign-in page.' : esc(error.message)}</span></article>`);
-      }
+    trigger.textContent = 'Sending invitations…';
+    results.innerHTML = '<p>Sending one private email to each person in this category…</p>';
+    try {
+      const sent = await request('/api/admin/employee-invitations/bulk', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workforce_role: role, application_url: employeeApplicationUrl() })
+      }, adminToken);
+      results.innerHTML = `<p class="ep-success"><b>${sent.sent} private invitation${sent.sent === 1 ? '' : 's'} sent.</b> ${sent.active_accounts} already-active account${sent.active_accounts === 1 ? ' was' : 's were'} skipped because no new invitation is needed.${sent.skipped.length ? ` ${sent.skipped.length} incomplete profile${sent.skipped.length === 1 ? ' was' : 's were'} skipped.` : ''}</p>`;
+    } catch (error) {
+      results.innerHTML = `<p class="login-error">${esc(error.message)}</p>`;
     }
-    results.innerHTML = `<div class="ea-bulk-result-list">${rows.join('')}</div>`;
     trigger.disabled = false;
-    trigger.textContent = 'Create links again';
+    trigger.textContent = 'Send category again';
   }
 
   async function adminView() {
@@ -554,14 +507,9 @@
       return;
     }
     const profiles = existingWorkforceProfiles();
-    const nameOptions = profiles.map(person => `<option value="${esc(person.name)}">${esc(person.name)} · ${esc(person.id)}</option>`).join('');
-    const emailOptions = profiles.map(person => `<option value="${esc(person.email || '')}">${esc(person.email || 'No email')} · ${esc(person.name)}</option>`).join('');
-    page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1><p>Select an existing Worker, Staff or Temporary Worker. Their saved details will fill automatically.</p></div></div>
+    page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1><p>Send private account-creation invitations by workforce category and manage existing access below.</p></div></div>
       ${bulkInvitationControls(profiles)}
-      <section class="panel"><form id="ea-create" class="form-grid"><label>NAME<select name="name" id="ea-existing-name" required><option value="">Select an existing person ↓</option>${nameOptions}</select></label><label>EMPLOYEE ID<input name="employee_id" required readonly></label><label>EMAIL<select name="email" id="ea-existing-email" required><option value="">Select their saved email ↓</option>${emailOptions}</select></label><label>CATEGORY<select name="workforce_role" required><option value="WORKER">Worker</option><option value="STAFF">Staff</option><option value="TEMPORARY">Temporary Worker</option></select></label><p class="full" id="ea-selected-profile">No employee selected.</p><button class="primary">Create invitation</button></form><p id="ea-message"></p></section>
-      <section class="panel"><h2>Employee accounts</h2><div class="employee-access-list" id="ea-list">Loading…</div></section>`;
-    page.querySelector('#ea-existing-name').onchange = event => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.name === event.target.value));
-    page.querySelector('#ea-existing-email').onchange = event => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.email === event.target.value));
+      <section class="panel"><h2>Employee accounts</h2><p id="ea-message"></p><div class="employee-access-list" id="ea-list">Loading…</div></section>`;
     const adminToken = sessionStorage.getItem('msme-admin-api-token') || '';
     page.querySelectorAll('[data-bulk-invite-role]').forEach(button => {
       button.onclick = () => createCategoryInvitations(button.dataset.bulkInviteRole, adminToken, button);
@@ -585,30 +533,9 @@
     } catch (error) {
       page.querySelector('#ea-list').innerHTML = `<p class="login-error">${esc(error.message)}</p>`;
     }
-    page.querySelector('#ea-create').onsubmit = async event => {
-      event.preventDefault();
-      try {
-        const fields = Object.fromEntries(new FormData(event.target));
-        const result = await request('/api/admin/employee-accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) }, adminToken);
-        const invitationUrl = employeeInvitationUrl(result.invite_token, fields.email);
-        page.querySelector('#ea-message').innerHTML = result.credentials_created
-          ? 'Active employee login created. The employee can sign in now.'
-          : invitationShareButtons(invitationUrl, fields.name, fields.email);
-        event.target.reset();
-      } catch (error) { page.querySelector('#ea-message').textContent = error.message; }
-    };
   }
 
   document.addEventListener('click', event => {
-    const copyInvitation = event.target.closest('[data-copy-invitation]');
-    if (copyInvitation) {
-      const invitationUrl = copyInvitation.dataset.copyInvitation;
-      navigator.clipboard.writeText(invitationUrl).then(() => {
-        copyInvitation.querySelector('span').textContent = 'Link copied';
-        setTimeout(() => { const label = copyInvitation.querySelector('span'); if (label) label.textContent = 'Copy invitation link'; }, 1800);
-      }).catch(() => window.prompt('Copy this invitation link:', invitationUrl));
-      return;
-    }
     const navigation = event.target.closest('[data-view]');
     if (!navigation) return;
     if (navigation.dataset.view === 'employeeaccess') {
