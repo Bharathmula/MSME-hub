@@ -364,14 +364,14 @@ function durationTextV21(totalMinutes) {
 }
 
 function attendanceCalculationV21(person) {
-  if ((person.status || 'Present') !== 'Present') {
+  if (person.status !== 'Present') {
     return { elapsed: 0, breakMinutes: 0, work: 0, overtime: 0, total: 0, late: '-' };
   }
 
-  const login = minutes(person.login_time || '09:00 AM');
-  const logout = minutes(person.logout_time || '06:00 PM');
+  const login = minutes(person.login_time);
+  const logout = minutes(person.logout_time);
   const overtime = selectedOvertimeHoursV21(person) * 60;
-  const hasHalfTime = Boolean(person.halftime_time || person.halftime_start || '01:00 PM');
+  const hasHalfTime = Boolean(person.halftime_time || person.halftime_start);
   const breakMinutes = hasHalfTime ? HALF_BREAK_MINUTES : 0;
 
   if (login === null || logout === null) {
@@ -446,6 +446,7 @@ function timingRowV21(person, savedRecord = null, editable = true, serialNumber 
     <td>${esc(typeof view !== 'undefined' && view === 'attendance' ? calendarDay : new Date().toISOString().slice(0, 10))}</td>
     <td><b>${esc(person.name)}</b><small class="record-id">${esc(person.id)}</small></td>
     <td>${editable ? `<select class="attendance-select" data-attendance="${esc(person.id)}">
+      <option ${!['Present', 'Absent', 'On leave'].includes(source.status) ? 'selected' : ''}>Not checked in</option>
       <option ${source.status === 'Present' ? 'selected' : ''}>Present</option>
       <option ${source.status === 'Absent' ? 'selected' : ''}>Absent</option>
       <option ${source.status === 'On leave' ? 'selected' : ''}>On leave</option>
@@ -667,24 +668,23 @@ window.attendanceCalendar = function attendanceCalendarWithRoleSections() {
       ${calendarTemporarySectionV21(record)}
       ${calendarRoleSectionV21('Workers', 'Worker', record)}
       ${calendarRoleSectionV21('Staff', 'Staff', record)}
-      ${calendarRoleSectionV21('Entrepreneurs', 'Entrepreneur', record)}
     </div>`;
   syncAutomaticAttendanceV21(calendarDay);
 };
 
 function attendanceRecordsForTodayV21() {
-  return people.map(person => {
+  return people.filter(person => person.role !== 'Entrepreneur').map(person => {
     const calculation = attendanceCalculationV21(person);
     return {
       id: person.id,
       name: person.name,
       role: person.role,
-      status: person.status || 'Present',
+      status: person.status || 'Not checked in',
       shift: person.shift || '09:00 AM - 06:00 PM',
       grace: GRACE_TIME,
-      login: person.login_time || '09:00 AM',
-      logout: person.logout_time || '06:00 PM',
-      half_time: person.halftime_time || person.halftime_start || '01:00 PM',
+      login: person.login_time || '',
+      logout: person.logout_time || '',
+      half_time: person.halftime_time || person.halftime_start || '',
       half_period: person.halftime_period || 'PM',
       half: durationTextV21(calculation.breakMinutes),
       overtime_hours: selectedOvertimeHoursV21(person),

@@ -427,7 +427,7 @@ window.tempEditor = function fullTemporaryWorkerEditor(id) {
   if (!person) {
     person = fix({
       id: `TW-${Math.floor(1000 + Math.random() * 8999)}`,
-      role: 'Worker', name: '', dept: 'Temporary workforce', status: 'Present',
+      role: 'Worker', name: '', dept: 'Temporary workforce', status: 'Not checked in',
       temporary_start: new Date().toISOString().slice(0, 10), skills: []
     });
   }
@@ -698,7 +698,6 @@ window.attendanceCalendar = function advancedAttendanceCalendarV25() {
       ${calendarTemporarySectionV21(record)}
       ${calendarRoleSectionV21('Workers', 'Worker', record)}
       ${calendarRoleSectionV21('Staff', 'Staff', record)}
-      ${calendarRoleSectionV21('Entrepreneurs', 'Entrepreneur', record)}
     </div>`;
   if (typeof syncAutomaticAttendanceV21 === 'function') syncAutomaticAttendanceV21(calendarDay);
 };
@@ -709,7 +708,7 @@ function openAttendanceDownloadRangeV25() {
   const end = localDateKeyV25(new Date(selected.getFullYear(), selected.getMonth() + 1, 0));
   document.getElementById('modal-root').innerHTML = `<div class="modal-backdrop"><form class="modal range-download-modal"
     id="attendance-range-form"><div class="modal-head"><div><div class="eyebrow">ATTENDANCE EXPORT</div>
-    <h2>Choose the download period</h2><p>Select one date to another date. All saved Worker, Staff and Entrepreneur
+    <h2>Choose the download period</h2><p>Select one date to another date. All saved Worker, Staff and Temporary Worker
     attendance inside this period will be downloaded.</p></div><button class="close" type="button" id="close-range-download">×</button></div>
     <div class="download-range-presets"><button type="button" data-range-preset="month">Selected month</button>
       <button type="button" data-range-preset="previous">Previous month</button>

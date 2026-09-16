@@ -152,6 +152,36 @@
     const records = configuration.records();
     const label = configuration.label;
 
+    if (configuration.attendance === false) {
+      root.innerHTML = `
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">${esc(configuration.eyebrow)}</div>
+            <h1>${esc(label)} details.</h1>
+            <p>The entrepreneur is the company owner or head. Attendance is not tracked for this role.</p>
+          </div>
+          <button class="primary" id="add-person">+ Add ${esc(label)}</button>
+        </div>
+        <div class="table-wrap automatic-workforce-table">
+          <table>
+            <thead><tr><th>NAME</th><th>ID</th><th>PHONE NO.</th><th>EMAIL</th><th>DEPARTMENT</th><th>SKILLS</th><th>ACTIONS</th></tr></thead>
+            <tbody>${records.map(person => `<tr>
+              <td><b>${esc(person.name)}</b></td>
+              <td>${esc(text(person.id))}</td>
+              <td>${esc(text(person.phone))}</td>
+              <td>${esc(text(person.email))}</td>
+              <td>${esc(text(person.dept))}</td>
+              <td>${esc(Array.isArray(person.skills) ? person.skills.join(', ') : text(person.skills))}</td>
+              <td><button class="secondary entrepreneur-details-edit" data-entrepreneur-id="${esc(person.id)}">Open details</button></td>
+            </tr>`).join('') || '<tr><td colspan="7" class="empty">No entrepreneur details saved.</td></tr>'}</tbody>
+          </table>
+        </div>`;
+      root.querySelectorAll('.entrepreneur-details-edit').forEach(button => {
+        button.onclick = () => editor(button.dataset.entrepreneurId);
+      });
+      return;
+    }
+
     root.innerHTML = `
       <div class="page-heading">
         <div>

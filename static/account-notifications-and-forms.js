@@ -72,7 +72,7 @@ window.add = function openUnsavedProfileDraftV29(roleName) {
   const prefix = roleName === 'Worker' ? 'WR' : roleName === 'Staff' ? 'ST' : 'EN';
   const draft = fix({
     id: `${prefix}-${Math.floor(1000 + Math.random() * 8999)}`,
-    name: '', role: roleName, dept: '', status: 'Present', skills: []
+    name: '', role: roleName, dept: '', status: 'Not checked in', skills: []
   });
 
   /* Insert the draft only while constructing the existing detailed form. */

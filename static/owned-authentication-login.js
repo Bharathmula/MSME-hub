@@ -30,7 +30,11 @@ async function employeeRequest(path,payload={},method='POST'){
   if(!base)throw Error('Employee access is not configured on this host.');
   const options={method,headers:{'Content-Type':'application/json'}};
   if(method!=='GET')options.body=JSON.stringify(payload);
-  const response=await fetch(base+path,options);
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),45000);
+  let response;
+  try{response=await fetch(base+path,{...options,signal:controller.signal})}
+  catch(error){if(error?.name==='AbortError')throw Error('The employee server took too long to respond. Please try again.');throw error}
+  finally{clearTimeout(timeout)}
   let result={};try{result=await response.json()}catch(_){}
   if(!response.ok)throw Error(result.error||'Employee request failed.');
   return result;
@@ -94,12 +98,12 @@ function normalizeEmployeeInvitation(form){
 function bindEmployeeAccess(){
  bind();
  const login=panel.querySelector('#owned-employee-signin');
- if(login)login.onsubmit=async event=>{event.preventDefault();const button=login.querySelector('button[type="submit"]');button.disabled=true;button.textContent='Signing in…';try{const result=await employeeRequest('/api/employee/login',Object.fromEntries(new FormData(login)));sessionStorage.setItem('msme-employee-token',result.access_token);window.MSMEEmployeePortal?.open()}catch(error){message(error.message,true);button.disabled=false;button.textContent='Sign in'}};
+ if(login)login.onsubmit=async event=>{event.preventDefault();const button=login.querySelector('button[type="submit"]');button.disabled=true;button.textContent='Signing in…';message('');try{const result=await employeeRequest('/api/employee/login',Object.fromEntries(new FormData(login)));sessionStorage.setItem('msme-employee-token',result.access_token);await window.MSMEEmployeePortal?.open()}catch(error){message(error.message,true);button.disabled=false;button.textContent='Sign in'}};
  const activation=panel.querySelector('#owned-employee-activate');
  if(activation){
   activation.elements.invite_token.addEventListener('change',()=>normalizeEmployeeInvitation(activation));
   activation.elements.invite_token.addEventListener('paste',()=>setTimeout(()=>normalizeEmployeeInvitation(activation),0));
-  activation.onsubmit=async event=>{event.preventDefault();normalizeEmployeeInvitation(activation);const fields=Object.fromEntries(new FormData(activation)),button=activation.querySelector('button[type="submit"]');if(!String(fields.contact||'').trim().toLowerCase().endsWith('@gmail.com'))return message('Enter the @gmail.com address used for this invitation.',true);button.disabled=true;button.textContent='Creating account…';try{const created=await employeeRequest('/api/employee/activate',fields);sessionStorage.setItem('msme-employee-token',created.access_token);alert('Account created successfully.');window.MSMEEmployeePortal?.open()}catch(error){message(error.message,true);button.disabled=false;button.textContent='Create account'}};
+  activation.onsubmit=async event=>{event.preventDefault();normalizeEmployeeInvitation(activation);const fields=Object.fromEntries(new FormData(activation)),button=activation.querySelector('button[type="submit"]');if(!String(fields.contact||'').trim().toLowerCase().endsWith('@gmail.com'))return message('Enter the @gmail.com address used for this invitation.',true);button.disabled=true;button.textContent='Creating account…';try{const created=await employeeRequest('/api/employee/activate',fields);sessionStorage.setItem('msme-employee-token',created.access_token);alert('Account created successfully.');await window.MSMEEmployeePortal?.open()}catch(error){message(error.message,true);button.disabled=false;button.textContent='Create account'}};
  }
 }
 function employeeForgotPassword(){
@@ -129,5 +133,5 @@ document.addEventListener('click',event=>{const navigation=event.target.closest(
 const restoredEmail=sessionStorage.getItem('msme-admin-auth');
 const restoredAccount=tenantAccounts.find(account=>String(account.email||'').toLowerCase()===String(restoredEmail||'').toLowerCase());
 if(restoredAccount)setTimeout(()=>enter(restoredAccount),0);
-window.addEventListener('msme-employee-session-expired',()=>{mode='worker';tab='signin';screen.querySelectorAll('[data-access]').forEach(x=>x.classList.toggle('active',x.dataset.access==='worker'));screen.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab==='signin'));document.querySelector('#app-shell')?.classList.remove('visible');screen.classList.remove('hidden');show();message('Your employee session expired. Sign in again.',true)});
+window.addEventListener('msme-employee-session-expired',event=>{mode='worker';tab='signin';screen.querySelectorAll('[data-access]').forEach(x=>x.classList.toggle('active',x.dataset.access==='worker'));screen.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab==='signin'));document.querySelector('#app-shell')?.classList.remove('visible');screen.classList.remove('hidden');show();const detail=event.detail?.message;if(detail)message(detail,true)});
 })();

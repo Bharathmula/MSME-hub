@@ -18,7 +18,17 @@
   async function request(path, options = {}, token = authToken()) {
     const headers = new Headers(options.headers || {});
     if (token) headers.set('Authorization', `Bearer ${token}`);
-    const response = await fetch(`${apiBase()}${path}`, { ...options, headers });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
+    let response;
+    try {
+      response = await fetch(`${apiBase()}${path}`, { ...options, headers, signal: controller.signal });
+    } catch (error) {
+      if (error?.name === 'AbortError') throw Error('The employee server took too long to respond. Please try again.');
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
     let body = {};
     try { body = await response.json(); } catch (_error) {}
     if (!response.ok) {
@@ -422,21 +432,25 @@
       dashboard = nextDashboard;
       currentPage = page;
       renderPage();
-    } catch (_error) {
+    } catch (error) {
       sessionStorage.removeItem('msme-employee-token');
       root.style.display = 'none';
       root.innerHTML = '';
-      window.dispatchEvent(new CustomEvent('msme-employee-session-expired'));
+      window.dispatchEvent(new CustomEvent('msme-employee-session-expired', {
+        detail: { message: error.message }
+      }));
+      throw error;
     }
   }
 
-  function openEmployee() {
+  async function openEmployee() {
     if (!apiBase()) {
       alert('Employee API URL is not configured. Add MSME_EMPLOYEE_API_URL to Streamlit secrets.');
-      return;
+      throw Error('Employee access is not configured on this host.');
     }
-    if (authToken()) loadDashboard();
-    else window.dispatchEvent(new CustomEvent('msme-employee-session-expired'));
+    if (authToken()) return loadDashboard();
+    window.dispatchEvent(new CustomEvent('msme-employee-session-expired'));
+    throw Error('Sign in to open your employee dashboard.');
   }
 
   function employeeAccessGroups(employees) {
@@ -482,6 +496,56 @@
     results.querySelectorAll('[data-ea-profile-id]').forEach(button => button.onclick = () => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.id === button.dataset.eaProfileId)));
   }
 
+  function bulkInvitationControls(profiles) {
+    const groups = [
+      ['WORKER', 'Workers'],
+      ['STAFF', 'Staff'],
+      ['TEMPORARY', 'Temporary Workers']
+    ];
+    return `<section class="panel ea-bulk-invitations"><div class="panel-header"><div><p class="eyebrow">CATEGORY-WISE INVITATIONS</p><h2>Create links for a complete category</h2></div></div><p>Create secure, individual 24-hour links for everyone in one category. Active accounts are not changed and can continue signing in every day without another invitation.</p><div class="ea-category-actions">${groups.map(([role, label]) => {
+      const count = profiles.filter(person => employeeRoleValue(person) === role).length;
+      return `<button type="button" class="secondary" data-bulk-invite-role="${role}">Create ${esc(label)} links (${count})</button>`;
+    }).join('')}</div><div id="ea-bulk-results"></div></section>`;
+  }
+
+  async function createCategoryInvitations(role, adminToken, trigger) {
+    const results = document.querySelector('#ea-bulk-results');
+    const profiles = existingWorkforceProfiles().filter(person => employeeRoleValue(person) === role);
+    if (!profiles.length) {
+      results.innerHTML = '<p class="login-error">No saved profiles are available in this category.</p>';
+      return;
+    }
+    trigger.disabled = true;
+    trigger.textContent = 'Creating secure links…';
+    results.innerHTML = '<p>Creating category invitations. Existing active accounts will remain unchanged.</p>';
+    const rows = [];
+    for (const person of profiles) {
+      if (!String(person.email || '').trim().toLowerCase().endsWith('@gmail.com')) {
+        rows.push(`<article class="ea-bulk-result"><b>${esc(person.name)}</b><span>Add a valid Gmail address to this profile first.</span></article>`);
+        continue;
+      }
+      try {
+        const fields = {
+          name: person.name,
+          employee_id: person.id,
+          email: person.email,
+          workforce_role: employeeRoleValue(person)
+        };
+        const created = await request('/api/admin/employee-accounts', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields)
+        }, adminToken);
+        const url = employeeInvitationUrl(created.invite_token, person.email);
+        rows.push(`<article class="ea-bulk-result"><div><b>${esc(person.name)}</b><span>${esc(person.email)} · valid for 24 hours</span></div>${invitationShareButtons(url, person.name, person.email)}</article>`);
+      } catch (error) {
+        const active = /already has an active account/i.test(error.message);
+        rows.push(`<article class="ea-bulk-result"><b>${esc(person.name)}</b><span>${active ? 'Account already active — use the normal employee sign-in page.' : esc(error.message)}</span></article>`);
+      }
+    }
+    results.innerHTML = `<div class="ea-bulk-result-list">${rows.join('')}</div>`;
+    trigger.disabled = false;
+    trigger.textContent = 'Create links again';
+  }
+
   async function adminView() {
     const page = document.querySelector('#view-root');
     if (!page || document.body.dataset.employeeAccess !== 'yes') return;
@@ -493,11 +557,15 @@
     const nameOptions = profiles.map(person => `<option value="${esc(person.name)}">${esc(person.name)} · ${esc(person.id)}</option>`).join('');
     const emailOptions = profiles.map(person => `<option value="${esc(person.email || '')}">${esc(person.email || 'No email')} · ${esc(person.name)}</option>`).join('');
     page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1><p>Select an existing Worker, Staff or Temporary Worker. Their saved details will fill automatically.</p></div></div>
+      ${bulkInvitationControls(profiles)}
       <section class="panel"><form id="ea-create" class="form-grid"><label>NAME<select name="name" id="ea-existing-name" required><option value="">Select an existing person ↓</option>${nameOptions}</select></label><label>EMPLOYEE ID<input name="employee_id" required readonly></label><label>EMAIL<select name="email" id="ea-existing-email" required><option value="">Select their saved email ↓</option>${emailOptions}</select></label><label>CATEGORY<select name="workforce_role" required><option value="WORKER">Worker</option><option value="STAFF">Staff</option><option value="TEMPORARY">Temporary Worker</option></select></label><p class="full" id="ea-selected-profile">No employee selected.</p><button class="primary">Create invitation</button></form><p id="ea-message"></p></section>
       <section class="panel"><h2>Employee accounts</h2><div class="employee-access-list" id="ea-list">Loading…</div></section>`;
     page.querySelector('#ea-existing-name').onchange = event => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.name === event.target.value));
     page.querySelector('#ea-existing-email').onchange = event => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.email === event.target.value));
     const adminToken = sessionStorage.getItem('msme-admin-api-token') || '';
+    page.querySelectorAll('[data-bulk-invite-role]').forEach(button => {
+      button.onclick = () => createCategoryInvitations(button.dataset.bulkInviteRole, adminToken, button);
+    });
     try {
       const result = await request('/api/admin/employee-accounts', {}, adminToken);
       page.querySelector('#ea-list').innerHTML = employeeAccessGroups(result.employees);
