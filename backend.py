@@ -181,7 +181,7 @@ def health():
     return jsonify({
         "ok": True,
         "service": "msme-employee-api",
-        "schema_version": 8,
+        "schema_version": 9,
         "attendance_photo_api": True,
     })
 

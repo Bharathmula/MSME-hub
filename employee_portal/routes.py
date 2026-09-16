@@ -1,6 +1,5 @@
-import hashlib,json,os,secrets,smtplib
+import hashlib,json,secrets
 from datetime import datetime,timedelta,timezone
-from email.message import EmailMessage
 from urllib.parse import urlencode
 from uuid import uuid4
 from flask import Blueprint,current_app,g,jsonify,request
@@ -14,6 +13,7 @@ def now():return datetime.now(timezone.utc)
 def stamp():return now().isoformat()
 def data():return request.get_json(silent=True) or {}
 def reset_signer():return URLSafeTimedSerializer(current_app.config['SECRET_KEY'],salt='msme-employee-password-reset-v1')
+def category_invite_signer():return URLSafeTimedSerializer(current_app.config['SECRET_KEY'],salt='msme-employee-category-invite-v1')
 def public(row):
  columns=set(row.keys())
  fields=('id','employee_id','name','email','workforce_role','status','biometric_status','phone','profile_photo_data','tenant_email')
@@ -31,33 +31,6 @@ def shift_photos(db,shift_id):
  events=db.execute('SELECT event_type,face_capture_data FROM employee_attendance_events WHERE shift_id=? ORDER BY server_timestamp',(shift_id,)).fetchall()
  photos={item['event_type']:item['face_capture_data'] or '' for item in events}
  return photos.get('CHECK_IN',''),photos.get('CHECK_OUT','')
-
-def invitation_mail_configured():
- return bool(os.environ.get('MSME_SMTP_HOST') and os.environ.get('MSME_SMTP_FROM'))
-
-def send_employee_invitation(email,name,invitation_url,active=False):
- message=EmailMessage();message['From']=os.environ['MSME_SMTP_FROM'];message['To']=email
- message['Subject']='Your MSME Hub employee access'
- if active:
-  message.set_content(f'''Hello {name},
-
-Your MSME Hub employee account is already active. Sign in using your registered email and password:
-{invitation_url}
-
-You do not need another invitation for daily sign-in.''')
- else:
-  message.set_content(f'''Hello {name},
-
-Use your private link to create your MSME Hub employee account:
-{invitation_url}
-
-This invitation expires after 24 hours. Do not share it with another person.''')
- host=os.environ['MSME_SMTP_HOST'];port=int(os.environ.get('MSME_SMTP_PORT','587'))
- with smtplib.SMTP(host,port,timeout=30) as smtp:
-  if os.environ.get('MSME_SMTP_TLS','true').lower() not in {'0','false','no'}:smtp.starttls()
-  username=os.environ.get('MSME_SMTP_USER');password=os.environ.get('MSME_SMTP_PASSWORD')
-  if username and password:smtp.login(username,password)
-  smtp.send_message(message)
 
 EMPLOYEE_EDITABLE_PROFILE_FIELDS={
  'name','phone','dob','gender','marital_status','aadhaar','qualification','hobbies','passion',
@@ -108,13 +81,40 @@ def activate():
  if len(password)<8:return jsonify({'error':'Password must contain at least 8 characters.'}),400
  with transaction() as db:
   row=db.execute('SELECT * FROM employee_accounts WHERE invite_hash=?',(hashlib.sha256(raw.encode()).hexdigest(),)).fetchone()
-  if not row:return jsonify({'error':'Invitation is invalid or expired.'}),400
-  issued_at=datetime.fromisoformat(row['updated_at'] or row['created_at'])
-  effective_expiry=min(datetime.fromisoformat(row['invite_expires_at']),issued_at+timedelta(hours=24))
-  if effective_expiry<now():return jsonify({'error':'Invitation is invalid or expired.'}),400
-  if not contact.endswith('@gmail.com') or contact!=str(row['email']).lower():
-   return jsonify({'error':'Enter the Gmail address used for this invitation.'}),400
-  db.execute("UPDATE employee_accounts SET password_hash=?,pin_hash=NULL,status='ACTIVE',invite_hash=NULL,invite_expires_at=NULL,updated_at=? WHERE id=?",(generate_password_hash(password),stamp(),row['id']))
+  if row:
+   issued_at=datetime.fromisoformat(row['updated_at'] or row['created_at'])
+   effective_expiry=min(datetime.fromisoformat(row['invite_expires_at']),issued_at+timedelta(hours=24))
+   if effective_expiry<now():return jsonify({'error':'Invitation is invalid or expired.'}),400
+   if not contact.endswith('@gmail.com') or contact!=str(row['email']).lower():
+    return jsonify({'error':'Enter the Gmail address used for this invitation.'}),400
+   db.execute("UPDATE employee_accounts SET password_hash=?,pin_hash=NULL,status='ACTIVE',invite_hash=NULL,invite_expires_at=NULL,updated_at=? WHERE id=?",(generate_password_hash(password),stamp(),row['id']))
+  else:
+   try:category=category_invite_signer().loads(raw,max_age=86400)
+   except (BadSignature,SignatureExpired):return jsonify({'error':'Invitation is invalid or expired.'}),400
+   if not isinstance(category,dict):return jsonify({'error':'Invitation is invalid or expired.'}),400
+   tenant=str(category.get('tenant','')).strip().lower();role=str(category.get('role','')).upper()
+   if category.get('kind')!='employee-category' or role not in {'WORKER','STAFF','TEMPORARY'}:
+    return jsonify({'error':'Invitation is invalid or expired.'}),400
+   stored=db.execute('SELECT workspace_json FROM tenant_workspaces WHERE tenant_email=?',(tenant,)).fetchone()
+   try:workspace=json.loads(stored['workspace_json']) if stored else {}
+   except (TypeError,json.JSONDecodeError):workspace={}
+   storage=workspace.get('storage',{}) if isinstance(workspace,dict) else {}
+   records=storage.get('temporary' if role=='TEMPORARY' else 'people',[])
+   expected_role='Temporary Worker' if role=='TEMPORARY' else role.title()
+   profile=next((item for item in records if isinstance(item,dict) and str(item.get('email','')).strip().lower()==contact and (role=='TEMPORARY' or item.get('role')==expected_role)),None)
+   if not contact.endswith('@gmail.com') or not profile:
+    return jsonify({'error':f'This Gmail address is not registered in the {expected_role} category.'}),400
+   eid=str(profile.get('id','')).strip();name=str(profile.get('name','')).strip();phone=str(profile.get('phone','')).strip()
+   if not eid or not name:return jsonify({'error':'Your workforce profile is incomplete. Ask the administrator to add your name and employee ID.'}),400
+   row=db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? AND (lower(email)=? OR employee_id=?)',(tenant,contact,eid)).fetchone()
+   if row and row['status']=='ACTIVE':return jsonify({'error':'Your account is already active. Use the Sign in tab.'}),409
+   if row and row['status']=='SUSPENDED':return jsonify({'error':'This account is suspended. Contact your administrator.'}),403
+   if row and (str(row['email']).lower()!=contact or str(row['employee_id'])!=eid):return jsonify({'error':'This email or employee ID belongs to another account.'}),409
+   if row:
+    db.execute("UPDATE employee_accounts SET name=?,email=?,workforce_role=?,phone=?,password_hash=?,pin_hash=NULL,status='ACTIVE',invite_hash=NULL,invite_expires_at=NULL,profile_json=?,updated_at=? WHERE id=?",(name,contact,role,phone,generate_password_hash(password),json.dumps(profile),stamp(),row['id']))
+   else:
+    db.execute('INSERT INTO employee_accounts(tenant_email,employee_id,name,email,workforce_role,phone,password_hash,pin_hash,status,invite_hash,invite_expires_at,profile_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(tenant,eid,name,contact,role,phone,generate_password_hash(password),None,'ACTIVE',None,None,json.dumps(profile),stamp(),stamp()))
+    row=db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? AND employee_id=?',(tenant,eid)).fetchone()
   active=db.execute('SELECT * FROM employee_accounts WHERE id=?',(row['id'],)).fetchone()
   session_id,login_at=start_login_session(db,active)
  return jsonify({'ok':True,'access_token':token(active['email'],'EMPLOYEE',active['tenant_email'],active['id'],session_id),'employee':public(active),'login_at':login_at})
@@ -300,14 +300,12 @@ def accounts():
   audit(db,'EMPLOYEE_CREDENTIALS_CREATED' if direct else 'EMPLOYEE_INVITED','employee_account',created['id'],{'employee_id':eid,'role':role})
  return jsonify({'ok':True,'credentials_created':direct,'invite_token':None if direct else raw,'expires_at':None if direct else expires}),201
 
-@employee_api.post('/api/admin/employee-invitations/bulk')
+@employee_api.post('/api/admin/employee-invitations/category-link')
 @require('ADMIN','HR')
-def bulk_employee_invitations():
+def category_employee_invitation():
  p=data();role=str(p.get('workforce_role','')).upper();application_url=str(p.get('application_url','')).strip()
  if role not in {'WORKER','STAFF','TEMPORARY'}:return jsonify({'error':'Choose Workers, Staff or Temporary Workers.'}),400
  if not application_url.startswith(('https://','http://localhost:')):return jsonify({'error':'A valid application URL is required.'}),400
- if not invitation_mail_configured():
-  return jsonify({'error':'Bulk invitation email requires MSME_SMTP_HOST and MSME_SMTP_FROM in Render. No employee accounts were changed.'}),503
  tenant=g.employee_identity['tenant'];db=connect()
  try:
   stored=db.execute('SELECT workspace_json FROM tenant_workspaces WHERE tenant_email=?',(tenant,)).fetchone()
@@ -317,36 +315,12 @@ def bulk_employee_invitations():
  collection='temporary' if role=='TEMPORARY' else 'people'
  expected_role='Temporary Worker' if role=='TEMPORARY' else role.title()
  profiles=[item for item in storage.get(collection,[]) if isinstance(item,dict) and (role=='TEMPORARY' or item.get('role')==expected_role)]
- sent=0;active_count=0;skipped=[]
- for profile in profiles:
-  email=str(profile.get('email','')).strip().lower();eid=str(profile.get('id','')).strip();name=str(profile.get('name','')).strip()
-  if not email.endswith('@gmail.com') or not eid or not name:
-   skipped.append(eid or name or 'Incomplete profile');continue
-  raw='';active=False;base=application_url.split('?',1)[0].rstrip('/')+'/'
-  try:
-   with transaction() as db:
-    account=db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? AND (lower(email)=? OR employee_id=?)',(tenant,email,eid)).fetchone()
-    if account and account['status']=='ACTIVE':
-     active=True
-    else:
-     raw=secrets.token_urlsafe(32);expires=(now()+timedelta(hours=24)).isoformat();invite_hash=hashlib.sha256(raw.encode()).hexdigest()
-     if account:
-      if str(account['email']).lower()!=email or str(account['employee_id'])!=eid:raise ValueError('Employee ID and email belong to different accounts.')
-      db.execute("UPDATE employee_accounts SET name=?,workforce_role=?,phone=?,status='INVITED',invite_hash=?,invite_expires_at=?,updated_at=? WHERE id=?",(name,role,str(profile.get('phone','')),invite_hash,expires,stamp(),account['id']))
-      audit(db,'EMPLOYEE_INVITATION_REGENERATED','employee_account',account['id'],{'employee_id':eid,'role':role,'bulk':True})
-     else:
-      db.execute('INSERT INTO employee_accounts(tenant_email,employee_id,name,email,workforce_role,phone,password_hash,pin_hash,status,invite_hash,invite_expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(tenant,eid,name,email,role,str(profile.get('phone','')),None,None,'INVITED',invite_hash,expires,stamp(),stamp()))
-      created=db.execute('SELECT id FROM employee_accounts WHERE tenant_email=? AND employee_id=?',(tenant,eid)).fetchone()
-      audit(db,'EMPLOYEE_INVITED','employee_account',created['id'],{'employee_id':eid,'role':role,'bulk':True})
-    if not active:
-     invitation_url=base+'?'+urlencode({'employee_invite':raw,'employee_email':email})
-     send_employee_invitation(email,name,invitation_url)
-  except Exception:
-   current_app.logger.exception('Bulk employee invitation email failed for %s',eid)
-   skipped.append(eid);continue
-  if active:active_count+=1
-  if not active:sent+=1
- return jsonify({'ok':True,'role':role,'sent':sent,'active_accounts':active_count,'skipped':skipped,'total_profiles':len(profiles)})
+ eligible=[item for item in profiles if str(item.get('email','')).strip().lower().endswith('@gmail.com') and str(item.get('id','')).strip() and str(item.get('name','')).strip()]
+ if not eligible:return jsonify({'error':'No complete profiles with Gmail addresses are available in this category.'}),400
+ invite_token=category_invite_signer().dumps({'kind':'employee-category','tenant':tenant,'role':role})
+ base=application_url.split('?',1)[0].rstrip('/')+'/'
+ invitation_url=base+'?'+urlencode({'employee_invite':invite_token})
+ return jsonify({'ok':True,'role':role,'invitation_url':invitation_url,'recipient_count':len(eligible),'expires_in_hours':24})
 
 @employee_api.patch('/api/admin/employee-accounts/<int:account_id>')
 @require('ADMIN','HR')

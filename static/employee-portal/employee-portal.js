@@ -68,6 +68,15 @@
     } catch (_error) { return ''; }
   }
 
+  function categoryInvitationActions(invitationUrl, role, count) {
+    const label = role === 'TEMPORARY' ? 'Temporary Workers' : `${role.charAt(0)}${role.slice(1).toLowerCase()}s`;
+    const subject = `MSME Hub ${label} account invitation`;
+    const message = `Use this link to create your ${label} account in MSME Hub:\n\n${invitationUrl}\n\nThis shared category link is valid for 24 hours. Your Gmail address must already be saved by the administrator in the ${label} category.`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+    return `<div class="ea-category-link"><p><b>One ${esc(label)} link created for ${count} profile${count === 1 ? '' : 's'}.</b> It remains valid for 24 hours.</p><input value="${esc(invitationUrl)}" readonly aria-label="Category invitation link"><div class="ea-category-actions"><button type="button" class="secondary" data-copy-category-link="${esc(invitationUrl)}">Copy single link</button><a class="secondary" href="${esc(gmailUrl)}" target="_blank" rel="noopener">Send person-to-person using Gmail</a><a class="secondary" href="${esc(whatsappUrl)}" target="_blank" rel="noopener">Share through WhatsApp</a></div></div>`;
+  }
+
   function duration(minutes = 0) {
     return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
   }
@@ -470,9 +479,9 @@
       ['STAFF', 'Staff'],
       ['TEMPORARY', 'Temporary Workers']
     ];
-    return `<section class="panel ea-bulk-invitations"><div class="panel-header"><div><p class="eyebrow">CATEGORY-WISE INVITATIONS</p><h2>Send invitations to a complete category</h2></div></div><p>Select one category once. Every saved email address in that category receives its own private message. Individual employee names and send buttons are not displayed.</p><div class="ea-category-actions">${groups.map(([role, label]) => {
+    return `<section class="panel ea-bulk-invitations"><div class="panel-header"><div><p class="eyebrow">CATEGORY-WISE INVITATIONS</p><h2>Create one link for each category</h2></div></div><p>Create one shared 24-hour link for all saved people in the selected category. Send the same link person-to-person using Gmail, or share it through WhatsApp.</p><div class="ea-category-actions">${groups.map(([role, label]) => {
       const count = profiles.filter(person => employeeRoleValue(person) === role).length;
-      return `<button type="button" class="secondary" data-bulk-invite-role="${role}">Send to all ${esc(label)} (${count})</button>`;
+      return `<button type="button" class="secondary" data-bulk-invite-role="${role}">Create ${esc(label)} link (${count})</button>`;
     }).join('')}</div><div id="ea-bulk-results"></div></section>`;
   }
 
@@ -484,19 +493,19 @@
       return;
     }
     trigger.disabled = true;
-    trigger.textContent = 'Sending invitations…';
-    results.innerHTML = '<p>Sending one private email to each person in this category…</p>';
+    trigger.textContent = 'Creating link…';
+    results.innerHTML = '<p>Creating one secure category link…</p>';
     try {
-      const sent = await request('/api/admin/employee-invitations/bulk', {
+      const created = await request('/api/admin/employee-invitations/category-link', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ workforce_role: role, application_url: employeeApplicationUrl() })
       }, adminToken);
-      results.innerHTML = `<p class="ep-success"><b>${sent.sent} private invitation${sent.sent === 1 ? '' : 's'} sent.</b> ${sent.active_accounts} already-active account${sent.active_accounts === 1 ? ' was' : 's were'} skipped because no new invitation is needed.${sent.skipped.length ? ` ${sent.skipped.length} incomplete profile${sent.skipped.length === 1 ? ' was' : 's were'} skipped.` : ''}</p>`;
+      results.innerHTML = categoryInvitationActions(created.invitation_url, created.role, created.recipient_count);
     } catch (error) {
       results.innerHTML = `<p class="login-error">${esc(error.message)}</p>`;
     }
     trigger.disabled = false;
-    trigger.textContent = 'Send category again';
+    trigger.textContent = 'Create link again';
   }
 
   async function adminView() {
@@ -507,7 +516,7 @@
       return;
     }
     const profiles = existingWorkforceProfiles();
-    page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1><p>Send private account-creation invitations by workforce category and manage existing access below.</p></div></div>
+    page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1><p>Create one shared invitation link for Workers, Staff or Temporary Workers and manage existing access below.</p></div></div>
       ${bulkInvitationControls(profiles)}
       <section class="panel"><h2>Employee accounts</h2><p id="ea-message"></p><div class="employee-access-list" id="ea-list">Loading…</div></section>`;
     const adminToken = sessionStorage.getItem('msme-admin-api-token') || '';
@@ -536,6 +545,15 @@
   }
 
   document.addEventListener('click', event => {
+    const copyCategoryLink = event.target.closest('[data-copy-category-link]');
+    if (copyCategoryLink) {
+      const invitationUrl = copyCategoryLink.dataset.copyCategoryLink;
+      navigator.clipboard.writeText(invitationUrl).then(() => {
+        copyCategoryLink.textContent = 'Link copied';
+        setTimeout(() => { copyCategoryLink.textContent = 'Copy single link'; }, 1800);
+      }).catch(() => window.prompt('Copy this category invitation link:', invitationUrl));
+      return;
+    }
     const navigation = event.target.closest('[data-view]');
     if (!navigation) return;
     if (navigation.dataset.view === 'employeeaccess') {
