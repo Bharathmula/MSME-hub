@@ -104,6 +104,19 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("if exists:", backend)
         self.assertNotIn("DELETE FROM employee_accounts", backend)
 
+    def test_automatic_attendance_refresh_keeps_operations_overview(self):
+        controls = (ROOT / "static" / "dashboard-attendance-controls.js").read_text(
+            encoding="utf-8"
+        )
+        dashboard_refresh = controls.split(
+            "else if (typeof view !== 'undefined' && view === 'dashboard')",
+            1,
+        )[1].split("}", 1)[0]
+        self.assertIn("dashboard();", dashboard_refresh)
+        self.assertIn("refreshAdminGreeting();", dashboard_refresh)
+        self.assertIn("refreshUpdateLabel();", dashboard_refresh)
+        self.assertIn("refreshOperationsEnhancements();", dashboard_refresh)
+
 
 if __name__ == "__main__":
     unittest.main()

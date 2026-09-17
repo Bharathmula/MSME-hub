@@ -604,6 +604,12 @@ async function syncAutomaticAttendanceV21(date, force = false) {
         refreshAttendanceViewPreservingScrollV35(temporaryDashboard);
       } else if (typeof view !== 'undefined' && view === 'dashboard') {
         dashboard();
+        // dashboard() replaces #view-root. Reapply every enhancement that the
+        // normal render() wrapper adds, otherwise the five-second automatic
+        // attendance poll removes the operations overview until a full refresh.
+        if (typeof refreshAdminGreeting === 'function') refreshAdminGreeting();
+        if (typeof refreshUpdateLabel === 'function') refreshUpdateLabel();
+        if (typeof refreshOperationsEnhancements === 'function') refreshOperationsEnhancements();
       }
     }
   } catch (error) {

@@ -57,7 +57,7 @@ class EmployeePortalTests(unittest.TestCase):
   with app.app_context():admin=token(tenant,'ADMIN',tenant)
   empty={'account':{'email':tenant},'storage':{'people':[],'temporary':[]}}
   self.assertEqual(self.c.put('/api/workspace',json=empty,headers=self.headers(admin)).status_code,200)
-  account=self.c.post('/api/admin/employee-accounts',json={'name':'Recovered Worker','employee_id':'WR-RECOVER','email':'recovered.worker@gmail.com','workforce_role':'WORKER','password':'Recovered123!'},headers=self.headers(admin))
+  account=self.c.post('/api/admin/employee-accounts',json={'name':'Recovered Worker','employee_id':'WR-RECOVER','email':'recovered.worker@gmail.com','workforce_role':'WORKER','password':'Recovered123!','pin':'123456'},headers=self.headers(admin))
   self.assertEqual(account.status_code,201,account.text)
   workspace=self.c.get('/api/workspace',headers=self.headers(admin));self.assertEqual(workspace.status_code,200,workspace.text)
   people=workspace.json['storage']['people'];self.assertEqual(len(people),1);self.assertEqual(people[0]['id'],'WR-RECOVER');self.assertEqual(people[0]['status'],'Not checked in')
