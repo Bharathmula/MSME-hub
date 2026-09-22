@@ -114,11 +114,27 @@ st.markdown(
     """
     <style>
       #MainMenu, header, footer, [data-testid="stSidebar"] {display:none !important}
-      .stApp, [data-testid="stAppViewContainer"], .main {background:#fff;padding:0 !important}
-      .block-container, [data-testid="stElementContainer"] {padding:0 !important;margin:0 !important;max-width:none !important}
-      iframe {display:block;border:0;width:100%;}
+      html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main {
+        width:100% !important;
+        height:100vh !important;
+        min-height:0 !important;
+        overflow:hidden !important;
+        background:#020b20 !important;
+        padding:0 !important;
+        margin:0 !important;
+      }
+      .block-container, [data-testid="stElementContainer"], [data-testid="stIFrame"] {
+        width:100% !important;
+        height:100vh !important;
+        min-height:0 !important;
+        overflow:hidden !important;
+        padding:0 !important;
+        margin:0 !important;
+        max-width:none !important;
+      }
+      iframe {display:block;border:0;width:100% !important;height:100vh !important;overflow:hidden !important;}
     </style>
     """,
     unsafe_allow_html=True,
 )
-st.iframe(bundled_application(), height=900)
+st.iframe(bundled_application(), height=720)
