@@ -123,6 +123,11 @@ st.markdown(
         padding:0 !important;
         margin:0 !important;
       }
+      [data-testid="stVerticalBlock"], [data-testid="stMainBlockContainer"] {
+        gap:0 !important;
+        padding-top:0 !important;
+        margin-top:0 !important;
+      }
       .block-container {
         width:100% !important;
         height:100vh !important;
