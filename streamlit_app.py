@@ -123,7 +123,7 @@ st.markdown(
         padding:0 !important;
         margin:0 !important;
       }
-      .block-container, [data-testid="stElementContainer"], [data-testid="stIFrame"] {
+      .block-container {
         width:100% !important;
         height:100vh !important;
         min-height:0 !important;
@@ -131,6 +131,20 @@ st.markdown(
         padding:0 !important;
         margin:0 !important;
         max-width:none !important;
+      }
+      [data-testid="stElementContainer"] {
+        width:100% !important;
+        min-height:0 !important;
+        padding:0 !important;
+        margin:0 !important;
+      }
+      [data-testid="stIFrame"] {
+        width:100% !important;
+        height:100vh !important;
+        min-height:100vh !important;
+        overflow:hidden !important;
+        padding:0 !important;
+        margin:0 !important;
       }
       iframe {display:block;border:0;width:100% !important;height:100vh !important;overflow:hidden !important;}
     </style>
