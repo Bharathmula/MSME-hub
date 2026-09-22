@@ -1,4 +1,4 @@
-import hashlib,json,secrets
+import hashlib,json,re,secrets
 from datetime import datetime,timedelta,timezone
 from urllib.parse import urlencode
 from uuid import uuid4
@@ -12,6 +12,7 @@ employee_api=Blueprint('employee_api',__name__)
 def now():return datetime.now(timezone.utc)
 def stamp():return now().isoformat()
 def data():return request.get_json(silent=True) or {}
+def valid_email(value):return bool(re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',str(value or '').strip()))
 def reset_signer():return URLSafeTimedSerializer(current_app.config['SECRET_KEY'],salt='msme-employee-password-reset-v1')
 def category_invite_signer():return URLSafeTimedSerializer(current_app.config['SECRET_KEY'],salt='msme-employee-category-invite-v1')
 def public(row):
@@ -85,8 +86,8 @@ def activate():
    issued_at=datetime.fromisoformat(row['updated_at'] or row['created_at'])
    effective_expiry=min(datetime.fromisoformat(row['invite_expires_at']),issued_at+timedelta(hours=24))
    if effective_expiry<now():return jsonify({'error':'Invitation is invalid or expired.'}),400
-   if not contact.endswith('@gmail.com') or contact!=str(row['email']).lower():
-    return jsonify({'error':'Enter the Gmail address used for this invitation.'}),400
+   if not valid_email(contact) or contact!=str(row['email']).lower():
+    return jsonify({'error':'Enter the email address used for this invitation.'}),400
    db.execute("UPDATE employee_accounts SET password_hash=?,pin_hash=NULL,status='ACTIVE',invite_hash=NULL,invite_expires_at=NULL,updated_at=? WHERE id=?",(generate_password_hash(password),stamp(),row['id']))
   else:
    try:category=category_invite_signer().loads(raw,max_age=86400)
@@ -102,8 +103,8 @@ def activate():
    records=storage.get('temporary' if role=='TEMPORARY' else 'people',[])
    expected_role='Temporary Worker' if role=='TEMPORARY' else role.title()
    profile=next((item for item in records if isinstance(item,dict) and str(item.get('email','')).strip().lower()==contact and (role=='TEMPORARY' or item.get('role')==expected_role)),None)
-   if not contact.endswith('@gmail.com') or not profile:
-    return jsonify({'error':f'This Gmail address is not registered in the {expected_role} category.'}),400
+   if not valid_email(contact) or not profile:
+    return jsonify({'error':f'This email address is not registered in the {expected_role} category.'}),400
    eid=str(profile.get('id','')).strip();name=str(profile.get('name','')).strip();phone=str(profile.get('phone','')).strip()
    if not eid or not name:return jsonify({'error':'Your workforce profile is incomplete. Ask the administrator to add your name and employee ID.'}),400
    row=db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? AND (lower(email)=? OR employee_id=?)',(tenant,contact,eid)).fetchone()
@@ -283,7 +284,7 @@ def accounts():
  with transaction() as db:
   if request.method=='GET':return jsonify({'employees':[public(x) for x in db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? ORDER BY workforce_role,name',(tenant,)).fetchall()]})
   p=data();role=str(p.get('workforce_role','')).upper();email=str(p.get('email','')).strip().lower();eid=str(p.get('employee_id','')).strip();name=str(p.get('name','')).strip();phone=str(p.get('phone','')).strip();password=str(p.get('password',''));pin=str(p.get('pin',''))
-  if role not in {'WORKER','STAFF','TEMPORARY','ENTREPRENEUR'} or not name or not eid or not email.endswith('@gmail.com'):return jsonify({'error':'Name, employee ID, a valid @gmail.com address, and workforce role are required.'}),400
+  if role not in {'WORKER','STAFF','TEMPORARY','ENTREPRENEUR'} or not name or not eid or not valid_email(email):return jsonify({'error':'Name, employee ID, a valid email address, and workforce role are required.'}),400
   direct=bool(password or pin)
   if direct and len(password)<8:return jsonify({'error':'Employee password must contain at least 8 characters.'}),400
   if direct and not(pin.isdigit() and len(pin)==6):return jsonify({'error':'Attendance PIN must contain exactly 6 digits.'}),400
@@ -317,8 +318,8 @@ def category_employee_invitation():
  collection='temporary' if role=='TEMPORARY' else 'people'
  expected_role='Temporary Worker' if role=='TEMPORARY' else role.title()
  profiles=[item for item in storage.get(collection,[]) if isinstance(item,dict) and (role=='TEMPORARY' or item.get('role')==expected_role)]
- eligible=[item for item in profiles if str(item.get('email','')).strip().lower().endswith('@gmail.com') and str(item.get('id','')).strip() and str(item.get('name','')).strip()]
- if not eligible:return jsonify({'error':'No complete profiles with Gmail addresses are available in this category.'}),400
+ eligible=[item for item in profiles if valid_email(item.get('email')) and str(item.get('id','')).strip() and str(item.get('name','')).strip()]
+ if not eligible:return jsonify({'error':'No complete profiles with valid email addresses are available in this category.'}),400
  invite_token=category_invite_signer().dumps({'kind':'employee-category','tenant':tenant,'role':role})
  base=application_url.split('?',1)[0].rstrip('/')+'/'
  invitation_url=base+'?'+urlencode({'employee_invite':invite_token})

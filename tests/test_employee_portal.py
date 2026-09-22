@@ -109,6 +109,16 @@ class EmployeePortalTests(unittest.TestCase):
   removed=self.c.delete(f'/api/admin/employee-accounts/{account_id}',headers=self.headers(self.admin));self.assertEqual(removed.status_code,200,removed.text)
   self.assertEqual(self.c.post('/api/employee/login',json={'email':'direct.staff@gmail.com','password':'Direct123!'}).status_code,401)
 
+ def test_non_gmail_employee_address_can_activate_and_login(self):
+  workspace={'account':{'email':'admin@example.com','company':'Test Company'},'storage':{'people':[{'id':'W-YAHOO','name':'Yahoo Worker','email':'worker@yahoo.co.in','phone':'9000000002','role':'Worker'}],'temporary':[],'attendance':[]}}
+  self.assertEqual(self.c.put('/api/workspace',json=workspace,headers=self.headers(self.admin)).status_code,200)
+  invited=self.c.post('/api/admin/employee-accounts',json={'name':'Yahoo Worker','employee_id':'W-YAHOO','email':'worker@yahoo.co.in','phone':'9000000002','workforce_role':'WORKER'},headers=self.headers(self.admin))
+  self.assertEqual(invited.status_code,201,invited.text)
+  activated=self.c.post('/api/employee/activate',json={'invite_token':invited.json['invite_token'],'contact':'worker@yahoo.co.in','password':'Testing123!'})
+  self.assertEqual(activated.status_code,200,activated.text)
+  login=self.c.post('/api/employee/login',json={'email':'worker@yahoo.co.in','password':'Testing123!'})
+  self.assertEqual(login.status_code,200,login.text)
+
  def test_admin_can_create_one_shared_category_link_and_worker_can_activate(self):
   workspace={'account':{'email':'admin@example.com','company':'Test Company'},'storage':{'people':[{'id':'W-BULK','name':'Bulk Worker','email':'bulk.worker@gmail.com','phone':'9000000099','role':'Worker'},{'id':'ST-BULK','name':'Bulk Staff','email':'bulk.staff@gmail.com','phone':'9000000077','role':'Staff'}],'temporary':[],'attendance':[]}}
   self.assertEqual(self.c.put('/api/workspace',json=workspace,headers=self.headers(self.admin)).status_code,200)
