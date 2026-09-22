@@ -93,7 +93,7 @@ def activate():
    except (BadSignature,SignatureExpired):return jsonify({'error':'Invitation is invalid or expired.'}),400
    if not isinstance(category,dict):return jsonify({'error':'Invitation is invalid or expired.'}),400
    tenant=str(category.get('tenant','')).strip().lower();role=str(category.get('role','')).upper()
-   if category.get('kind')!='employee-category' or role not in {'WORKER','STAFF','TEMPORARY'}:
+   if category.get('kind')!='employee-category' or role not in {'WORKER','STAFF','TEMPORARY','ENTREPRENEUR'}:
     return jsonify({'error':'Invitation is invalid or expired.'}),400
    stored=db.execute('SELECT workspace_json FROM tenant_workspaces WHERE tenant_email=?',(tenant,)).fetchone()
    try:workspace=json.loads(stored['workspace_json']) if stored else {}
@@ -283,7 +283,7 @@ def accounts():
  with transaction() as db:
   if request.method=='GET':return jsonify({'employees':[public(x) for x in db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? ORDER BY workforce_role,name',(tenant,)).fetchall()]})
   p=data();role=str(p.get('workforce_role','')).upper();email=str(p.get('email','')).strip().lower();eid=str(p.get('employee_id','')).strip();name=str(p.get('name','')).strip();phone=str(p.get('phone','')).strip();password=str(p.get('password',''));pin=str(p.get('pin',''))
-  if role not in {'WORKER','STAFF','TEMPORARY'} or not name or not eid or not email.endswith('@gmail.com'):return jsonify({'error':'Name, employee ID, a valid @gmail.com address, and workforce role are required.'}),400
+  if role not in {'WORKER','STAFF','TEMPORARY','ENTREPRENEUR'} or not name or not eid or not email.endswith('@gmail.com'):return jsonify({'error':'Name, employee ID, a valid @gmail.com address, and workforce role are required.'}),400
   direct=bool(password or pin)
   if direct and len(password)<8:return jsonify({'error':'Employee password must contain at least 8 characters.'}),400
   if direct and not(pin.isdigit() and len(pin)==6):return jsonify({'error':'Attendance PIN must contain exactly 6 digits.'}),400
@@ -306,7 +306,7 @@ def accounts():
 @require('ADMIN','HR')
 def category_employee_invitation():
  p=data();role=str(p.get('workforce_role','')).upper();application_url=str(p.get('application_url','')).strip()
- if role not in {'WORKER','STAFF','TEMPORARY'}:return jsonify({'error':'Choose Workers, Staff or Temporary Workers.'}),400
+ if role not in {'WORKER','STAFF','TEMPORARY','ENTREPRENEUR'}:return jsonify({'error':'Choose Workers, Staff, Temporary Workers or Entrepreneurs.'}),400
  if not application_url.startswith(('https://','http://localhost:')):return jsonify({'error':'A valid application URL is required.'}),400
  tenant=g.employee_identity['tenant'];db=connect()
  try:

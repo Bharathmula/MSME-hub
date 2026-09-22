@@ -126,6 +126,26 @@ class EmployeePortalTests(unittest.TestCase):
   repeated=self.c.post('/api/employee/activate',json={'invite_token':invite,'contact':'bulk.worker@gmail.com','password':'Another123!'})
   self.assertEqual(repeated.status_code,409,repeated.text)
 
+ def test_entrepreneur_can_be_invited_login_and_record_attendance(self):
+  face='data:image/jpeg;base64,/9j/2Q=='
+  workspace={'account':{'email':'admin@example.com','company':'Test Company'},'storage':{'people':[{'id':'EN-100','name':'Test Entrepreneur','email':'entrepreneur100@gmail.com','phone':'9000000088','role':'Entrepreneur'}],'temporary':[],'attendance':[]}}
+  self.assertEqual(self.c.put('/api/workspace',json=workspace,headers=self.headers(self.admin)).status_code,200)
+  invited=self.c.post('/api/admin/employee-accounts',json={'name':'Test Entrepreneur','employee_id':'EN-100','email':'entrepreneur100@gmail.com','phone':'9000000088','workforce_role':'ENTREPRENEUR'},headers=self.headers(self.admin))
+  self.assertEqual(invited.status_code,201,invited.text)
+  activation=self.c.post('/api/employee/activate',json={'invite_token':invited.json['invite_token'],'contact':'entrepreneur100@gmail.com','password':'Testing123!'})
+  self.assertEqual(activation.status_code,200,activation.text)
+  employee=activation.json['access_token']
+  dashboard=self.c.get('/api/employee/dashboard',headers=self.headers(employee))
+  self.assertEqual(dashboard.status_code,200,dashboard.text)
+  self.assertEqual(dashboard.json['employee']['workforce_role'],'ENTREPRENEUR')
+  checkin=self.c.post('/api/employee/attendance',json={'device_identifier':'entrepreneur-test','face_capture':face,'expected_action':'CHECK_IN'},headers=self.headers(employee,{'Idempotency-Key':'entrepreneur-in'}))
+  self.assertEqual(checkin.status_code,200,checkin.text)
+  self.assertEqual(checkin.json['event']['event_type'],'CHECK_IN')
+  admin_attendance=self.c.get('/api/admin/employee-attendance',headers=self.headers(self.admin))
+  self.assertEqual(admin_attendance.status_code,200,admin_attendance.text)
+  record=next(item for item in admin_attendance.json['attendance'] if item['employee_id']=='EN-100')
+  self.assertEqual(record['workforce_role'],'ENTREPRENEUR')
+
  def test_employee_password_reset_captcha_is_required(self):
   captcha=self.c.get('/api/employee/password-reset-captcha');self.assertEqual(captcha.status_code,200,captcha.text);self.assertEqual(len(captcha.json['captcha_code']),6)
   rejected=self.c.post('/api/employee/reset-password',json={'email':'worker100@gmail.com','password':'Another123!','captcha_id':captcha.json['captcha_id'],'captcha_answer':'WRONG1'})

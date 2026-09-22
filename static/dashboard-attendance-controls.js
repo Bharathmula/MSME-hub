@@ -674,12 +674,13 @@ window.attendanceCalendar = function attendanceCalendarWithRoleSections() {
       ${calendarTemporarySectionV21(record)}
       ${calendarRoleSectionV21('Workers', 'Worker', record)}
       ${calendarRoleSectionV21('Staff', 'Staff', record)}
+      ${calendarRoleSectionV21('Entrepreneurs', 'Entrepreneur', record)}
     </div>`;
   syncAutomaticAttendanceV21(calendarDay);
 };
 
 function attendanceRecordsForTodayV21() {
-  return people.filter(person => person.role !== 'Entrepreneur').map(person => {
+  return people.map(person => {
     const calculation = attendanceCalculationV21(person);
     return {
       id: person.id,

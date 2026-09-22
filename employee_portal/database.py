@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS employee_accounts (
     employee_id TEXT NOT NULL,
     name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
-    workforce_role TEXT NOT NULL CHECK (workforce_role IN ('WORKER','STAFF','TEMPORARY')),
+    workforce_role TEXT NOT NULL CHECK (workforce_role IN ('WORKER','STAFF','TEMPORARY','ENTREPRENEUR')),
     password_hash TEXT,
     pin_hash TEXT,
     status TEXT NOT NULL DEFAULT 'INVITED' CHECK (status IN ('INVITED','ACTIVE','SUSPENDED')),
@@ -181,6 +181,18 @@ def initialize() -> None:
                 "ALTER TABLE employee_accounts "
                 "ADD COLUMN IF NOT EXISTS profile_json TEXT NOT NULL DEFAULT '{}'"
             )
+            # Earlier Neon deployments restricted accounts to Worker, Staff and
+            # Temporary Worker. Recreate the named check so existing databases
+            # can also issue Entrepreneur invitations and record attendance.
+            db.execute(
+                "ALTER TABLE employee_accounts DROP CONSTRAINT IF EXISTS "
+                "employee_accounts_workforce_role_check"
+            )
+            db.execute(
+                "ALTER TABLE employee_accounts ADD CONSTRAINT "
+                "employee_accounts_workforce_role_check CHECK "
+                "(workforce_role IN ('WORKER','STAFF','TEMPORARY','ENTREPRENEUR'))"
+            )
             return
 
         db.executescript(
@@ -229,6 +241,61 @@ def initialize() -> None:
             db.execute(
                 "ALTER TABLE employee_accounts ADD COLUMN profile_json TEXT NOT NULL DEFAULT '{}'"
             )
+        account_schema = db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='employee_accounts'"
+        ).fetchone()
+        if account_schema and "ENTREPRENEUR" not in (account_schema["sql"] or ""):
+            # SQLite cannot alter a CHECK constraint in place. Rebuild only this
+            # table, retaining every account and leaving attendance/session
+            # tables pointed at the same final employee_accounts table name.
+            db.execute("PRAGMA foreign_keys=OFF")
+            try:
+                db.execute("BEGIN IMMEDIATE")
+                db.execute(
+                    """CREATE TABLE employee_accounts_role_upgrade (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    tenant_email TEXT NOT NULL,
+                    employee_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    email TEXT NOT NULL UNIQUE,
+                    workforce_role TEXT NOT NULL CHECK(workforce_role IN('WORKER','STAFF','TEMPORARY','ENTREPRENEUR')),
+                    password_hash TEXT,
+                    pin_hash TEXT,
+                    status TEXT NOT NULL DEFAULT 'INVITED' CHECK(status IN('INVITED','ACTIVE','SUSPENDED')),
+                    invite_hash TEXT,
+                    invite_expires_at TEXT,
+                    biometric_status TEXT NOT NULL DEFAULT 'NOT_CONFIGURED',
+                    phone TEXT NOT NULL DEFAULT '',
+                    profile_photo_data TEXT NOT NULL DEFAULT '',
+                    profile_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(tenant_email,employee_id)
+                    )"""
+                )
+                db.execute(
+                    """INSERT INTO employee_accounts_role_upgrade(
+                    id,tenant_email,employee_id,name,email,workforce_role,
+                    password_hash,pin_hash,status,invite_hash,invite_expires_at,
+                    biometric_status,phone,profile_photo_data,profile_json,
+                    created_at,updated_at)
+                    SELECT id,tenant_email,employee_id,name,email,workforce_role,
+                    password_hash,pin_hash,status,invite_hash,invite_expires_at,
+                    biometric_status,phone,profile_photo_data,profile_json,
+                    created_at,updated_at FROM employee_accounts"""
+                )
+                db.execute("DROP TABLE employee_accounts")
+                db.execute("ALTER TABLE employee_accounts_role_upgrade RENAME TO employee_accounts")
+                db.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_employee_accounts_tenant_role "
+                    "ON employee_accounts(tenant_email, workforce_role)"
+                )
+                db.commit()
+            except Exception:
+                db.rollback()
+                raise
+            finally:
+                db.execute("PRAGMA foreign_keys=ON")
     finally:
         db.close()
 

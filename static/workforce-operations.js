@@ -698,6 +698,7 @@ window.attendanceCalendar = function advancedAttendanceCalendarV25() {
       ${calendarTemporarySectionV21(record)}
       ${calendarRoleSectionV21('Workers', 'Worker', record)}
       ${calendarRoleSectionV21('Staff', 'Staff', record)}
+      ${calendarRoleSectionV21('Entrepreneurs', 'Entrepreneur', record)}
     </div>`;
   if (typeof syncAutomaticAttendanceV21 === 'function') syncAutomaticAttendanceV21(calendarDay);
 };

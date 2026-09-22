@@ -1,7 +1,7 @@
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS employee_accounts(
  id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_email TEXT NOT NULL, employee_id TEXT NOT NULL,
- name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, workforce_role TEXT NOT NULL CHECK(workforce_role IN('WORKER','STAFF','TEMPORARY')),
+ name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, workforce_role TEXT NOT NULL CHECK(workforce_role IN('WORKER','STAFF','TEMPORARY','ENTREPRENEUR')),
  password_hash TEXT, pin_hash TEXT, status TEXT NOT NULL DEFAULT 'INVITED' CHECK(status IN('INVITED','ACTIVE','SUSPENDED')),
  invite_hash TEXT, invite_expires_at TEXT, biometric_status TEXT NOT NULL DEFAULT 'NOT_CONFIGURED',
  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(tenant_email,employee_id));

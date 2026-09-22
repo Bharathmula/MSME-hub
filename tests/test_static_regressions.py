@@ -37,7 +37,7 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertNotIn("new MutationObserver(refreshOperationsEnhancements)", overview)
         self.assertIn("refreshOperationsEnhancements();", overview)
 
-    def test_new_profiles_require_check_in_and_entrepreneurs_have_no_attendance(self):
+    def test_new_profiles_require_check_in_and_entrepreneurs_have_attendance(self):
         forms = (ROOT / "static" / "account-notifications-and-forms.js").read_text(
             encoding="utf-8"
         )
@@ -52,9 +52,9 @@ class StaticRegressionTests(unittest.TestCase):
         )
 
         self.assertIn("status: 'Not checked in'", forms)
-        self.assertIn("person.role !== 'Entrepreneur'", controls)
-        self.assertNotIn("calendarRoleSectionV21('Entrepreneurs'", advanced_calendar)
-        self.assertIn("attendance: false", entrepreneur)
+        self.assertNotIn("person.role !== 'Entrepreneur'", controls)
+        self.assertIn("calendarRoleSectionV21('Entrepreneurs'", advanced_calendar)
+        self.assertIn("attendance: true", entrepreneur)
 
     def test_employee_login_waits_for_dashboard_and_has_category_invitations(self):
         login = (ROOT / "static" / "owned-authentication-login.js").read_text(

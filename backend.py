@@ -242,7 +242,7 @@ def health():
     return jsonify({
         "ok": True,
         "service": "msme-employee-api",
-        "schema_version": 11,
+        "schema_version": 12,
         "attendance_photo_api": True,
         "database": "postgresql" if database_url() else "sqlite",
     })

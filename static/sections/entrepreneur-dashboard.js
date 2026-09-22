@@ -2,6 +2,6 @@
 MSMEWorkforceDashboards.register("Entrepreneur", {
   label: "Entrepreneur",
   eyebrow: "ENTREPRENEUR DETAILS",
-  attendance: false,
+  attendance: true,
   records: () => people.filter((person) => person.role === "Entrepreneur"),
 });
