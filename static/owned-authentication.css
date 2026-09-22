@@ -129,6 +129,7 @@ html:has(#login-screen:not(.hidden)),body:has(#login-screen:not(.hidden)){height
 #login-screen .login-card::-webkit-scrollbar-track{background:transparent}
 #login-screen .login-card::-webkit-scrollbar-thumb{border:2px solid transparent;border-radius:10px;background:rgba(69,102,150,.4);background-clip:padding-box}
 #login-screen .login-card::-webkit-scrollbar-thumb:hover{background:rgba(37,84,151,.62);background-clip:padding-box}
+.back-to-welcome{display:inline-flex;align-items:center;margin:0 0 12px;padding:6px 0;border:0;background:transparent;color:#0875df;font-size:12px;font-weight:800;cursor:pointer}.back-to-welcome:hover{color:#064f9d;text-decoration:underline}
 .input-icon-wrap{position:relative;display:flex;align-items:center;width:100%}
 .input-icon-wrap>svg{position:absolute;z-index:2;left:15px;width:21px;height:21px;fill:none;stroke:#536984;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 #owned-auth-panel .input-icon-wrap>input{padding-left:48px;border-radius:9px}
