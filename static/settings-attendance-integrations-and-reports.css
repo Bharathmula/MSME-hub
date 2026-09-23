@@ -38,6 +38,7 @@
 
 .settings-mode-card {
   display: flex;
+  justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
   padding: 18px;
@@ -46,10 +47,28 @@
   background: #fff;
 }
 
-.settings-mode-card input {
-  width: 20px;
-  height: 20px;
-  margin-top: 2px;
+.settings-mode-card.selected {
+  border-color: #1465b6;
+  background: #eef6ff;
+  box-shadow: 0 0 0 2px rgba(20, 101, 182, 0.1);
+}
+
+.settings-mode-select {
+  flex: 0 0 auto;
+  min-width: 86px;
+  padding: 9px 13px;
+  border: 1px solid #aac2db;
+  border-radius: 9px;
+  background: #fff;
+  color: #0b3767;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-mode-select.selected {
+  border-color: #0b3767;
+  background: #0b3767;
+  color: #fff;
 }
 
 .settings-mode-card b,
@@ -59,8 +78,14 @@
 
 .settings-mode-card small {
   margin-top: 5px;
+  margin-right: 12px;
   color: #66798d;
   line-height: 1.45;
+}
+
+#settings-save-status {
+  color: #17613a;
+  font-weight: 700;
 }
 
 .settings-form-grid {

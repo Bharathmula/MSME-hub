@@ -129,6 +129,10 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("CSV Report / Excel Sheet", settings)
         self.assertIn("Late comers", settings)
         self.assertIn("Early left", settings)
+        self.assertIn("data-attendance-mode", settings)
+        self.assertIn("aria-pressed", settings)
+        self.assertIn("}, 5000);", settings)
+        self.assertNotIn('type="checkbox" data-attendance-mode', settings)
         self.assertIn('"attendance-integration-settings"', sync)
         self.assertIn('"attendance-import-history"', sync)
 

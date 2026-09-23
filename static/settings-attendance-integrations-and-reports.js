@@ -137,14 +137,20 @@
 
   function integrationPanel() {
     const current = integrationSettings();
-    const enabled = mode => current.modes.includes(mode) ? 'checked' : '';
+    const modeCard = (mode, title, description) => {
+      const selected = current.modes.includes(mode);
+      return `<article class="settings-mode-card ${selected ? 'selected' : ''}" data-mode-card="${mode}">
+        <span><b>${title}</b><small>${description}</small></span>
+        <button type="button" class="settings-mode-select ${selected ? 'selected' : ''}" data-attendance-mode="${mode}" aria-pressed="${selected}">${selected ? 'Selected' : 'Select'}</button>
+      </article>`;
+    };
     return `<section class="panel">
       <div class="panel-header"><div><h2>Attendance Integration</h2><p>Choose one or more attendance sources for this company.</p></div><span class="tag complete">Company settings</span></div>
       <div class="settings-mode-grid">
-        <label class="settings-mode-card"><input type="checkbox" data-attendance-mode="biometric" ${enabled('biometric')}><span><b>Biometric</b><small>Connect a fingerprint, card or device provider through its API or scheduled export.</small></span></label>
-        <label class="settings-mode-card"><input type="checkbox" data-attendance-mode="face" ${enabled('face')}><span><b>Face Authentication</b><small>Use the existing face check-in and check-out workflow in this application.</small></span></label>
-        <label class="settings-mode-card"><input type="checkbox" data-attendance-mode="manual" ${enabled('manual')}><span><b>Manual</b><small>Allow authorised admins to enter or correct attendance in Attendance Calendar.</small></span></label>
-        <label class="settings-mode-card"><input type="checkbox" data-attendance-mode="spreadsheet" ${enabled('spreadsheet')}><span><b>CSV Report / Excel Sheet</b><small>Import past attendance exported from Excel or another attendance system.</small></span></label>
+        ${modeCard('biometric', 'Biometric', 'Connect a fingerprint, card or device provider through its API or scheduled export.')}
+        ${modeCard('face', 'Face Authentication', 'Use the existing face check-in and check-out workflow in this application.')}
+        ${modeCard('manual', 'Manual', 'Allow authorised admins to enter or correct attendance in Attendance Calendar.')}
+        ${modeCard('spreadsheet', 'CSV Report / Excel Sheet', 'Import past attendance exported from Excel or another attendance system.')}
       </div>
       <div class="settings-form-grid" id="biometric-connection-fields">
         <label>BIOMETRIC SOFTWARE / PROVIDER<input id="biometric-provider" value="${esc(current.provider)}" placeholder="Example: eSSL, ZKTeco, Matrix"></label>
@@ -236,6 +242,15 @@
   }
 
   document.addEventListener('click', async event => {
+    const modeButton = event.target.closest('[data-attendance-mode]');
+    if (modeButton) {
+      const selected = !modeButton.classList.contains('selected');
+      modeButton.classList.toggle('selected', selected);
+      modeButton.closest('[data-mode-card]')?.classList.toggle('selected', selected);
+      modeButton.setAttribute('aria-pressed', String(selected));
+      modeButton.textContent = selected ? 'Selected' : 'Select';
+      return;
+    }
     const tab = event.target.closest('[data-settings-tab]');
     if (tab) {
       settingsTab = tab.dataset.settingsTab;
@@ -243,7 +258,7 @@
       return;
     }
     if (event.target.closest('#save-attendance-settings')) {
-      const modes = [...document.querySelectorAll('[data-attendance-mode]:checked')].map(input => input.dataset.attendanceMode);
+      const modes = [...document.querySelectorAll('[data-attendance-mode].selected')].map(button => button.dataset.attendanceMode);
       saveIntegrationSettings({
         modes,
         provider: document.querySelector('#biometric-provider')?.value.trim() || '',
@@ -252,7 +267,12 @@
         syncInterval: document.querySelector('#biometric-sync-interval')?.value || '15',
       });
       const status = document.querySelector('#settings-save-status');
-      if (status) status.textContent = 'Saved permanently for this company.';
+      if (status) {
+        status.textContent = 'Attendance settings saved permanently for this company.';
+        window.setTimeout(() => {
+          if (status.isConnected) status.textContent = '';
+        }, 5000);
+      }
       return;
     }
     if (event.target.closest('#download-attendance-template')) {
