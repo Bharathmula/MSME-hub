@@ -1,0 +1,147 @@
+.sidebar-settings-button {
+  width: calc(100% - 24px);
+  margin: 10px 12px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.settings-tabs,
+.settings-mode-grid,
+.report-summary-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-tabs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 18px;
+}
+
+.settings-tabs button {
+  padding: 14px;
+  border: 1px solid #cddae8;
+  border-radius: 12px;
+  background: #f4f7fb;
+  color: #18324b;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-tabs button.active {
+  background: #0b3767;
+  color: white;
+  border-color: #0b3767;
+}
+
+.settings-mode-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-mode-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid #d8e2ed;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.settings-mode-card input {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+}
+
+.settings-mode-card b,
+.settings-mode-card small {
+  display: block;
+}
+
+.settings-mode-card small {
+  margin-top: 5px;
+  color: #66798d;
+  line-height: 1.45;
+}
+
+.settings-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.settings-form-grid label,
+.settings-import-box label {
+  display: grid;
+  gap: 7px;
+  color: #243a50;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.settings-form-grid input,
+.settings-form-grid select,
+.settings-import-box input,
+.report-controls input,
+.report-controls select {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #c7d5e4;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.settings-actions,
+.report-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.settings-note,
+.settings-import-box {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #eef5fc;
+  color: #34516e;
+}
+
+.settings-import-status {
+  min-height: 22px;
+  margin: 10px 0 0;
+  color: #275f3d;
+}
+
+.report-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 18px 0;
+}
+
+.report-summary-card {
+  padding: 18px;
+  border: 1px solid #d8e2ed;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.report-summary-card b {
+  display: block;
+  color: #0b3767;
+  font-size: 28px;
+}
+
+.report-summary-card span {
+  color: #617488;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .settings-mode-grid,
+  .settings-form-grid,
+  .report-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}

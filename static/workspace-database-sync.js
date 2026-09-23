@@ -12,6 +12,8 @@
     "recycle-bin",
     "training-records",
     "dashboard-visibility",
+    "attendance-integration-settings",
+    "attendance-import-history",
   ];
   let hydrating = false;
   let saveTimer = null;

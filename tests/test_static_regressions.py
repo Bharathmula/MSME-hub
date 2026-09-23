@@ -117,6 +117,21 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("refreshUpdateLabel();", dashboard_refresh)
         self.assertIn("refreshOperationsEnhancements();", dashboard_refresh)
 
+    def test_settings_has_company_attendance_integrations_and_reports(self):
+        index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        settings = (ROOT / "static" / "settings-attendance-integrations-and-reports.js").read_text(encoding="utf-8")
+        sync = (ROOT / "static" / "workspace-database-sync.js").read_text(encoding="utf-8")
+
+        self.assertIn('data-view="settings"', index)
+        self.assertIn("Attendance Integration", settings)
+        self.assertIn("Biometric", settings)
+        self.assertIn("Face Authentication", settings)
+        self.assertIn("CSV Report / Excel Sheet", settings)
+        self.assertIn("Late comers", settings)
+        self.assertIn("Early left", settings)
+        self.assertIn('"attendance-integration-settings"', sync)
+        self.assertIn('"attendance-import-history"', sync)
+
 
 if __name__ == "__main__":
     unittest.main()
