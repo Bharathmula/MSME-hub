@@ -161,6 +161,9 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("Center authentication and remove the separate decorative login illustration", styles)
         self.assertIn("#login-screen .login-art,#login-screen .login-scene{display:none!important}", styles)
         self.assertIn(".msme-landing{overflow-x:hidden;overflow-y:auto", styles)
+        self.assertIn("Restore the original MSME branding copy", styles)
+        self.assertIn("#login-screen .login-art>.os-logo{display:flex!important", styles)
+        self.assertIn("linear-gradient(90deg,#9b5cff", styles)
         self.assertTrue((ROOT / "static" / "assets" / "msme-welcome-hero.png").is_file())
 
     def test_streamlit_inlines_css_background_images_for_srcdoc(self):
