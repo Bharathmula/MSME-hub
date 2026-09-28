@@ -147,7 +147,12 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("openLandingAuth('signup')", authentication)
         self.assertIn("Existing customers can sign in", authentication)
         self.assertIn("landingActions.className='landing-actions'", authentication)
+        self.assertIn('class="back-to-workspace"', authentication)
+        self.assertIn('class="back-to-signin"', authentication)
+        self.assertIn("screen.querySelector('.back-to-signin').hidden=tab==='signin'", authentication)
         self.assertIn(".landing-actions .landing-login{display:inline-flex", styles)
+        self.assertIn('url("assets/msme-welcome-hero.png")', styles)
+        self.assertTrue((ROOT / "static" / "assets" / "msme-welcome-hero.png").is_file())
 
 
 if __name__ == "__main__":
