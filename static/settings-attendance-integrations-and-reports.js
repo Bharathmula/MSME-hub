@@ -263,7 +263,7 @@
         <h4>${custom ? 'Built for your company' : code === 'TRIAL' ? 'Explore MSME Planner' : `MSME ${esc(plan.name)}`}</h4>
         <p class="plan-description">${custom ? 'A tailored package for large workforces and specialised operational requirements.' : code === 'TRIAL' ? 'Start managing your workforce and attendance before choosing a paid plan.' : `More workforce capacity and tools for growing MSMEs.`}</p>
         <div class="plan-price">${price}</div>
-        <button class="plan-select-button" data-upgrade-plan="${code}" ${current ? 'disabled' : ''}>${current ? 'Your current plan' : custom ? 'Request Custom Plan' : `Select ${esc(plan.name)}`}</button>
+        <button class="plan-select-button" data-upgrade-plan="${code}">${current ? 'Your current plan' : custom ? 'Request Custom Plan' : `Select ${esc(plan.name)}`}</button>
         <div class="plan-feature-heading">${code === 'TRIAL' ? 'Start with the essentials:' : 'Everything included:'}</div>
         <ul class="plan-features">${(features[code] || []).map(feature => `<li><span>✓</span>${esc(feature)}</li>`).join('')}</ul>
       </article>`;
@@ -322,13 +322,15 @@
       selectedPlan = upgrade.dataset.upgradePlan;
       settingsPage();
       const status = document.querySelector('#subscription-action-status');
-      if (status) status.textContent = selectedPlan === 'CUSTOM'
+      if (status) status.textContent = selectedPlan === String(subscriptionState?.plan_code || 'TRIAL').toUpperCase()
+        ? 'Your current plan is selected.'
+        : selectedPlan === 'CUSTOM'
         ? 'Custom Plan selected. Contact the MSME platform administrator to configure employee limits, storage, integrations and pricing.'
         : `${selectedPlan} selected. Online payment activation requires the Razorpay account keys to be configured on Render.`;
       return;
     }
     const planCard = event.target.closest('[data-plan-card]');
-    if (planCard && !planCard.classList.contains('current')) {
+    if (planCard) {
       selectedPlan = planCard.dataset.planCard;
       settingsPage();
       return;
