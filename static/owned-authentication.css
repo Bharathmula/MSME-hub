@@ -265,3 +265,15 @@ html:has(#login-screen:not(.hidden)),body:has(#login-screen:not(.hidden)){height
 #login-screen .login-art .login-benefits{display:flex;flex-direction:column;align-items:center;gap:28px;width:220px;margin:0}
 #login-screen .login-art .login-benefits span{display:flex;flex-direction:column;align-items:center;gap:9px;width:100%;text-align:center;font-size:15px;font-weight:800;line-height:1.2;text-transform:none}
 #login-screen .login-art .login-benefits b{width:52px;height:52px;border-radius:14px;font-size:23px}
+
+/* Slight welcome-page travel and refined hero typography. */
+.msme-landing{scroll-behavior:smooth}
+.msme-landing .landing-copy{min-height:106vh;padding-bottom:calc(34px + 6vh)}
+.landing-global{display:none!important}
+.landing-title h1{font-weight:900;text-shadow:0 8px 30px rgba(0,7,55,.46)}
+.landing-title h1 span{letter-spacing:.015em}
+.landing-title h1 i{background:linear-gradient(100deg,#8e5cff 0%,#d944ef 48%,#ff5b9e 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 8px 22px rgba(208,61,226,.25))}
+.landing-title p{padding-left:16px;border-left:3px solid rgba(188,105,255,.9);color:#fff;text-shadow:0 3px 14px rgba(0,8,50,.72)}
+.landing-logo b{text-shadow:0 5px 20px rgba(0,8,52,.48)}
+
+@media(max-width:760px){.msme-landing .landing-copy{min-height:112vh;padding-bottom:52px}.landing-title p{padding-left:12px}}
