@@ -164,6 +164,9 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("Restore the original MSME branding copy", styles)
         self.assertIn("#login-screen .login-art>.os-logo{display:flex!important", styles)
         self.assertIn("linear-gradient(90deg,#9b5cff", styles)
+        self.assertIn("Login branding is intentionally limited", styles)
+        self.assertIn("#login-screen .login-art>.art-copy{display:none!important}", styles)
+        self.assertIn("#login-screen .login-art .login-benefits{display:flex;flex-direction:column", styles)
         self.assertTrue((ROOT / "static" / "assets" / "msme-welcome-hero.png").is_file())
 
     def test_streamlit_inlines_css_background_images_for_srcdoc(self):

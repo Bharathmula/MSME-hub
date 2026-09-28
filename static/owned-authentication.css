@@ -257,3 +257,11 @@ html:has(#login-screen:not(.hidden)),body:has(#login-screen:not(.hidden)){height
 #login-screen .login-art .login-benefits b{width:44px;height:44px;border-radius:12px;font-size:20px}
 
 @media(max-width:1250px){#login-screen .login-art{display:none!important}}
+
+/* Login branding is intentionally limited to the logo/tagline and stacked feature names. */
+#login-screen .login-art{justify-content:center;align-items:center;gap:54px}
+#login-screen .login-art>.art-copy{display:none!important}
+#login-screen .login-art>.os-logo{align-self:center}
+#login-screen .login-art .login-benefits{display:flex;flex-direction:column;align-items:center;gap:28px;width:220px;margin:0}
+#login-screen .login-art .login-benefits span{display:flex;flex-direction:column;align-items:center;gap:9px;width:100%;text-align:center;font-size:15px;font-weight:800;line-height:1.2;text-transform:none}
+#login-screen .login-art .login-benefits b{width:52px;height:52px;border-radius:14px;font-size:23px}
