@@ -186,4 +186,12 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-components.html(bundled_application(), height=720, scrolling=True)
+try:
+    public_request_host = str(st.context.headers.get("Host", "")).lower()
+except Exception:
+    public_request_host = ""
+
+if public_request_host.endswith(".streamlit.app") and LOCAL_EMPLOYEE_API_URL:
+    st.iframe(f"{LOCAL_EMPLOYEE_API_URL.rstrip('/')}/", height=720)
+else:
+    components.html(bundled_application(), height=720, scrolling=True)
