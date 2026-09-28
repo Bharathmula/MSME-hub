@@ -3,6 +3,7 @@
   let settingsTab = 'subscription';
   let subscriptionState = null;
   let subscriptionPlans = [];
+  let selectedPlan = null;
   let subscriptionLoading = false;
   let reportType = 'monthly';
   let reportDate = new Date().toISOString().slice(0, 10);
@@ -240,8 +241,35 @@
     const item = subscriptionState;
     const percent = Math.min(100, Math.round((item.employee_count / item.employee_limit) * 100));
     const end = item.trial_ends_at ? new Date(item.trial_ends_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
+    const currentCode = String(item.plan_code || 'TRIAL').toUpperCase();
+    if (!selectedPlan) selectedPlan = currentCode;
+    const trialPlan = { code: 'TRIAL', name: '30-Day Trial', monthly_price: 0, employee_limit: item.employee_limit || 10 };
+    const plans = [trialPlan, ...subscriptionPlans];
+    const features = {
+      TRIAL: ['10 employee accounts', 'Face and manual attendance', 'Basic dashboard and reports', '30 days with no credit card'],
+      PLUS: ['30 employee accounts', 'Attendance and payroll', 'CSV import and reports', '90-day photo retention'],
+      PRO: ['100 employee accounts', 'Biometric integration', 'Advanced attendance reports', 'One-year photo retention'],
+      ULTRA: ['300 employee accounts', 'Multiple branches', 'API access and priority support', 'Two-year photo retention'],
+      CUSTOM: ['Custom employee and branch limits', 'Custom storage and retention', 'Dedicated integrations', 'Custom onboarding and support'],
+    };
+    const planCards = plans.map(plan => {
+      const code = String(plan.code).toUpperCase();
+      const custom = code === 'CUSTOM';
+      const current = code === currentCode;
+      const selected = code === selectedPlan;
+      const price = custom ? '<span class="plan-contact-price">Custom pricing</span>' : `<span class="plan-currency">₹</span>${plan.monthly_price}<small>/ month</small>`;
+      return `<article class="subscription-price-card ${selected ? 'selected' : ''} ${current ? 'current' : ''}" data-plan-card="${code}">
+        <div class="plan-card-top"><h3>${esc(plan.name)}</h3>${current ? '<span class="plan-current-badge">CURRENT PLAN</span>' : selected ? '<span class="plan-selected-badge">SELECTED</span>' : ''}</div>
+        <h4>${custom ? 'Built for your company' : code === 'TRIAL' ? 'Explore MSME Planner' : `MSME ${esc(plan.name)}`}</h4>
+        <p class="plan-description">${custom ? 'A tailored package for large workforces and specialised operational requirements.' : code === 'TRIAL' ? 'Start managing your workforce and attendance before choosing a paid plan.' : `More workforce capacity and tools for growing MSMEs.`}</p>
+        <div class="plan-price">${price}</div>
+        <button class="plan-select-button" data-upgrade-plan="${code}" ${current ? 'disabled' : ''}>${current ? 'Your current plan' : custom ? 'Request Custom Plan' : `Select ${esc(plan.name)}`}</button>
+        <div class="plan-feature-heading">${code === 'TRIAL' ? 'Start with the essentials:' : 'Everything included:'}</div>
+        <ul class="plan-features">${(features[code] || []).map(feature => `<li><span>✓</span>${esc(feature)}</li>`).join('')}</ul>
+      </article>`;
+    }).join('');
     return `<section class="panel subscription-panel">
-      <div class="panel-header"><div><div class="eyebrow">CURRENT COMPANY PLAN</div><h2>${esc(item.plan_name)}</h2></div><span class="tag ${item.read_only ? 'urgent' : 'complete'}">${esc(item.status.toUpperCase())}</span></div>
+      <div class="panel-header"><div><div class="eyebrow">CURRENT PLAN</div><h2>${esc(item.plan_name)}</h2><p>Your active company subscription and usage are shown below.</p></div><span class="tag ${item.read_only ? 'urgent' : 'complete'}">${esc(item.status.toUpperCase())}</span></div>
       <div class="subscription-metrics">
         <article><b>${item.days_remaining}</b><span>Days remaining</span></article>
         <article><b>${item.employee_count} / ${item.employee_limit}</b><span>Employee accounts</span></article>
@@ -251,7 +279,7 @@
       <p>${item.read_only ? 'The trial has expired. Your saved company and employee data remains safe in read-only mode.' : 'Your company received this 30-day trial automatically. No payment method is required during the trial.'}</p>
       <div class="settings-note"><b>After the trial:</b> choose Plus, Pro or Ultra to continue adding employees and attendance. Existing information is never automatically deleted.</div>
       <h3 class="subscription-options-title">Choose a plan</h3>
-      <div class="subscription-options">${subscriptionPlans.map(plan => `<article><h3>${esc(plan.name)}</h3><b>₹${plan.monthly_price}<small>/month</small></b><p>Up to ${plan.employee_limit} employees</p><button class="primary" data-upgrade-plan="${plan.code}">Select ${esc(plan.name)}</button></article>`).join('') || '<p>Plan options are loading…</p>'}</div>
+      <div class="subscription-options">${planCards || '<p>Plan options are loading…</p>'}</div>
       <p class="settings-import-status" id="subscription-action-status"></p>
     </section>`;
   }
@@ -269,6 +297,7 @@
       if (!currentResponse.ok) throw new Error(data.error || 'Subscription could not be loaded.');
       subscriptionState = data.subscription;
       subscriptionPlans = plansData.plans || [];
+      selectedPlan = String(subscriptionState.plan_code || 'TRIAL').toUpperCase();
     } catch (error) {
       subscriptionState = { plan_name: 'Unavailable', status: error.message, days_remaining: 0, employee_count: 0, employee_limit: 10, read_only: false };
     } finally {
@@ -290,8 +319,18 @@
   document.addEventListener('click', async event => {
     const upgrade = event.target.closest('[data-upgrade-plan]');
     if (upgrade) {
+      selectedPlan = upgrade.dataset.upgradePlan;
+      settingsPage();
       const status = document.querySelector('#subscription-action-status');
-      if (status) status.textContent = `${upgrade.dataset.upgradePlan} selected. Online payment activation requires the Razorpay account keys to be configured on Render.`;
+      if (status) status.textContent = selectedPlan === 'CUSTOM'
+        ? 'Custom Plan selected. Contact the MSME platform administrator to configure employee limits, storage, integrations and pricing.'
+        : `${selectedPlan} selected. Online payment activation requires the Razorpay account keys to be configured on Render.`;
+      return;
+    }
+    const planCard = event.target.closest('[data-plan-card]');
+    if (planCard && !planCard.classList.contains('current')) {
+      selectedPlan = planCard.dataset.planCard;
+      settingsPage();
       return;
     }
     const modeButton = event.target.closest('[data-attendance-mode]');

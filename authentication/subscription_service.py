@@ -11,6 +11,7 @@ PLAN_CATALOG = [
     {"code": "PLUS", "name": "Plus", "monthly_price": 499, "annual_price": 4990, "employee_limit": 30},
     {"code": "PRO", "name": "Pro", "monthly_price": 999, "annual_price": 9990, "employee_limit": 100},
     {"code": "ULTRA", "name": "Ultra", "monthly_price": 1999, "annual_price": 19990, "employee_limit": 300},
+    {"code": "CUSTOM", "name": "Custom", "monthly_price": None, "annual_price": None, "employee_limit": None},
 ]
 
 
