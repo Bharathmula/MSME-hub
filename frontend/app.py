@@ -192,6 +192,10 @@ except Exception:
     public_request_host = ""
 
 if public_request_host.endswith(".streamlit.app") and LOCAL_EMPLOYEE_API_URL:
-    st.iframe(f"{LOCAL_EMPLOYEE_API_URL.rstrip('/')}/", height=720)
+    components.iframe(
+        f"{LOCAL_EMPLOYEE_API_URL.rstrip('/')}/",
+        height=720,
+        scrolling=True,
+    )
 else:
     components.html(bundled_application(), height=720, scrolling=True)
