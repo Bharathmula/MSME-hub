@@ -1,0 +1,1 @@
+"""MSME frontend package."""

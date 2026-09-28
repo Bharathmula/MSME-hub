@@ -14,7 +14,7 @@ set "MSME_EMPLOYEE_DB=%CD%\data\employee_portal.db"
 set "MSME_PORT=5051"
 
 echo Employee backend: http://127.0.0.1:5051
-".runtime\Scripts\python.exe" backend.py
+".runtime\Scripts\python.exe" -m backend.app
 
 echo.
 echo The employee backend stopped or could not start.

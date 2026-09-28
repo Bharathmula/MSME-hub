@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-from employee_portal.database import connect, initialize, transaction
+from backend.employee_portal.database import connect, initialize, transaction
 
 
 class WorkspaceConflictError(RuntimeError):

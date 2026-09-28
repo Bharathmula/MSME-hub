@@ -3,9 +3,9 @@ from datetime import datetime,timedelta,timezone
 from pathlib import Path
 from urllib.parse import parse_qs,urlparse
 TMP=tempfile.TemporaryDirectory();os.environ.pop('DATABASE_URL',None);os.environ['MSME_EMPLOYEE_DB']=str(Path(TMP.name)/'employees.db');os.environ['MSME_SECRET_KEY']='tests-only'
-from backend import app,token_signer
-from employee_portal.security import token
-from employee_portal.database import connect
+from backend.app import app,token_signer
+from backend.employee_portal.security import token
+from backend.employee_portal.database import connect
 
 class EmployeePortalTests(unittest.TestCase):
  @classmethod

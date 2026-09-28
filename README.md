@@ -1,6 +1,20 @@
-# MSME Hub Streamlit Project
+# MSME Multi Skill Planner
 
-This Streamlit edition preserves the custom HTML, CSS and JavaScript MSME dashboard. Streamlit is the single local host and starts the Python API inside the same process.
+A company-isolated workforce platform with administrator and employee portals, attendance, face captures, payroll inputs, training, reporting and persistent Neon/PostgreSQL storage.
+
+## Architecture at a glance
+
+| Layer | Location | Responsibility |
+|---|---|---|
+| Frontend shell | `streamlit_app.py` | Publishes the browser application on Streamlit Cloud and injects public runtime configuration. |
+| Browser UI | `frontend/static/` | HTML, CSS and JavaScript for authentication, dashboards, profiles, attendance, payroll and settings. |
+| Backend API | `backend/app.py` | Authentication, workspace persistence, subscriptions, backups and CSV export. |
+| Employee API | `backend/employee_portal/` | Employee access, invitations, profiles, attendance and photo endpoints. |
+| Authentication services | `backend/authentication/` | Accounts, CAPTCHA, subscriptions and company workspace storage. |
+| Database schema | `backend/migrations/` | Versioned PostgreSQL/Neon database changes. Existing migrations must never be edited after deployment. |
+| Verification | `tests/` and `scripts/` | Regression tests and safe pre-deployment checks. |
+
+The repository remains a deliberate monorepo: the frontend and backend are separated by folders and API boundaries while sharing one Git deployment source. See [Architecture and Operations](docs/ARCHITECTURE-AND-OPERATIONS.md) for the full request lifecycle, security boundaries, deployment process and data-protection rules.
 
 ## Run locally
 
@@ -14,7 +28,7 @@ python -m pip install -r requirements.txt
 python -m streamlit run streamlit_app.py
 ```
 
-Open only `http://localhost:8501`. Do not start `backend.py` separately.
+Open only `http://localhost:8501`. Do not start the backend separately; Streamlit starts `backend.app` for local use.
 
 Local records are stored permanently in the existing `data/employee_portal.db`. Existing manager accounts from `data/auth_accounts.json` and existing browser workspace data are imported without deleting the source copies.
 
@@ -43,5 +57,7 @@ Records persist until they are explicitly changed or deleted in the application.
 ## VS Code maintenance
 
 - `EDITING-GUIDE.md` maps every visible dashboard section, authentication flow and database component to its exact file.
-- `static/COMPONENT-FILE-MAP.md` explains the browser load order and each JavaScript bundle.
+- `frontend/static/COMPONENT-FILE-MAP.md` explains the browser load order and each JavaScript bundle.
 - `DATABASE-SETUP.md` explains SQLite, Neon/PostgreSQL and Render configuration.
+- `docs/ARCHITECTURE-AND-OPERATIONS.md` explains how frontend, backend, Render and Neon communicate.
+- Run `powershell -ExecutionPolicy Bypass -File scripts/verify-project.ps1` before every push.

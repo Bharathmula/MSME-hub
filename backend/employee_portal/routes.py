@@ -300,7 +300,7 @@ def account_controls():
 def accounts():
  tenant=g.employee_identity['tenant']
  if request.method=='POST':
-  from authentication.subscription_service import can_add_employee
+  from backend.authentication.subscription_service import can_add_employee
   allowed,subscription=can_add_employee(tenant)
   if not allowed:
    message='Your 30-day free trial has expired. Your data is safe and available read-only.' if subscription['read_only'] else f"The {subscription['plan_name']} employee limit of {subscription['employee_limit']} has been reached."

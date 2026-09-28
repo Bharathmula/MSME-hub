@@ -15,18 +15,19 @@ from pathlib import Path
 from flask import Flask, Response, abort, g, jsonify, request, send_from_directory
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
-from employee_portal import install as install_employee_portal
-from employee_portal.database import connect, database_url
-from employee_portal.security import token as access_token
-from employee_portal.security import require
-from authentication.account_database import AccountDatabase
-from authentication.captcha_service import CaptchaService
-from authentication.workspace_database import WorkspaceConflictError, WorkspaceDatabase
-from authentication.subscription_service import PLAN_CATALOG, ensure_subscription, rename_subscription, require_writable
+from backend.employee_portal import install as install_employee_portal
+from backend.employee_portal.database import connect, database_url
+from backend.employee_portal.security import token as access_token
+from backend.employee_portal.security import require
+from backend.authentication.account_database import AccountDatabase
+from backend.authentication.captcha_service import CaptchaService
+from backend.authentication.workspace_database import WorkspaceConflictError, WorkspaceDatabase
+from backend.authentication.subscription_service import PLAN_CATALOG, ensure_subscription, rename_subscription, require_writable
 
 BASE_DIR = Path(__file__).resolve().parent
-STATIC_DIR = BASE_DIR / "static"
-DATA_DIR = BASE_DIR / "data"
+PROJECT_ROOT = BASE_DIR.parent
+STATIC_DIR = PROJECT_ROOT / "frontend" / "static"
+DATA_DIR = PROJECT_ROOT / "data"
 DATA_DIR.mkdir(exist_ok=True)
 AUTH_FILE = DATA_DIR / "auth_accounts.json"
 OTP_TTL_SECONDS = 10 * 60
