@@ -214,3 +214,19 @@ html:has(#login-screen:not(.hidden)),body:has(#login-screen:not(.hidden)){height
 
 /* The top card action owns navigation back to sign in; avoid a duplicate link below the form. */
 .auth-tabs [data-tab="signin"]{display:none!important}.auth-tabs{grid-template-columns:1fr}.auth-tabs:before{text-align:center}
+
+/* Final shared hero treatment for the welcome and authentication screens. */
+.landing-empowerment{display:none!important}
+.landing-benefits span{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:8px;text-align:center;line-height:1.25}
+.landing-benefits b{display:grid;grid-row:auto;place-items:center;margin:0}
+#login-screen{isolation:isolate;background-image:linear-gradient(90deg,rgba(0,12,43,.5),rgba(0,12,43,.08) 54%,rgba(0,12,43,.16)),url("assets/msme-welcome-hero.png");background-size:cover;background-position:center;background-repeat:no-repeat}
+#login-screen:before{content:"";position:absolute;z-index:0;inset:0;background:linear-gradient(90deg,rgba(0,10,38,.5),rgba(0,10,38,.03) 50%,rgba(9,16,65,.18));pointer-events:none}
+#login-screen .login-art{z-index:1;background:transparent!important}
+#login-screen .login-side{z-index:2;background:transparent!important}
+#login-screen .login-side:before{display:none}
+#login-screen .login-card{border-color:rgba(255,255,255,.72);background:rgba(255,255,255,.96);box-shadow:0 26px 70px rgba(0,8,48,.38);backdrop-filter:blur(12px)}
+#login-screen .login-art .login-benefits{display:flex;flex-direction:column;align-items:center;gap:30px;width:min(360px,100%)}
+#login-screen .login-art .login-benefits span{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;text-align:center;font-size:21px;line-height:1.12}
+#login-screen .login-art .login-benefits b{display:grid;grid-row:auto;place-items:center;width:66px;height:66px;margin:0;border-radius:18px;font-size:29px}
+
+@media(max-width:760px){#login-screen{background-position:68% center}#login-screen:before{background:rgba(1,10,35,.48)}#login-screen .login-side{background:transparent!important}#login-screen .login-art .login-benefits{display:none}}

@@ -148,7 +148,7 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("Existing customers can sign in", authentication)
         self.assertIn("landingActions.className='landing-actions'", authentication)
         self.assertIn('<span>MSME</span><i>MULTI SKILL</i><i>PLANNER</i>', authentication)
-        self.assertIn("Empowering<br>Small Businesses,<br>Building a Bigger Tomorrow", authentication)
+        self.assertNotIn('class="landing-empowerment"', authentication)
         self.assertIn("LOCAL BUSINESSES.<br>GLOBAL REACH.", authentication)
         self.assertIn("PRODUCTIVITY", authentication)
         self.assertIn('class="back-to-workspace"', authentication)
@@ -156,6 +156,8 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("screen.querySelector('.back-to-signin').hidden=tab==='signin'", authentication)
         self.assertIn(".landing-actions .landing-login{display:inline-flex", styles)
         self.assertIn('url("assets/msme-welcome-hero.png")', styles)
+        self.assertIn("Final shared hero treatment", styles)
+        self.assertIn("#login-screen{isolation:isolate;background-image:", styles)
         self.assertTrue((ROOT / "static" / "assets" / "msme-welcome-hero.png").is_file())
 
     def test_streamlit_inlines_css_background_images_for_srcdoc(self):
