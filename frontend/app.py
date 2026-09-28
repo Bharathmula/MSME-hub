@@ -17,12 +17,28 @@ PROJECT_ROOT = BASE_DIR.parent
 STATIC_DIR = BASE_DIR / "static"
 
 
+def configured_employee_api_url() -> str:
+    """Read the public employee API URL from Streamlit secrets or the environment."""
+    try:
+        secret_url = str(st.secrets.get("MSME_EMPLOYEE_API_URL", ""))
+    except Exception:
+        secret_url = ""
+    return (secret_url or str(os.environ.get("MSME_EMPLOYEE_API_URL", ""))).rstrip("/")
+
+
 @st.cache_resource
 def start_local_employee_api() -> str:
     """Start the employee API inside the Streamlit process for one-command local use."""
-    configured = str(os.environ.get("MSME_EMPLOYEE_API_URL", "")).rstrip("/")
+    configured = configured_employee_api_url()
     if configured:
         return configured
+
+    try:
+        request_host = str(st.context.headers.get("Host", "")).lower()
+    except Exception:
+        request_host = ""
+    if request_host.endswith(".streamlit.app"):
+        return ""
 
     host = "127.0.0.1"
     port = int(os.environ.get("MSME_PORT", "5051"))
@@ -42,15 +58,7 @@ def start_local_employee_api() -> str:
 def bundled_application() -> str:
     """Inline every asset so public visitors never depend on localhost."""
     html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
-    try:
-        configured_api_url = str(st.secrets.get("MSME_EMPLOYEE_API_URL", ""))
-    except Exception:
-        configured_api_url = ""
-
-    configured_api_url = configured_api_url or os.environ.get(
-        "MSME_EMPLOYEE_API_URL",
-        "",
-    )
+    configured_api_url = configured_employee_api_url()
 
     # The preserved application runs inside a Streamlit srcdoc iframe. Query
     # parameters live on the outer Streamlit page, so pass employee invitation
