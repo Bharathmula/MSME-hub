@@ -3,15 +3,14 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-STATIC_ROOT = ROOT / "frontend" / "static"
 
 
 class StaticRegressionTests(unittest.TestCase):
     def test_dashboard_greeting_uses_one_india_time_source(self):
-        greeting = (STATIC_ROOT / "sections" / "dashboard-greeting.js").read_text(
+        greeting = (ROOT / "static" / "sections" / "dashboard-greeting.js").read_text(
             encoding="utf-8"
         )
-        overview = (STATIC_ROOT / "overview-payroll-and-training.js").read_text(
+        overview = (ROOT / "static" / "overview-payroll-and-training.js").read_text(
             encoding="utf-8"
         )
 
@@ -21,13 +20,13 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("const hour = indiaHour(date);", overview)
 
     def test_dashboard_does_not_use_competing_subtree_observers(self):
-        greeting = (STATIC_ROOT / "sections" / "dashboard-greeting.js").read_text(
+        greeting = (ROOT / "static" / "sections" / "dashboard-greeting.js").read_text(
             encoding="utf-8"
         )
-        controls = (STATIC_ROOT / "dashboard-attendance-controls.js").read_text(
+        controls = (ROOT / "static" / "dashboard-attendance-controls.js").read_text(
             encoding="utf-8"
         )
-        overview = (STATIC_ROOT / "overview-payroll-and-training.js").read_text(
+        overview = (ROOT / "static" / "overview-payroll-and-training.js").read_text(
             encoding="utf-8"
         )
 
@@ -39,16 +38,16 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("refreshOperationsEnhancements();", overview)
 
     def test_new_profiles_require_check_in_and_entrepreneurs_have_attendance(self):
-        forms = (STATIC_ROOT / "account-notifications-and-forms.js").read_text(
+        forms = (ROOT / "static" / "account-notifications-and-forms.js").read_text(
             encoding="utf-8"
         )
-        controls = (STATIC_ROOT / "dashboard-attendance-controls.js").read_text(
+        controls = (ROOT / "static" / "dashboard-attendance-controls.js").read_text(
             encoding="utf-8"
         )
-        advanced_calendar = (STATIC_ROOT / "workforce-operations.js").read_text(
+        advanced_calendar = (ROOT / "static" / "workforce-operations.js").read_text(
             encoding="utf-8"
         )
-        entrepreneur = (STATIC_ROOT / "sections" / "entrepreneur-dashboard.js").read_text(
+        entrepreneur = (ROOT / "static" / "sections" / "entrepreneur-dashboard.js").read_text(
             encoding="utf-8"
         )
 
@@ -58,10 +57,10 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("attendance: true", entrepreneur)
 
     def test_employee_login_waits_for_dashboard_and_has_category_invitations(self):
-        login = (STATIC_ROOT / "owned-authentication-login.js").read_text(
+        login = (ROOT / "static" / "owned-authentication-login.js").read_text(
             encoding="utf-8"
         )
-        portal = (STATIC_ROOT / "employee-portal" / "employee-portal.js").read_text(
+        portal = (ROOT / "static" / "employee-portal" / "employee-portal.js").read_text(
             encoding="utf-8"
         )
 
@@ -73,25 +72,25 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertNotIn("data-bulk-invite-role", portal)
 
     def test_postgres_photo_patterns_escape_percent_placeholders(self):
-        routes = (ROOT / "backend" / "employee_portal" / "routes.py").read_text(encoding="utf-8")
+        routes = (ROOT / "employee_portal" / "routes.py").read_text(encoding="utf-8")
         self.assertNotIn("LIKE 'data:image/%'", routes)
         self.assertGreaterEqual(routes.count("LIKE 'data:image/%%'"), 6)
 
     def test_attendance_capture_is_single_submission_and_backend_action_guarded(self):
-        portal = (STATIC_ROOT / "employee-portal" / "employee-portal.js").read_text(encoding="utf-8")
-        routes = (ROOT / "backend" / "employee_portal" / "routes.py").read_text(encoding="utf-8")
+        portal = (ROOT / "static" / "employee-portal" / "employee-portal.js").read_text(encoding="utf-8")
+        routes = (ROOT / "employee_portal" / "routes.py").read_text(encoding="utf-8")
         self.assertIn("if (attendanceSubmitting) return", portal)
         self.assertIn("'Idempotency-Key': attendanceCaptureId", portal)
         self.assertIn("expected_action: action", portal)
         self.assertIn("expected_action!=action", routes)
 
     def test_public_page_prewarms_employee_api_without_blocking_render(self):
-        streamlit = (ROOT / "frontend" / "app.py").read_text(encoding="utf-8")
+        streamlit = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
         self.assertIn("/api/health", streamlit)
         self.assertIn(".catch(()=>{})", streamlit)
 
     def test_workspace_sync_retries_unsent_browser_edits_after_refresh(self):
-        sync = (STATIC_ROOT / "workspace-database-sync.js").read_text(
+        sync = (ROOT / "static" / "workspace-database-sync.js").read_text(
             encoding="utf-8"
         )
         self.assertIn("msme-workspace-pending-", sync)
@@ -100,13 +99,13 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("expected_updated_at: serverUpdatedAt", sync)
 
     def test_orphaned_employee_accounts_are_reconciled_without_deletion(self):
-        backend = (ROOT / "backend" / "app.py").read_text(encoding="utf-8")
+        backend = (ROOT / "backend.py").read_text(encoding="utf-8")
         self.assertIn("def reconcile_employee_accounts", backend)
         self.assertIn("if exists:", backend)
         self.assertNotIn("DELETE FROM employee_accounts", backend)
 
     def test_automatic_attendance_refresh_keeps_operations_overview(self):
-        controls = (STATIC_ROOT / "dashboard-attendance-controls.js").read_text(
+        controls = (ROOT / "static" / "dashboard-attendance-controls.js").read_text(
             encoding="utf-8"
         )
         dashboard_refresh = controls.split(
@@ -119,9 +118,9 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("refreshOperationsEnhancements();", dashboard_refresh)
 
     def test_settings_has_company_attendance_integrations_and_reports(self):
-        index = (STATIC_ROOT / "index.html").read_text(encoding="utf-8")
-        settings = (STATIC_ROOT / "settings-attendance-integrations-and-reports.js").read_text(encoding="utf-8")
-        sync = (STATIC_ROOT / "workspace-database-sync.js").read_text(encoding="utf-8")
+        index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        settings = (ROOT / "static" / "settings-attendance-integrations-and-reports.js").read_text(encoding="utf-8")
+        sync = (ROOT / "static" / "workspace-database-sync.js").read_text(encoding="utf-8")
 
         self.assertIn('data-view="settings"', index)
         self.assertIn("Attendance Integration", settings)
@@ -140,8 +139,8 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn('"attendance-import-history"', sync)
 
     def test_welcome_separates_existing_workspace_and_new_trial(self):
-        authentication = (STATIC_ROOT / "owned-authentication-login.js").read_text(encoding="utf-8")
-        styles = (STATIC_ROOT / "owned-authentication.css").read_text(encoding="utf-8")
+        authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(encoding="utf-8")
+        styles = (ROOT / "static" / "owned-authentication.css").read_text(encoding="utf-8")
         self.assertIn("Go to Workspace", authentication)
         self.assertIn("Start 30-Day Free Trial", authentication)
         self.assertIn("openLandingAuth('signin')", authentication)
@@ -171,10 +170,10 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("Slight welcome-page travel and refined hero typography", styles)
         self.assertIn(".msme-landing .landing-copy{min-height:106vh", styles)
         self.assertIn(".landing-global{display:none!important}", styles)
-        self.assertTrue((STATIC_ROOT / "assets" / "msme-welcome-hero.png").is_file())
+        self.assertTrue((ROOT / "static" / "assets" / "msme-welcome-hero.png").is_file())
 
     def test_streamlit_inlines_css_background_images_for_srcdoc(self):
-        streamlit = (ROOT / "frontend" / "app.py").read_text(encoding="utf-8")
+        streamlit = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
         self.assertIn("def inline_local_asset", streamlit)
         self.assertIn("base64.b64encode(asset_path.read_bytes())", streamlit)
         self.assertIn('url("data:{mime_type};base64,{encoded}")', streamlit)

@@ -1,1 +1,0 @@
-"""MSME backend package."""

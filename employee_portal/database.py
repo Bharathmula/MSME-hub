@@ -10,8 +10,7 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-BACKEND_DIR = Path(__file__).resolve().parent.parent
-PROJECT_ROOT = BACKEND_DIR.parent
+ROOT = Path(__file__).resolve().parent.parent
 
 
 def database_url() -> str:
@@ -20,7 +19,7 @@ def database_url() -> str:
 
 def path() -> Path:
     return Path(
-        os.environ.get("MSME_EMPLOYEE_DB", PROJECT_ROOT / "data" / "employee_portal.db")
+        os.environ.get("MSME_EMPLOYEE_DB", ROOT / "data" / "employee_portal.db")
     ).resolve()
 
 
@@ -215,16 +214,16 @@ def initialize() -> None:
             return
 
         db.executescript(
-            (BACKEND_DIR / "migrations" / "002_employee_portal.sql").read_text(encoding="utf-8")
+            (ROOT / "migrations" / "002_employee_portal.sql").read_text(encoding="utf-8")
         )
         db.executescript(
-            (BACKEND_DIR / "migrations" / "003_persistent_workspaces.sql").read_text(encoding="utf-8")
+            (ROOT / "migrations" / "003_persistent_workspaces.sql").read_text(encoding="utf-8")
         )
         db.executescript(
-            (BACKEND_DIR / "migrations" / "004_employee_login_sessions.sql").read_text(encoding="utf-8")
+            (ROOT / "migrations" / "004_employee_login_sessions.sql").read_text(encoding="utf-8")
         )
         db.executescript(
-            (BACKEND_DIR / "migrations" / "005_company_subscriptions.sql").read_text(encoding="utf-8")
+            (ROOT / "migrations" / "005_company_subscriptions.sql").read_text(encoding="utf-8")
         )
         db.executescript(
             """

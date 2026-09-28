@@ -5,7 +5,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from backend.employee_portal.database import connect, initialize, transaction
+from employee_portal.database import connect, initialize, transaction
 
 
 class AccountDatabase:

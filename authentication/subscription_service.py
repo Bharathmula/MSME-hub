@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from backend.employee_portal.database import connect, transaction
+from employee_portal.database import connect, transaction
 
 TRIAL_DAYS = 30
 TRIAL_EMPLOYEE_LIMIT = 10
