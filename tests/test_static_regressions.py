@@ -124,6 +124,8 @@ class StaticRegressionTests(unittest.TestCase):
 
         self.assertIn('data-view="settings"', index)
         self.assertIn("Attendance Integration", settings)
+        self.assertIn("Shift Timings", settings)
+        self.assertIn("save-company-shift", settings)
         self.assertIn("Biometric", settings)
         self.assertIn("Face Authentication", settings)
         self.assertIn("CSV Report / Excel Sheet", settings)

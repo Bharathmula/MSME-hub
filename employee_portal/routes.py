@@ -41,6 +41,14 @@ EMPLOYEE_EDITABLE_PROFILE_FIELDS={
  'hospital','family_doctor','medical_history','languages','technical_skills','responsibilities',
  'emergency','driving_skill','driving_vehicle_type','driving_licence_number','skills'
 }
+ADMIN_CONTROLLED_PROFILE_FIELDS={
+ 'id','employee_id','name','email','phone','role','workforce_role','aadhaar',
+ 'father_name','mother_name','passion','shift','dept','designation','salary',
+}
+
+def profile_value_present(value):
+ if isinstance(value,(list,dict,tuple,set)):return bool(value)
+ return str(value or '').strip()!=''
 
 def workspace_profile(db,row):
  stored=db.execute('SELECT workspace_json FROM tenant_workspaces WHERE tenant_email=?',(row['tenant_email'],)).fetchone()
@@ -56,7 +64,12 @@ def workspace_profile(db,row):
    if str(profile.get('id',''))==str(row['employee_id']) or str(profile.get('email','')).strip().lower()==str(row['email']).strip().lower():
     try:employee_saved=json.loads(row['profile_json'] or '{}')
     except (KeyError,TypeError,json.JSONDecodeError):employee_saved={}
-    if isinstance(employee_saved,dict):profile.update(employee_saved)
+    if isinstance(employee_saved,dict):
+     # The company workspace is authoritative. Older employee snapshots may
+     # only fill fields that the administrator has not populated.
+     for key,value in employee_saved.items():
+      if key not in ADMIN_CONTROLLED_PROFILE_FIELDS and not profile_value_present(profile.get(key)):
+       profile[key]=value
     return workspace,collection,index,profile
  role='Temporary Worker' if row['workforce_role']=='TEMPORARY' else row['workforce_role'].title()
  profile={'id':row['employee_id'],'name':row['name'],'email':row['email'],'phone':row['phone'],'role':role,'skills':[]}
@@ -187,10 +200,15 @@ def profile_details():
   row=current(db)
   if not row:return jsonify({'error':'Employee account is not active.'}),403
   workspace,collection,index,profile=workspace_profile(db,row)
-  updates={}
+  updates={};locked=[]
   for key,value in p.items():
    if key in EMPLOYEE_EDITABLE_PROFILE_FIELDS or key.startswith('sibling_name_') or key.startswith('child_name_'):
+    current_value=profile.get(key)
+    if key in ADMIN_CONTROLLED_PROFILE_FIELDS or profile_value_present(current_value):
+     if str(value or '').strip()!=str(current_value or '').strip():locked.append(key)
+     continue
     updates[key]=value
+  if locked:return jsonify({'error':'These details are already saved and can only be changed by the administrator: '+', '.join(item.replace('_',' ') for item in locked)+'.'}),403
   if not updates:return jsonify({'error':'No editable personal details were provided.'}),400
   if 'skills' in updates:
    skills=updates['skills']

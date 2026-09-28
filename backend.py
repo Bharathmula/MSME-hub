@@ -70,7 +70,7 @@ def save_auth_accounts(accounts: list[dict]) -> None:
 
 
 def public_account(account: dict) -> dict:
-    return {key: account.get(key) for key in ("name", "company", "phone", "email", "country", "email_updates", "provider")}
+    return {key: account.get(key) for key in ("name", "company", "phone", "email", "country", "email_updates", "provider", "shift_start", "shift_end")}
 
 
 def otp_key(email: str, purpose: str) -> str:
@@ -345,6 +345,8 @@ def register_account():
         "company": str(payload.get("company") or "").strip(),
         "staff_count": str(payload.get("staff_count") or "").strip(),
         "business_category": str(payload.get("business_category") or "").strip(),
+        "shift_start": str(payload.get("shift_start") or "09:00").strip(),
+        "shift_end": str(payload.get("shift_end") or "18:00").strip(),
         "address": str(payload.get("address") or "").strip(),
         "role": str(payload.get("role") or "Owner").strip(),
         "email": email,

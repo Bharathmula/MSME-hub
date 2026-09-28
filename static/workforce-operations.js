@@ -102,6 +102,19 @@ function individualMonthStatsV22(person) {
   };
 }
 
+async function hydrateMonthlyPresentV35(rolePeople) {
+  const month = new Date().toISOString().slice(0, 7);
+  await Promise.allSettled(rolePeople.map(async person => {
+    const payload = await adminAttendanceRequestV33(`/api/admin/employee-attendance-month?employee_id=${encodeURIComponent(person.id)}&month=${encodeURIComponent(month)}`);
+    const records = Array.isArray(payload.attendance) ? payload.attendance : [];
+    const button = document.querySelector(`[data-person-attendance="${CSS.escape(String(person.id))}"]`);
+    if (!button) return;
+    button.textContent = String(records.length);
+    button.title = `${records.length} permanently stored present day${records.length === 1 ? '' : 's'} in ${month}`;
+    button.dataset.databaseCount = 'true';
+  }));
+}
+
 async function adminAttendanceRequestV33(path) {
   const base = String(window.MSME_EMPLOYEE_API_URL || '').replace(/\/$/, '');
   const token = sessionStorage.getItem('msme-admin-api-token') || '';
@@ -255,6 +268,7 @@ function roleOverflowV22(roleName) {
         </article>`;
       }).join('') || `<p class="empty">No ${singular} profiles are stored.</p>`}</div>
     </section>`;
+  hydrateMonthlyPresentV35(rolePeople);
 }
 
 document.addEventListener('click', event => {

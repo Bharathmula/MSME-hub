@@ -65,6 +65,8 @@
       "role",
       "provider",
       "email_updates",
+      "shift_start",
+      "shift_end",
     ];
     return Object.fromEntries(
       allowed.filter((key) => account[key] !== undefined).map((key) => [key, account[key]]),

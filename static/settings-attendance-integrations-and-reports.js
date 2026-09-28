@@ -174,6 +174,17 @@
     </section>`;
   }
 
+  function companyShiftPanel() {
+    const start = String(admin.shift_start || '09:00').slice(0, 5);
+    const end = String(admin.shift_end || '18:00').slice(0, 5);
+    return `<section class="panel settings-shift-panel">
+      <div class="panel-header"><div><h2>Shift Timings</h2><p>Set the standard company shift for Workers, Staff, Entrepreneurs and Temporary Workers.</p></div><span class="tag complete">Company-wide</span></div>
+      <div class="settings-form-grid"><label>SHIFT START<input type="time" id="company-shift-start" value="${esc(start)}" required></label><label>SHIFT END<input type="time" id="company-shift-end" value="${esc(end)}" required></label></div>
+      <div class="settings-note"><b>Company shift:</b> saving applies the timing to every existing workforce profile and becomes the default for newly created employees.</div>
+      <div class="settings-actions"><button class="primary" id="save-company-shift">Save shift timings</button><span id="shift-save-status"></span></div>
+    </section>`;
+  }
+
   function filteredReportRows() {
     const all = allAttendanceRows();
     const chosen = new Date(`${reportDate}T00:00:00`);
@@ -232,8 +243,8 @@
 
   function settingsPage() {
     root.innerHTML = `<div class="page-heading"><div><div class="eyebrow">COMPANY CONFIGURATION</div><h1>Settings.</h1><p>Manage attendance sources, historical imports and operational reports.</p></div></div>
-      <div class="settings-tabs"><button data-settings-tab="subscription" class="${settingsTab === 'subscription' ? 'active' : ''}">Subscription & Billing</button><button data-settings-tab="integration" class="${settingsTab === 'integration' ? 'active' : ''}">Attendance Integration</button><button data-settings-tab="reports" class="${settingsTab === 'reports' ? 'active' : ''}">Reports</button></div>
-      ${settingsTab === 'subscription' ? subscriptionPanel() : settingsTab === 'integration' ? integrationPanel() : reportsPanel()}`;
+      <div class="settings-tabs"><button data-settings-tab="subscription" class="${settingsTab === 'subscription' ? 'active' : ''}">Subscription & Billing</button><button data-settings-tab="integration" class="${settingsTab === 'integration' ? 'active' : ''}">Attendance Integration</button><button data-settings-tab="reports" class="${settingsTab === 'reports' ? 'active' : ''}">Reports</button><button data-settings-tab="shift" class="${settingsTab === 'shift' ? 'active' : ''}">Shift Timings</button></div>
+      ${settingsTab === 'subscription' ? subscriptionPanel() : settingsTab === 'integration' ? integrationPanel() : settingsTab === 'reports' ? reportsPanel() : companyShiftPanel()}`;
     if (settingsTab === 'subscription' && !subscriptionState && !subscriptionLoading) loadSubscription();
   }
 
@@ -376,6 +387,30 @@
         window.setTimeout(() => {
           if (status.isConnected) status.textContent = '';
         }, 5000);
+      }
+      return;
+    }
+    if (event.target.closest('#save-company-shift')) {
+      const start = document.querySelector('#company-shift-start')?.value || '';
+      const end = document.querySelector('#company-shift-end')?.value || '';
+      const status = document.querySelector('#shift-save-status');
+      if (!start || !end || start === end) {
+        if (status) status.textContent = 'Enter different start and end times.';
+        return;
+      }
+      const display = value => new Date(`2000-01-01T${value}:00`).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+      const shift = `${display(start)} - ${display(end)}`;
+      admin.shift_start = start;
+      admin.shift_end = end;
+      const accountIndex = tenantAccounts.findIndex(item => String(item.email || '').toLowerCase() === String(admin.email || '').toLowerCase());
+      if (accountIndex >= 0) tenantAccounts[accountIndex] = { ...tenantAccounts[accountIndex], shift_start: start, shift_end: end };
+      else tenantAccounts.push({ ...admin });
+      localStorage.setItem('msme-accounts', JSON.stringify(tenantAccounts));
+      [...people, ...temporaryWorkers].forEach(person => { person.shift = shift; });
+      save();
+      if (status) {
+        status.textContent = `Shift saved permanently: ${shift}`;
+        window.setTimeout(() => { if (status.isConnected) status.textContent = ''; }, 5000);
       }
       return;
     }
