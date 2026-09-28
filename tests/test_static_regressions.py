@@ -146,7 +146,8 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("openLandingAuth('signin')", authentication)
         self.assertIn("openLandingAuth('signup')", authentication)
         self.assertIn("Existing customers can sign in", authentication)
-        self.assertIn(".landing-login{display:inline-flex", styles)
+        self.assertIn("landingActions.className='landing-actions'", authentication)
+        self.assertIn(".landing-actions .landing-login{display:inline-flex", styles)
 
 
 if __name__ == "__main__":
