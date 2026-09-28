@@ -10,6 +10,7 @@ import threading
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
@@ -177,4 +178,4 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-st.iframe(bundled_application(), height=720)
+components.html(bundled_application(), height=720, scrolling=True)
