@@ -1,6 +1,9 @@
 /* Company-level attendance integrations, historical imports and reports. */
 (function () {
-  let settingsTab = 'integration';
+  let settingsTab = 'subscription';
+  let subscriptionState = null;
+  let subscriptionPlans = [];
+  let subscriptionLoading = false;
   let reportType = 'monthly';
   let reportDate = new Date().toISOString().slice(0, 10);
 
@@ -227,8 +230,51 @@
 
   function settingsPage() {
     root.innerHTML = `<div class="page-heading"><div><div class="eyebrow">COMPANY CONFIGURATION</div><h1>Settings.</h1><p>Manage attendance sources, historical imports and operational reports.</p></div></div>
-      <div class="settings-tabs"><button data-settings-tab="integration" class="${settingsTab === 'integration' ? 'active' : ''}">Attendance Integration</button><button data-settings-tab="reports" class="${settingsTab === 'reports' ? 'active' : ''}">Reports</button></div>
-      ${settingsTab === 'integration' ? integrationPanel() : reportsPanel()}`;
+      <div class="settings-tabs"><button data-settings-tab="subscription" class="${settingsTab === 'subscription' ? 'active' : ''}">Subscription & Billing</button><button data-settings-tab="integration" class="${settingsTab === 'integration' ? 'active' : ''}">Attendance Integration</button><button data-settings-tab="reports" class="${settingsTab === 'reports' ? 'active' : ''}">Reports</button></div>
+      ${settingsTab === 'subscription' ? subscriptionPanel() : settingsTab === 'integration' ? integrationPanel() : reportsPanel()}`;
+    if (settingsTab === 'subscription' && !subscriptionState && !subscriptionLoading) loadSubscription();
+  }
+
+  function subscriptionPanel() {
+    if (!subscriptionState) return `<section class="panel"><p class="empty">Loading company subscription…</p></section>`;
+    const item = subscriptionState;
+    const percent = Math.min(100, Math.round((item.employee_count / item.employee_limit) * 100));
+    const end = item.trial_ends_at ? new Date(item.trial_ends_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
+    return `<section class="panel subscription-panel">
+      <div class="panel-header"><div><div class="eyebrow">CURRENT COMPANY PLAN</div><h2>${esc(item.plan_name)}</h2></div><span class="tag ${item.read_only ? 'urgent' : 'complete'}">${esc(item.status.toUpperCase())}</span></div>
+      <div class="subscription-metrics">
+        <article><b>${item.days_remaining}</b><span>Days remaining</span></article>
+        <article><b>${item.employee_count} / ${item.employee_limit}</b><span>Employee accounts</span></article>
+        <article><b>${esc(end)}</b><span>Trial expiry date</span></article>
+      </div>
+      <div class="subscription-progress"><i style="width:${percent}%"></i></div>
+      <p>${item.read_only ? 'The trial has expired. Your saved company and employee data remains safe in read-only mode.' : 'Your company received this 30-day trial automatically. No payment method is required during the trial.'}</p>
+      <div class="settings-note"><b>After the trial:</b> choose Plus, Pro or Ultra to continue adding employees and attendance. Existing information is never automatically deleted.</div>
+      <h3 class="subscription-options-title">Choose a plan</h3>
+      <div class="subscription-options">${subscriptionPlans.map(plan => `<article><h3>${esc(plan.name)}</h3><b>₹${plan.monthly_price}<small>/month</small></b><p>Up to ${plan.employee_limit} employees</p><button class="primary" data-upgrade-plan="${plan.code}">Select ${esc(plan.name)}</button></article>`).join('') || '<p>Plan options are loading…</p>'}</div>
+      <p class="settings-import-status" id="subscription-action-status"></p>
+    </section>`;
+  }
+
+  async function loadSubscription() {
+    subscriptionLoading = true;
+    try {
+      const token = sessionStorage.getItem('msme-admin-api-token') || '';
+      const [currentResponse, plansResponse] = await Promise.all([
+        fetch('/api/subscription/current', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/subscription/plans'),
+      ]);
+      const data = await currentResponse.json();
+      const plansData = await plansResponse.json();
+      if (!currentResponse.ok) throw new Error(data.error || 'Subscription could not be loaded.');
+      subscriptionState = data.subscription;
+      subscriptionPlans = plansData.plans || [];
+    } catch (error) {
+      subscriptionState = { plan_name: 'Unavailable', status: error.message, days_remaining: 0, employee_count: 0, employee_limit: 10, read_only: false };
+    } finally {
+      subscriptionLoading = false;
+      if (settingsTab === 'subscription') settingsPage();
+    }
   }
 
   function downloadCsv(filename, rows) {
@@ -242,6 +288,12 @@
   }
 
   document.addEventListener('click', async event => {
+    const upgrade = event.target.closest('[data-upgrade-plan]');
+    if (upgrade) {
+      const status = document.querySelector('#subscription-action-status');
+      if (status) status.textContent = `${upgrade.dataset.upgradePlan} selected. Online payment activation requires the Razorpay account keys to be configured on Render.`;
+      return;
+    }
     const modeButton = event.target.closest('[data-attendance-mode]');
     if (modeButton) {
       const selected = !modeButton.classList.contains('selected');

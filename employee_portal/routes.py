@@ -281,6 +281,12 @@ def account_controls():
 @require('ADMIN','HR')
 def accounts():
  tenant=g.employee_identity['tenant']
+ if request.method=='POST':
+  from authentication.subscription_service import can_add_employee
+  allowed,subscription=can_add_employee(tenant)
+  if not allowed:
+   message='Your 30-day free trial has expired. Your data is safe and available read-only.' if subscription['read_only'] else f"The {subscription['plan_name']} employee limit of {subscription['employee_limit']} has been reached."
+   return jsonify({'error':message,'subscription':subscription}),402
  with transaction() as db:
   if request.method=='GET':return jsonify({'employees':[public(x) for x in db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? ORDER BY workforce_role,name',(tenant,)).fetchall()]})
   p=data();role=str(p.get('workforce_role','')).upper();email=str(p.get('email','')).strip().lower();eid=str(p.get('employee_id','')).strip();name=str(p.get('name','')).strip();phone=str(p.get('phone','')).strip();password=str(p.get('password',''));pin=str(p.get('pin',''))

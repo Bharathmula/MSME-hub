@@ -1,10 +1,11 @@
 import os,tempfile,unittest
-from datetime import datetime,timezone
+from datetime import datetime,timedelta,timezone
 from pathlib import Path
 from urllib.parse import parse_qs,urlparse
 TMP=tempfile.TemporaryDirectory();os.environ.pop('DATABASE_URL',None);os.environ['MSME_EMPLOYEE_DB']=str(Path(TMP.name)/'employees.db');os.environ['MSME_SECRET_KEY']='tests-only'
 from backend import app,token_signer
 from employee_portal.security import token
+from employee_portal.database import connect
 
 class EmployeePortalTests(unittest.TestCase):
  @classmethod
@@ -33,6 +34,20 @@ class EmployeePortalTests(unittest.TestCase):
   self.assertEqual(login.status_code,200,login.text)
   workspace=self.c.get('/api/workspace',headers=self.headers(login.json['access_token']))
   self.assertEqual(workspace.status_code,200,workspace.text);self.assertTrue(workspace.json['exists']);self.assertEqual(workspace.json['account']['company'],'Persistent Company')
+  subscription=self.c.get('/api/subscription/current',headers=self.headers(login.json['access_token']))
+  self.assertEqual(subscription.status_code,200,subscription.text)
+  plan=subscription.json['subscription'];self.assertEqual(plan['plan_code'],'TRIAL');self.assertEqual(plan['days_remaining'],30);self.assertFalse(plan['read_only'])
+
+ def test_expired_trial_preserves_workspace_as_read_only(self):
+  tenant='expired-trial@example.com'
+  with app.app_context():admin=token(tenant,'ADMIN',tenant)
+  first={'account':{'email':tenant,'company':'Expired Test'},'storage':{'people':[{'id':'KEEP-1','name':'Keep Me'}]}}
+  saved=self.c.put('/api/workspace',json=first,headers=self.headers(admin));self.assertEqual(saved.status_code,200,saved.text)
+  expired=(datetime.now(timezone.utc)-timedelta(days=1)).isoformat();db=connect()
+  try:db.execute("UPDATE company_subscriptions SET trial_ends_at=?,current_period_end=? WHERE company_id=?",(expired,expired,tenant))
+  finally:db.close()
+  blocked=self.c.put('/api/workspace',json={'account':{'email':tenant},'storage':{'people':[]}},headers=self.headers(admin));self.assertEqual(blocked.status_code,402,blocked.text)
+  loaded=self.c.get('/api/workspace',headers=self.headers(admin));self.assertEqual(loaded.status_code,200,loaded.text);self.assertEqual(loaded.json['storage']['people'][0]['id'],'KEEP-1')
  def test_workspace_is_persistent_and_company_isolated(self):
   payload={'account':{'email':'admin@example.com','company':'Test Company'},'storage':{'people':[{'id':'W-1','name':'Persisted Worker'}],'attendance':[{'date':'2026-09-15','records':[]}]}}
   saved=self.c.put('/api/workspace',json=payload,headers=self.headers(self.admin));self.assertEqual(saved.status_code,200,saved.text)

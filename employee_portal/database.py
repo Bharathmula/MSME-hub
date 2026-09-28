@@ -150,10 +150,28 @@ CREATE TABLE IF NOT EXISTS employee_login_sessions (
     user_agent TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS company_subscriptions (
+    company_id TEXT PRIMARY KEY,
+    plan_code TEXT NOT NULL DEFAULT 'TRIAL',
+    status TEXT NOT NULL DEFAULT 'TRIALING',
+    billing_cycle TEXT NOT NULL DEFAULT 'TRIAL',
+    provider TEXT,
+    provider_customer_id TEXT,
+    provider_subscription_id TEXT,
+    trial_started_at TEXT NOT NULL,
+    trial_ends_at TEXT NOT NULL,
+    current_period_start TEXT NOT NULL,
+    current_period_end TEXT NOT NULL,
+    employee_limit INTEGER NOT NULL DEFAULT 10,
+    cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_employee_accounts_tenant_role ON employee_accounts(tenant_email, workforce_role);
 CREATE INDEX IF NOT EXISTS idx_workspace_backups_tenant_created ON tenant_workspace_backups(tenant_email, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_employee_events_time ON employee_attendance_events(server_timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_employee_login_sessions_account ON employee_login_sessions(employee_account_id, login_at DESC);
+CREATE INDEX IF NOT EXISTS idx_company_subscriptions_status ON company_subscriptions(status, current_period_end);
 """
 
 
@@ -203,6 +221,9 @@ def initialize() -> None:
         )
         db.executescript(
             (ROOT / "migrations" / "004_employee_login_sessions.sql").read_text(encoding="utf-8")
+        )
+        db.executescript(
+            (ROOT / "migrations" / "005_company_subscriptions.sql").read_text(encoding="utf-8")
         )
         db.executescript(
             """

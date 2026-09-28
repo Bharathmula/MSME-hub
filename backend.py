@@ -22,6 +22,7 @@ from employee_portal.security import require
 from authentication.account_database import AccountDatabase
 from authentication.captcha_service import CaptchaService
 from authentication.workspace_database import WorkspaceConflictError, WorkspaceDatabase
+from authentication.subscription_service import PLAN_CATALOG, ensure_subscription, rename_subscription, require_writable
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -242,7 +243,7 @@ def health():
     return jsonify({
         "ok": True,
         "service": "msme-employee-api",
-        "schema_version": 12,
+        "schema_version": 13,
         "attendance_photo_api": True,
         "database": "postgresql" if database_url() else "sqlite",
     })
@@ -360,6 +361,7 @@ def register_account():
         "storage": {},
         "schema_version": 1,
     })
+    ensure_subscription(email)
     return jsonify({"ok": True, "account": public_account(account),"access_token":access_token(email,"ADMIN",email)})
 
 
@@ -463,6 +465,7 @@ def update_admin_account():
         })
     save_auth_accounts(accounts)
     WorkspaceDatabase().rename(current_email, new_email)
+    rename_subscription(current_email, new_email)
     return jsonify({
         "ok": True,
         "account": public_account(account),
@@ -507,6 +510,7 @@ def google_account():
 @require("ADMIN", "HR")
 def get_workspace():
     tenant = normalize_email(g.employee_identity["tenant"])
+    ensure_subscription(tenant)
     requested = normalize_email(request.args.get("email") or tenant)
     if requested != tenant:
         return jsonify({"error": "You cannot access another company's workspace."}), 403
@@ -555,6 +559,12 @@ def put_workspace():
     if not isinstance(payload, dict):
         abort(400, "Send a JSON workspace object.")
     tenant = normalize_email(g.employee_identity["tenant"])
+    writable, subscription = require_writable(tenant)
+    if not writable:
+        return jsonify({
+            "error": "Your 30-day free trial has expired. Your data is safe and available read-only. Choose a subscription to continue editing.",
+            "subscription": subscription,
+        }), 402
     storage = payload.get("storage")
     if not isinstance(storage, dict):
         return jsonify({"error": "Workspace storage must be a JSON object."}), 400
@@ -573,6 +583,18 @@ def put_workspace():
             "current_updated_at": error.current_updated_at,
         }), 409
     return jsonify({"ok": True, "updated_at": updated_at})
+
+
+@app.get("/api/subscription/current")
+@require("ADMIN", "HR")
+def current_subscription():
+    tenant = normalize_email(g.employee_identity["tenant"])
+    return jsonify({"subscription": ensure_subscription(tenant)})
+
+
+@app.get("/api/subscription/plans")
+def subscription_plans():
+    return jsonify({"plans": PLAN_CATALOG, "currency": "INR"})
 
 
 @app.get("/api/workspace/backups")
