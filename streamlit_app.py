@@ -1,6 +1,7 @@
 """Public-host-compatible Streamlit shell for the preserved MSME frontend."""
 from __future__ import annotations
 
+import base64
 import re
 import json
 import os
@@ -86,7 +87,26 @@ def bundled_application() -> str:
 
     def inline_css(match: re.Match[str]) -> str:
         name = match.group(1)
-        return f"<style data-source='{name}'>\n{(STATIC_DIR / name).read_text(encoding='utf-8')}\n</style>"
+        stylesheet = STATIC_DIR / name
+        source = stylesheet.read_text(encoding="utf-8")
+
+        def inline_local_asset(asset_match: re.Match[str]) -> str:
+            raw_url = asset_match.group(1).strip().strip("\"'")
+            if raw_url.startswith(("data:", "http://", "https://", "#", "/")):
+                return asset_match.group(0)
+            asset_path = (stylesheet.parent / raw_url).resolve()
+            try:
+                asset_path.relative_to(STATIC_DIR.resolve())
+            except ValueError:
+                return asset_match.group(0)
+            if not asset_path.is_file():
+                return asset_match.group(0)
+            mime_type = "image/png" if asset_path.suffix.lower() == ".png" else "application/octet-stream"
+            encoded = base64.b64encode(asset_path.read_bytes()).decode("ascii")
+            return f'url("data:{mime_type};base64,{encoded}")'
+
+        source = re.sub(r"url\(([^)]+)\)", inline_local_asset, source)
+        return f"<style data-source='{name}'>\n{source}\n</style>"
 
     def inline_js(match: re.Match[str]) -> str:
         name = match.group(1)

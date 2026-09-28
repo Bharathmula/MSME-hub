@@ -154,6 +154,12 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn('url("assets/msme-welcome-hero.png")', styles)
         self.assertTrue((ROOT / "static" / "assets" / "msme-welcome-hero.png").is_file())
 
+    def test_streamlit_inlines_css_background_images_for_srcdoc(self):
+        streamlit = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        self.assertIn("def inline_local_asset", streamlit)
+        self.assertIn("base64.b64encode(asset_path.read_bytes())", streamlit)
+        self.assertIn('url("data:{mime_type};base64,{encoded}")', streamlit)
+
 
 if __name__ == "__main__":
     unittest.main()
