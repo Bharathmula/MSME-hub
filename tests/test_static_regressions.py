@@ -158,6 +158,9 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn('url("assets/msme-welcome-hero.png")', styles)
         self.assertIn("Final shared hero treatment", styles)
         self.assertIn("#login-screen{isolation:isolate;background-image:", styles)
+        self.assertIn("Center authentication and remove the separate decorative login illustration", styles)
+        self.assertIn("#login-screen .login-art,#login-screen .login-scene{display:none!important}", styles)
+        self.assertIn(".msme-landing{overflow-x:hidden;overflow-y:auto", styles)
         self.assertTrue((ROOT / "static" / "assets" / "msme-welcome-hero.png").is_file())
 
     def test_streamlit_inlines_css_background_images_for_srcdoc(self):

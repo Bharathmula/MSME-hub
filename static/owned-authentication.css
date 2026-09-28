@@ -230,3 +230,15 @@ html:has(#login-screen:not(.hidden)),body:has(#login-screen:not(.hidden)){height
 #login-screen .login-art .login-benefits b{display:grid;grid-row:auto;place-items:center;width:66px;height:66px;margin:0;border-radius:18px;font-size:29px}
 
 @media(max-width:760px){#login-screen{background-position:68% center}#login-screen:before{background:rgba(1,10,35,.48)}#login-screen .login-side{background:transparent!important}#login-screen .login-art .login-benefits{display:none}}
+
+/* Center authentication and remove the separate decorative login illustration. */
+#login-screen{grid-template-columns:1fr}
+#login-screen .login-art,#login-screen .login-scene{display:none!important}
+#login-screen .login-side{grid-column:1;display:grid;place-items:center;width:100%;min-height:100vh;padding:56px 24px 30px;box-sizing:border-box}
+#login-screen .login-card{width:min(620px,calc(100vw - 48px));margin:auto;box-sizing:border-box}
+
+/* Keep the full welcome hero scrollable on short and small screens. */
+.msme-landing{overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:thin;scrollbar-color:rgba(142,173,255,.7) rgba(3,15,48,.35)}
+.msme-landing::-webkit-scrollbar{width:9px}.msme-landing::-webkit-scrollbar-track{background:rgba(3,15,48,.35)}.msme-landing::-webkit-scrollbar-thumb{border:2px solid transparent;border-radius:10px;background:rgba(142,173,255,.7);background-clip:padding-box}
+
+@media(max-width:760px){#login-screen{display:grid;grid-template-columns:1fr;grid-template-rows:1fr}#login-screen .login-side{min-height:100vh;padding:52px 14px 18px}#login-screen .login-card{width:min(620px,calc(100vw - 28px));max-height:calc(100vh - 70px)}}
