@@ -4,6 +4,7 @@
   let subscriptionState = null;
   let subscriptionPlans = [];
   let selectedPlan = null;
+  let selectedBillingCycle = 'monthly';
   let subscriptionLoading = false;
   let reportType = 'monthly';
   let reportDate = new Date().toISOString().slice(0, 10);
@@ -243,7 +244,7 @@
     const end = item.trial_ends_at ? new Date(item.trial_ends_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
     const currentCode = String(item.plan_code || 'TRIAL').toUpperCase();
     if (!selectedPlan) selectedPlan = currentCode;
-    const trialPlan = { code: 'TRIAL', name: '30-Day Trial', monthly_price: 0, employee_limit: item.employee_limit || 10 };
+    const trialPlan = { code: 'TRIAL', name: '30-Day Trial', monthly_price: 0, annual_price: 0, employee_limit: item.employee_limit || 10 };
     const plans = [trialPlan, ...subscriptionPlans];
     const features = {
       TRIAL: ['10 employee accounts', 'Face and manual attendance', 'Basic dashboard and reports', '30 days with no credit card'],
@@ -257,7 +258,11 @@
       const custom = code === 'CUSTOM';
       const current = code === currentCode;
       const selected = code === selectedPlan;
-      const price = custom ? '<span class="plan-contact-price">Custom pricing</span>' : `<span class="plan-currency">₹</span>${plan.monthly_price}<small>/ month</small>`;
+      const yearly = selectedBillingCycle === 'yearly';
+      const amount = yearly ? plan.annual_price : plan.monthly_price;
+      const normalAnnual = Number(plan.monthly_price || 0) * 12;
+      const annualSaving = yearly && plan.annual_price ? Math.max(0, normalAnnual - Number(plan.annual_price)) : 0;
+      const price = custom ? '<span class="plan-contact-price">Custom pricing</span>' : `<span class="plan-currency">₹</span>${amount}<small>/ ${yearly ? 'year' : 'month'}</small>${annualSaving ? `<em class="annual-saving">Save ₹${annualSaving} yearly</em>` : ''}`;
       return `<article class="subscription-price-card ${selected ? 'selected' : ''} ${current ? 'current' : ''}" data-plan-card="${code}">
         <div class="plan-card-top"><h3>${esc(plan.name)}</h3>${current ? '<span class="plan-current-badge">CURRENT PLAN</span>' : selected ? '<span class="plan-selected-badge">SELECTED</span>' : ''}</div>
         <h4>${custom ? 'Built for your company' : code === 'TRIAL' ? 'Explore MSME Planner' : `MSME ${esc(plan.name)}`}</h4>
@@ -278,7 +283,7 @@
       <div class="subscription-progress"><i style="width:${percent}%"></i></div>
       <p>${item.read_only ? 'The trial has expired. Your saved company and employee data remains safe in read-only mode.' : 'Your company received this 30-day trial automatically. No payment method is required during the trial.'}</p>
       <div class="settings-note"><b>After the trial:</b> choose Plus, Pro or Ultra to continue adding employees and attendance. Existing information is never automatically deleted.</div>
-      <h3 class="subscription-options-title">Choose a plan</h3>
+      <div class="subscription-plan-heading"><h3 class="subscription-options-title">Choose a plan</h3><div class="billing-cycle-switch"><button data-billing-cycle="monthly" class="${selectedBillingCycle === 'monthly' ? 'active' : ''}">Monthly</button><button data-billing-cycle="yearly" class="${selectedBillingCycle === 'yearly' ? 'active' : ''}">Yearly <span>Save more</span></button></div></div>
       <div class="subscription-options">${planCards || '<p>Plan options are loading…</p>'}</div>
       <p class="settings-import-status" id="subscription-action-status"></p>
     </section>`;
@@ -317,6 +322,12 @@
   }
 
   document.addEventListener('click', async event => {
+    const billingCycle = event.target.closest('[data-billing-cycle]');
+    if (billingCycle) {
+      selectedBillingCycle = billingCycle.dataset.billingCycle;
+      settingsPage();
+      return;
+    }
     const upgrade = event.target.closest('[data-upgrade-plan]');
     if (upgrade) {
       selectedPlan = upgrade.dataset.upgradePlan;
