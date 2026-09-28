@@ -357,13 +357,22 @@ def remove_employee_access(account_id):
  with transaction() as db:
   row=db.execute('SELECT * FROM employee_accounts WHERE id=? AND tenant_email=?',(account_id,tenant)).fetchone()
   if not row:return jsonify({'error':'Employee account not found.'}),404
-  shift_ids=[item['id'] for item in db.execute('SELECT id FROM employee_shifts WHERE employee_account_id=?',(account_id,)).fetchall()]
-  db.execute('DELETE FROM employee_attendance_events WHERE employee_account_id=?',(account_id,))
-  db.execute('DELETE FROM employee_shifts WHERE employee_account_id=?',(account_id,))
-  db.execute("DELETE FROM employee_audit_log WHERE entity_type='employee_account' AND entity_id=?",(str(account_id),))
-  for shift_id in shift_ids:db.execute("DELETE FROM employee_audit_log WHERE entity_type='employee_shift' AND entity_id=?",(shift_id,))
-  db.execute('DELETE FROM employee_accounts WHERE id=?',(account_id,))
- return jsonify({'ok':True,'removed_employee_id':row['employee_id']})
+  # Revoke authentication only. Attendance events and shifts are permanent
+  # employee history and include the saved check-in/check-out face captures.
+  db.execute('DELETE FROM employee_login_sessions WHERE employee_account_id=?',(account_id,))
+  db.execute("""UPDATE employee_accounts
+                SET password_hash=NULL,pin_hash=NULL,status='INVITED',
+                    invite_hash=NULL,invite_expires_at=NULL,updated_at=?
+                WHERE id=?""",(stamp(),account_id))
+  audit(db,'EMPLOYEE_ACCESS_REMOVED','employee_account',account_id,{
+   'employee_id':row['employee_id'],
+   'attendance_history_preserved':True,
+  })
+ return jsonify({
+  'ok':True,
+  'removed_employee_id':row['employee_id'],
+  'attendance_history_preserved':True,
+ })
 
 
 @employee_api.get('/api/admin/employee-attendance')

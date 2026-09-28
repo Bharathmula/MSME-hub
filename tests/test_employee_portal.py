@@ -114,6 +114,10 @@ class EmployeePortalTests(unittest.TestCase):
   self.assertEqual(self.c.post('/api/employee/login',json={'email':'worker100@gmail.com','password':'Reset123!'}).status_code,200)
   logout=self.c.post('/api/employee/logout',headers=self.headers(employee));self.assertEqual(logout.status_code,200,logout.text)
   after_logout=self.c.get('/api/employee/dashboard',headers=self.headers(employee));self.assertTrue(after_logout.json['last_logout_at'])
+  accounts=self.c.get('/api/admin/employee-accounts',headers=self.headers(self.admin)).json['employees'];account_id=next(item['id'] for item in accounts if item['employee_id']=='W-100')
+  removed=self.c.delete(f'/api/admin/employee-accounts/{account_id}',headers=self.headers(self.admin));self.assertEqual(removed.status_code,200,removed.text);self.assertTrue(removed.json['attendance_history_preserved'])
+  self.assertEqual(self.c.post('/api/employee/login',json={'email':'worker100@gmail.com','password':'Reset123!'}).status_code,401)
+  preserved=self.c.get('/api/admin/employee-attendance-detail',query_string={'employee_id':'W-100','date':datetime.now(timezone.utc).date().isoformat()},headers=self.headers(self.admin));self.assertEqual(preserved.status_code,200,preserved.text);self.assertEqual(preserved.json['check_in_photo'],face);self.assertEqual(preserved.json['check_out_photo'],face)
 
  def test_admin_can_create_active_employee_credentials(self):
   response=self.c.post('/api/admin/employee-accounts',json={'name':'Direct Staff','employee_id':'ST-DIRECT','email':'direct.staff@gmail.com','phone':'9000000001','workforce_role':'STAFF','password':'Direct123!','pin':'456789'},headers=self.headers(self.admin))
