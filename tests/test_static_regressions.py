@@ -138,6 +138,16 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn('"attendance-integration-settings"', sync)
         self.assertIn('"attendance-import-history"', sync)
 
+    def test_welcome_separates_existing_workspace_and_new_trial(self):
+        authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(encoding="utf-8")
+        styles = (ROOT / "static" / "owned-authentication.css").read_text(encoding="utf-8")
+        self.assertIn("Go to Workspace", authentication)
+        self.assertIn("Start 30-Day Free Trial", authentication)
+        self.assertIn("openLandingAuth('signin')", authentication)
+        self.assertIn("openLandingAuth('signup')", authentication)
+        self.assertIn("Existing customers can sign in", authentication)
+        self.assertIn(".landing-login{display:inline-flex", styles)
+
 
 if __name__ == "__main__":
     unittest.main()
