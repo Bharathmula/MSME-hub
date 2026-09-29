@@ -283,7 +283,7 @@ html:has(#login-screen:not(.hidden)),body:has(#login-screen:not(.hidden)){height
 /* Let long sign-in and account-creation forms use the page scrollbar. */
 #login-screen{
   height:auto;
-  min-height:100vh;
+  min-height:108vh;
   max-height:none;
   overflow-x:hidden;
   overflow-y:auto;
@@ -302,14 +302,15 @@ body:has(#login-screen:not(.hidden):not(.entry-hidden)){
 #login-screen::-webkit-scrollbar{width:9px}
 #login-screen::-webkit-scrollbar-track{background:rgba(3,15,48,.35)}
 #login-screen::-webkit-scrollbar-thumb{border:2px solid transparent;border-radius:10px;background:rgba(142,173,255,.7);background-clip:padding-box}
-#login-screen .login-side{min-height:100vh;height:auto}
+#login-screen .login-side{min-height:108vh;height:auto;padding-top:72px;padding-bottom:72px}
 #login-screen .login-card{max-height:none;overflow:visible}
 
 /* Use the same four-colour M treatment as the logo displayed on the hero laptop. */
-#login-screen .msme-mark path:nth-of-type(1){stroke:#ef42dc}
-#login-screen .msme-mark path:nth-of-type(2){stroke:#5938ea}
-#login-screen .msme-mark path:nth-of-type(3){stroke:#11c5ea}
-#login-screen .msme-mark path:nth-of-type(4){stroke:#4050ff}
+#login-screen .msme-mark path{fill:none;stroke-width:18!important;stroke-linecap:round}
+#login-screen .msme-mark path:nth-of-type(1){stroke:#ef42dc!important}
+#login-screen .msme-mark path:nth-of-type(2){stroke:#5938ea!important}
+#login-screen .msme-mark path:nth-of-type(3){stroke:#11c5ea!important}
+#login-screen .msme-mark path:nth-of-type(4){stroke:#4050ff!important}
 .landing-title h1 i,
 #login-screen .art-copy h2 i{
   background:linear-gradient(90deg,#ef42dc 0%,#5938ea 34%,#11c5ea 68%,#4050ff 100%);
@@ -319,6 +320,7 @@ body:has(#login-screen:not(.hidden):not(.entry-hidden)){
 }
 
 @media(max-width:760px){
-  #login-screen .login-side{min-height:100vh;height:auto;padding-bottom:34px}
+  #login-screen{min-height:112vh}
+  #login-screen .login-side{min-height:112vh;height:auto;padding-top:58px;padding-bottom:54px}
   #login-screen .login-card{max-height:none;overflow:visible}
 }

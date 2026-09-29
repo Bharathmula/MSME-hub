@@ -59,7 +59,9 @@ class StaticRegressionTests(unittest.TestCase):
         )
 
         self.assertIn("overflow-y:auto", styles)
+        self.assertIn("min-height:108vh", styles)
         self.assertIn("#login-screen .msme-mark path:nth-of-type(1)", styles)
+        self.assertIn("stroke-width:18!important", styles)
         self.assertIn("#ef42dc 0%,#5938ea 34%,#11c5ea 68%,#4050ff 100%", styles)
 
     def test_workforce_groups_are_sorted_by_natural_employee_id(self):
