@@ -1339,12 +1339,18 @@ if (document.readyState === 'loading') {
     return [
       ...(Array.isArray(people) ? people : []),
       ...(Array.isArray(temporaryWorkers) ? temporaryWorkers.map(person => ({ ...person, payroll_role: 'Temporary Worker' })) : [])
-    ];
+    ].sort((left, right) => String(left.id || '').localeCompare(
+      String(right.id || ''), 'en', { numeric: true, sensitivity: 'base' }
+    ));
   }
 
   function parseDuration(value) {
-    const match = String(value || '').match(/(\d+)h\s*(\d+)m/i);
-    return match ? Number(match[1]) * 60 + Number(match[2]) : 0;
+    const raw = String(value || '').trim().toLowerCase();
+    const hours = Number(raw.match(/([\d.]+)\s*h/)?.[1] || 0);
+    const minutes = Number(raw.match(/([\d.]+)\s*m/)?.[1] || 0);
+    if (hours || minutes) return Math.round(hours * 60 + minutes);
+    const clock = raw.match(/^(\d{1,2}):(\d{2})$/);
+    return clock ? Number(clock[1]) * 60 + Number(clock[2]) : 0;
   }
 
   function csvCell(value) {
@@ -1358,23 +1364,28 @@ if (document.readyState === 'loading') {
   }
 
   function payrollRow(person, monthPrefix) {
-    const records = (Array.isArray(attendanceLog) ? attendanceLog : [])
+    const datedRecords = (Array.isArray(attendanceLog) ? attendanceLog : [])
       .filter(day => String(day.date || '').startsWith(monthPrefix))
-      .flatMap(day => (day.records || []).filter(record => record.id === person.id && record.status === 'Present'));
-    const minutes = records.reduce((sum, record) => sum + parseDuration(record.total || record.work), 0);
+      .flatMap(day => (day.records || [])
+        .filter(record => record.id === person.id && record.status === 'Present')
+        .map(record => ({ ...record, payroll_date: day.date })));
+    const records = [...new Map(datedRecords.map(record => [record.payroll_date, record])).values()];
+    const regularMinutes = records.reduce((sum, record) => sum + parseDuration(record.work), 0);
+    const overtimeMinutes = records.reduce((sum, record) => sum + parseDuration(record.overtime), 0);
+    const minutes = regularMinutes + overtimeMinutes;
     const dailyRate = Number(person.daily_rate || 0);
     const monthlySalary = Number(person.monthly_salary || 0);
-    const pay = dailyRate
-      ? dailyRate * (minutes / (8 * 60))
-      : monthlySalary
-        ? monthlySalary * (minutes / (8 * 60 * 26))
-        : 0;
-    const today = new Date().toISOString().slice(0, 10);
+    const hourlyRate = monthlySalary > 0
+      ? monthlySalary / (26 * 8)
+      : dailyRate > 0 ? dailyRate / 8 : 0;
+    const pay = hourlyRate * (minutes / 60);
+    const today = indiaDateKey();
     const todayRecords = (Array.isArray(attendanceLog) ? attendanceLog : [])
       .filter(day => day.date === today)
       .flatMap(day => (day.records || []).filter(record => record.id === person.id && record.status === 'Present'));
-    const todayMinutes = todayRecords.reduce((sum, record) => sum + parseDuration(record.total || record.work), 0);
-    const hourlyRate = dailyRate > 0 ? dailyRate / 8 : monthlySalary > 0 ? monthlySalary / (26 * 8) : 0;
+    const todayMinutes = todayRecords.reduce(
+      (sum, record) => sum + parseDuration(record.work) + parseDuration(record.overtime), 0
+    );
     return {
       id: person.id,
       name: person.name || 'Unnamed',
@@ -1393,14 +1404,14 @@ if (document.readyState === 'loading') {
   function payrollPage() {
     shellForFeature('payroll');
     const now = new Date();
-    const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthPrefix = indiaDateKey(now).slice(0, 7);
     const rows = allPayrollPeople().map(person => payrollRow(person, monthPrefix));
     const payrollSections = [
       ['Worker', 'Workers'], ['Staff', 'Staff'], ['Temporary Worker', 'Temporary Workers'], ['Entrepreneur', 'Entrepreneurs']
     ].map(([role, title]) => {
       const roleRows = rows.filter(row => row.role === role);
       const totalPay = roleRows.reduce((total, row) => total + row.pay, 0);
-      return `<section class="panel payroll-panel payroll-role-section"><div class="panel-header"><div><span class="eyebrow">${title.toUpperCase()}</span><h2>${title} monthly salary</h2></div><div class="payroll-role-total"><small>${roleRows.length} people</small><b>₹${totalPay.toFixed(2)}</b></div></div><div class="table-wrap"><table><thead><tr><th>NAME</th><th>TODAY WORKED</th><th>TODAY SALARY</th><th>PRESENT DAYS</th><th>MONTH WORKED</th><th>MONTHLY SALARY</th><th>DAILY RATE (8 HR)</th><th>CALCULATED MONTHLY PAY</th><th>EDIT</th></tr></thead><tbody>${roleRows.map(row => `<tr><td><b>${esc(row.name)}</b></td><td>${Math.floor(row.todayMinutes / 60)}h ${row.todayMinutes % 60}m</td><td><b>₹${row.todayPay.toFixed(2)}</b></td><td>${row.days}</td><td>${Math.floor(row.minutes / 60)}h ${row.minutes % 60}m</td><td>₹${row.monthlySalary.toFixed(2)}</td><td>₹${row.dailyRate.toFixed(2)}</td><td><b>₹${row.pay.toFixed(2)}</b></td><td><button class="action" data-edit-payroll-salary="${esc(row.id)}">Edit salary</button></td></tr>`).join('') || '<tr><td colspan="9" class="empty">No records in this section.</td></tr>'}</tbody></table></div></section>`;
+      return `<section class="panel payroll-panel payroll-role-section"><div class="panel-header"><div><span class="eyebrow">${title.toUpperCase()}</span><h2>${title} monthly salary</h2></div><div class="payroll-role-total"><small>${roleRows.length} people</small><b>₹${totalPay.toFixed(2)}</b></div></div><div class="table-wrap"><table><thead><tr><th>NAME / ID</th><th>TODAY WORKED</th><th>TODAY SALARY</th><th>PRESENT DAYS</th><th>MONTH WORKED</th><th>MONTHLY SALARY</th><th>DAILY RATE (8 HR)</th><th>CALCULATED MONTHLY PAY</th><th>EDIT</th></tr></thead><tbody>${roleRows.map(row => `<tr><td><b>${esc(row.name)}</b><small class="record-id">${esc(row.id)}</small></td><td>${Math.floor(row.todayMinutes / 60)}h ${row.todayMinutes % 60}m</td><td><b>₹${row.todayPay.toFixed(2)}</b></td><td>${row.days}</td><td>${Math.floor(row.minutes / 60)}h ${row.minutes % 60}m</td><td>₹${row.monthlySalary.toFixed(2)}</td><td>₹${row.dailyRate.toFixed(2)}</td><td><b>₹${row.pay.toFixed(2)}</b></td><td><button class="action" data-edit-payroll-salary="${esc(row.id)}">Edit salary</button></td></tr>`).join('') || '<tr><td colspan="9" class="empty">No records in this section.</td></tr>'}</tbody></table></div></section>`;
     }).join('');
     root.innerHTML = `<div class="page-heading"><div><div class="eyebrow">PAYROLL</div>
       <h1>Daily and monthly salary calculation.</h1><p>Daily salary is calculated from actual working hours. A daily rate represents eight working hours.</p></div>

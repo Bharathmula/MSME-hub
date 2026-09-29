@@ -6,6 +6,22 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 class StaticRegressionTests(unittest.TestCase):
+    def test_payroll_is_sorted_and_uses_consistent_salary_precedence(self):
+        payroll = (ROOT / "static" / "overview-payroll-and-training.js").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("{ numeric: true, sensitivity: 'base' }", payroll)
+        self.assertIn("const hourlyRate = monthlySalary > 0", payroll)
+        self.assertIn("const today = indiaDateKey();", payroll)
+        self.assertIn("new Map(datedRecords.map", payroll)
+
+        shared = (
+            ROOT / "static" / "sections" / "workforce-dashboard-shared.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("const hourlyRate = monthlySalary > 0", shared)
+        self.assertIn("workedMinutes + overtimeMinutes", shared)
+
     def test_shared_workforce_dashboards_sort_by_natural_id(self):
         shared = (
             ROOT / "static" / "sections" / "workforce-dashboard-shared.js"
