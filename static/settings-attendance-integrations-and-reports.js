@@ -1,6 +1,7 @@
 /* Company-level attendance integrations, historical imports and reports. */
 (function () {
-  let settingsTab = 'subscription';
+  let settingsTab = null;
+  let settingsWasOpen = false;
   let subscriptionState = null;
   let subscriptionPlans = [];
   let selectedPlan = null;
@@ -244,7 +245,7 @@
   function settingsPage() {
     root.innerHTML = `<div class="page-heading"><div><div class="eyebrow">COMPANY CONFIGURATION</div><h1>Settings.</h1><p>Manage attendance sources, historical imports and operational reports.</p></div></div>
       <div class="settings-tabs"><button data-settings-tab="subscription" class="${settingsTab === 'subscription' ? 'active' : ''}">Subscription & Billing</button><button data-settings-tab="integration" class="${settingsTab === 'integration' ? 'active' : ''}">Attendance Integration</button><button data-settings-tab="reports" class="${settingsTab === 'reports' ? 'active' : ''}">Reports</button><button data-settings-tab="shift" class="${settingsTab === 'shift' ? 'active' : ''}">Shift Timings</button></div>
-      ${settingsTab === 'subscription' ? subscriptionPanel() : settingsTab === 'integration' ? integrationPanel() : settingsTab === 'reports' ? reportsPanel() : companyShiftPanel()}`;
+      ${settingsTab === 'subscription' ? subscriptionPanel() : settingsTab === 'integration' ? integrationPanel() : settingsTab === 'reports' ? reportsPanel() : settingsTab === 'shift' ? companyShiftPanel() : ''}`;
     if (settingsTab === 'subscription' && !subscriptionState && !subscriptionLoading) loadSubscription();
   }
 
@@ -293,7 +294,6 @@
       </div>
       <div class="subscription-progress"><i style="width:${percent}%"></i></div>
       <p>${item.read_only ? 'The trial has expired. Your saved company and employee data remains safe in read-only mode.' : 'Your company received this 30-day trial automatically. No payment method is required during the trial.'}</p>
-      <div class="settings-note"><b>After the trial:</b> choose Plus, Pro or Ultra to continue adding employees and attendance. Existing information is never automatically deleted.</div>
       <div class="subscription-plan-heading"><h3 class="subscription-options-title">Choose a plan</h3><div class="billing-cycle-switch"><button data-billing-cycle="monthly" class="${selectedBillingCycle === 'monthly' ? 'active' : ''}">Monthly</button><button data-billing-cycle="yearly" class="${selectedBillingCycle === 'yearly' ? 'active' : ''}">Yearly <span>Save more</span></button></div></div>
       <div class="subscription-options">${planCards || '<p>Plan options are loading…</p>'}</div>
       <p class="settings-import-status" id="subscription-action-status"></p>
@@ -460,9 +460,12 @@
   const previousRender = window.render;
   window.render = function renderWithSettings(...args) {
     if (typeof view !== 'undefined' && view === 'settings') {
+      if (!settingsWasOpen) settingsTab = null;
+      settingsWasOpen = true;
       settingsPage();
       return;
     }
+    settingsWasOpen = false;
     return previousRender.apply(this, args);
   };
 })();

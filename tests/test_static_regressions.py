@@ -153,6 +153,20 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn('"attendance-integration-settings"', sync)
         self.assertIn('"attendance-import-history"', sync)
 
+    def test_settings_opens_collapsed_and_trial_note_is_removed(self):
+        settings = (ROOT / "static" / "settings-attendance-integrations-and-reports.js").read_text(encoding="utf-8")
+        self.assertIn("let settingsTab = null", settings)
+        self.assertIn("if (!settingsWasOpen) settingsTab = null", settings)
+        self.assertNotIn("After the trial:", settings)
+
+    def test_new_day_resets_live_presence_before_attendance_sync(self):
+        controls = (ROOT / "static" / "dashboard-attendance-controls.js").read_text(encoding="utf-8")
+        self.assertIn("person.status = record?.status || 'Absent'", controls)
+        self.assertIn("syncAutomaticAttendanceV21(today, true)", controls)
+        self.assertIn("timeZone: 'Asia/Kolkata'", controls)
+        self.assertIn("syncAutomaticAttendanceV21(indiaAttendanceDateV37(), true)", controls)
+        self.assertNotIn("saveAttendanceDateV21(new Date().toISOString().slice(0, 10))", controls)
+
     def test_welcome_separates_existing_workspace_and_new_trial(self):
         authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(encoding="utf-8")
         styles = (ROOT / "static" / "owned-authentication.css").read_text(encoding="utf-8")

@@ -493,6 +493,13 @@ const automaticAttendanceDraftsV21 = new Map();
 const automaticAttendanceLoadedV21 = new Set();
 const automaticAttendanceSignaturesV21 = new Map();
 
+function indiaAttendanceDateV37(date = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(date).filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 function automaticRoleV21(role) {
   return role === 'TEMPORARY' ? 'Temporary Worker' : role.charAt(0) + role.slice(1).toLowerCase();
 }
@@ -580,6 +587,19 @@ async function syncAutomaticAttendanceV21(date, force = false) {
     const changed = automaticAttendanceSignaturesV21.get(date) !== signature;
     automaticAttendanceSignaturesV21.set(date, signature);
     automaticAttendanceDraftsV21.set(date, mappedAttendance);
+    const workforce = [...people, ...temporaryWorkers];
+    const manualToday = new Map((attendanceLog.find(day => day.date === date)?.records || [])
+      .filter(record => record.source === 'Manual attendance')
+      .map(record => [record.id, record]));
+    const automaticToday = new Map(mappedAttendance.map(record => [record.id, record]));
+    workforce.forEach(person => {
+      const current = manualToday.get(person.id) || automaticToday.get(person.id);
+      person.status = current?.status || 'Absent';
+      person.login_time = current?.login || '';
+      person.logout_time = current?.logout || '';
+      person.checkin_face_captured = Boolean(current?.checkin_face_captured);
+      person.checkout_face_captured = Boolean(current?.checkout_face_captured);
+    });
     mappedAttendance.forEach(record => {
       const person = [...people, ...temporaryWorkers].find(item => item.id === record.id);
       if (!person) return;
@@ -622,7 +642,7 @@ async function syncAutomaticAttendanceV21(date, force = false) {
 // check-outs without requiring a page refresh or a manual save action.
 setInterval(() => {
   const token = sessionStorage.getItem('msme-admin-api-token') || '';
-  if (token) syncAutomaticAttendanceV21(new Date().toISOString().slice(0, 10), true);
+  if (token) syncAutomaticAttendanceV21(indiaAttendanceDateV37(), true);
 }, 5000);
 
 function calendarRoleSectionV21(title, roleName, record) {
@@ -713,7 +733,19 @@ function saveAttendanceDateV21(date) {
 }
 
 window.logToday = function logTodayV21() {
-  saveAttendanceDateV21(new Date().toISOString().slice(0, 10));
+  const today = indiaAttendanceDateV37();
+  const trustedRecords = (attendanceLog.find(day => day.date === today)?.records || [])
+    .filter(record => record.source === 'Manual attendance' || record.source === 'Face check-in / check-out');
+  const byId = new Map(trustedRecords.map(record => [record.id, record]));
+  [...people, ...temporaryWorkers].forEach(person => {
+    const record = byId.get(person.id);
+    person.status = record?.status || 'Absent';
+    person.login_time = record?.login || '';
+    person.logout_time = record?.logout || '';
+    person.checkin_face_captured = Boolean(record?.checkin_face_captured);
+    person.checkout_face_captured = Boolean(record?.checkout_face_captured);
+  });
+  syncAutomaticAttendanceV21(today, true);
 };
 
 window.saveSelectedDay = function saveSelectedDayV21() {
