@@ -185,6 +185,8 @@ html:has(#login-screen:not(.hidden)),body:has(#login-screen:not(.hidden)){height
 
 /* Full-screen welcome page shown before the workspace login. */
 #login-screen.entry-hidden,.msme-landing.hidden{display:none!important}
+.session-restore-overlay{position:fixed;z-index:9999;inset:0;display:grid;place-items:center;background:#020b20;color:#fff;font-family:'DM Sans',sans-serif}
+.session-restore-card{display:grid;place-items:center;gap:10px;text-align:center;padding:28px}.session-restore-card span{width:38px;height:38px;border:3px solid rgba(255,255,255,.2);border-top-color:#45a4ff;border-radius:50%;animation:session-restore-spin .8s linear infinite}.session-restore-card b{font-size:16px}.session-restore-card small{color:#a9b9d4}@keyframes session-restore-spin{to{transform:rotate(360deg)}}
 .msme-landing{position:relative;width:100%;height:100vh;min-height:0;overflow:hidden;display:grid;grid-template-columns:1fr;box-sizing:border-box;color:#fff;background-image:linear-gradient(90deg,rgba(0,14,52,.22) 0%,rgba(0,14,52,.08) 43%,rgba(0,14,52,0) 70%),url("assets/msme-welcome-hero.png");background-size:cover;background-position:center;background-repeat:no-repeat}
 .msme-landing:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,12,43,.2),transparent 52%);pointer-events:none}
 .landing-copy{position:relative;z-index:2;display:flex;flex-direction:column;width:48%;min-width:620px;padding:42px clamp(42px,5vw,80px) 34px;box-sizing:border-box}

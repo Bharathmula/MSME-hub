@@ -40,6 +40,19 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn('class="login-screen entry-hidden"', index)
         self.assertIn("screen.classList.remove('entry-hidden')", authentication)
 
+    def test_saved_session_uses_restore_screen_instead_of_login_flash(self):
+        authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(
+            encoding="utf-8"
+        )
+        styles = (ROOT / "static" / "owned-authentication.css").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("session-restore-overlay", authentication)
+        self.assertIn("screen.classList.add('entry-hidden')", authentication)
+        self.assertIn("Opening your workspace", authentication)
+        self.assertIn(".session-restore-overlay", styles)
+
     def test_workforce_groups_are_sorted_by_natural_employee_id(self):
         application = (ROOT / "static" / "application-core-and-profiles.js").read_text(
             encoding="utf-8"

@@ -15,11 +15,18 @@ landingTrialButton.parentNode.insertBefore(landingActions,landingTrialButton);
 landingActions.append(landing.querySelector('.landing-login'),landingTrialButton);
 const inviteOnArrival=Boolean(window.MSME_EMPLOYEE_INVITE||new URLSearchParams(location.search).get('employee_invite'));
 const returningSession=Boolean(sessionStorage.getItem('msme-admin-auth')||sessionStorage.getItem('msme-employee-token'));
+let sessionRestoreOverlay=null;
 if(!inviteOnArrival&&!returningSession){
  screen.classList.add('entry-hidden');
 }else{
  landing.classList.add('hidden');
- screen.classList.remove('entry-hidden');
+ if(returningSession&&!inviteOnArrival){
+  screen.classList.add('entry-hidden');
+  sessionRestoreOverlay=document.createElement('div');
+  sessionRestoreOverlay.className='session-restore-overlay';
+  sessionRestoreOverlay.innerHTML='<div class="session-restore-card"><span></span><b>Opening your workspace…</b><small>Restoring your secure session</small></div>';
+  document.body.appendChild(sessionRestoreOverlay);
+ }else screen.classList.remove('entry-hidden');
 }
 function openLandingAuth(nextTab){landing.classList.add('hidden');screen.classList.remove('entry-hidden');mode='workspace';tab=nextTab;screen.querySelectorAll('[data-access]').forEach(x=>x.classList.toggle('active',x.dataset.access==='workspace'));screen.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===nextTab));show()}
 landing.querySelector('.landing-enter').addEventListener('click',()=>openLandingAuth('signup'));
@@ -94,6 +101,8 @@ async function enter(account,password=''){
   view=safeViews.includes(savedView)?savedView:'dashboard';
   document.querySelector('#login-screen')?.classList.add('hidden');
   document.querySelector('#app-shell')?.classList.add('visible');
+  sessionRestoreOverlay?.remove();
+  sessionRestoreOverlay=null;
   await new Promise(resolve=>requestAnimationFrame(resolve));
   try{
     if(typeof loadTenant==='function')loadTenant(a);
@@ -101,6 +110,9 @@ async function enter(account,password=''){
     if(typeof render==='function')render();
   }catch(error){
     console.error('MSME dashboard startup failed',error);
+    sessionRestoreOverlay?.remove();
+    sessionRestoreOverlay=null;
+    document.querySelector('#login-screen')?.classList.remove('entry-hidden');
     document.querySelector('#login-screen')?.classList.remove('hidden');
     document.querySelector('#app-shell')?.classList.remove('visible');
     throw Error(`Dashboard could not open: ${error?.message||'unknown browser error'}`);
@@ -162,5 +174,7 @@ document.addEventListener('click',event=>{const navigation=event.target.closest(
 const restoredEmail=sessionStorage.getItem('msme-admin-auth');
 const restoredAccount=tenantAccounts.find(account=>String(account.email||'').toLowerCase()===String(restoredEmail||'').toLowerCase());
 if(restoredAccount)setTimeout(()=>enter(restoredAccount),0);
-window.addEventListener('msme-employee-session-expired',event=>{mode='worker';tab='signin';screen.querySelectorAll('[data-access]').forEach(x=>x.classList.toggle('active',x.dataset.access==='worker'));screen.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab==='signin'));document.querySelector('#app-shell')?.classList.remove('visible');screen.classList.remove('hidden');show();const detail=event.detail?.message;if(detail)message(detail,true)});
+else if(restoredEmail){sessionStorage.removeItem('msme-admin-auth');sessionRestoreOverlay?.remove();sessionRestoreOverlay=null;screen.classList.remove('entry-hidden');}
+window.addEventListener('msme-employee-session-expired',event=>{sessionRestoreOverlay?.remove();sessionRestoreOverlay=null;mode='worker';tab='signin';screen.querySelectorAll('[data-access]').forEach(x=>x.classList.toggle('active',x.dataset.access==='worker'));screen.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab==='signin'));document.querySelector('#app-shell')?.classList.remove('visible');screen.classList.remove('entry-hidden','hidden');show();const detail=event.detail?.message;if(detail)message(detail,true)});
+if(!restoredEmail&&sessionStorage.getItem('msme-employee-token'))setTimeout(()=>window.MSMEEmployeePortal?.open().then(()=>{sessionRestoreOverlay?.remove();sessionRestoreOverlay=null}).catch(()=>{}),0);
 })();
