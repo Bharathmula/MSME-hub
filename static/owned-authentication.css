@@ -353,3 +353,10 @@ body:has(#login-screen:not(.hidden):not(.entry-hidden)){
   .landing-logo svg,#login-screen .os-logo .msme-mark{width:66px}
   .landing-logo b,#login-screen .msme-logo-copy b{font-size:27px}
 }
+
+/* Remove obsolete wave blocks that overlap the hero background and login card. */
+#login-screen .login-art:before,
+#login-screen .login-art:after{
+  content:none!important;
+  display:none!important;
+}

@@ -75,6 +75,9 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("path.style.setProperty('stroke-width','24','important')", authentication)
         self.assertIn("landing-ribbon", authentication)
         self.assertIn("login-ribbon", authentication)
+        self.assertIn("Remove obsolete wave blocks", styles)
+        self.assertIn("#login-screen .login-art:after", styles)
+        self.assertIn("content:none!important", styles)
 
     def test_workforce_groups_are_sorted_by_natural_employee_id(self):
         application = (ROOT / "static" / "application-core-and-profiles.js").read_text(
