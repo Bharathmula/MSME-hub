@@ -282,26 +282,28 @@ html:has(#login-screen:not(.hidden)),body:has(#login-screen:not(.hidden)){height
 
 /* Let long sign-in and account-creation forms use the page scrollbar. */
 #login-screen{
-  height:auto;
-  min-height:108vh;
-  max-height:none;
+  height:100vh;
+  min-height:100vh;
+  max-height:100vh;
   overflow-x:hidden;
   overflow-y:auto;
   overscroll-behavior-y:contain;
+  scroll-behavior:smooth;
   scrollbar-width:thin;
   scrollbar-color:rgba(142,173,255,.7) rgba(3,15,48,.35);
 }
 html:has(#login-screen:not(.hidden):not(.entry-hidden)),
 body:has(#login-screen:not(.hidden):not(.entry-hidden)){
-  height:auto;
+  height:100%;
   min-height:100%;
-  max-height:none;
+  max-height:100%;
   overflow-x:hidden!important;
-  overflow-y:auto!important;
+  overflow-y:hidden!important;
 }
 #login-screen::-webkit-scrollbar{width:9px}
-#login-screen::-webkit-scrollbar-track{background:rgba(3,15,48,.35)}
-#login-screen::-webkit-scrollbar-thumb{border:2px solid transparent;border-radius:10px;background:rgba(142,173,255,.7);background-clip:padding-box}
+#login-screen::-webkit-scrollbar-track{background:rgba(3,15,48,.35);border-radius:10px}
+#login-screen::-webkit-scrollbar-thumb{border:2px solid transparent;border-radius:10px;background:linear-gradient(180deg,rgba(87,126,255,.82),rgba(205,72,239,.78));background-clip:padding-box}
+#login-screen::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,rgba(111,149,255,.96),rgba(225,91,247,.92));background-clip:padding-box}
 #login-screen .login-side{min-height:108vh;height:auto;padding-top:72px;padding-bottom:72px}
 #login-screen .login-card{max-height:none;overflow:visible}
 
@@ -320,7 +322,7 @@ body:has(#login-screen:not(.hidden):not(.entry-hidden)){
 }
 
 @media(max-width:760px){
-  #login-screen{min-height:112vh}
+  #login-screen{height:100vh;min-height:100vh;max-height:100vh}
   #login-screen .login-side{min-height:112vh;height:auto;padding-top:58px;padding-bottom:54px}
   #login-screen .login-card{max-height:none;overflow:visible}
 }

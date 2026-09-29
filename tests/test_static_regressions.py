@@ -59,7 +59,9 @@ class StaticRegressionTests(unittest.TestCase):
         )
 
         self.assertIn("overflow-y:auto", styles)
-        self.assertIn("min-height:108vh", styles)
+        self.assertIn("height:100vh", styles)
+        self.assertIn("overflow-y:hidden!important", styles)
+        self.assertIn("scroll-behavior:smooth", styles)
         self.assertIn("#login-screen .msme-mark path:nth-of-type(1)", styles)
         self.assertIn("stroke-width:18!important", styles)
         self.assertIn("#ef42dc 0%,#5938ea 34%,#11c5ea 68%,#4050ff 100%", styles)
