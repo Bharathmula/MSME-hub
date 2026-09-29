@@ -73,6 +73,8 @@ class StaticRegressionTests(unittest.TestCase):
         )
         self.assertIn("function applyRibbonMark", authentication)
         self.assertIn("path.style.setProperty('stroke-width','24','important')", authentication)
+        self.assertIn("'M20 61 39 15'", authentication)
+        self.assertIn("'M79 15 100 61'", authentication)
         self.assertIn("landing-ribbon", authentication)
         self.assertIn("login-ribbon", authentication)
         self.assertIn("Remove obsolete wave blocks", styles)

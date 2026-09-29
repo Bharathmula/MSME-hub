@@ -38,7 +38,9 @@ function applyRibbonMark(svg,prefix){
  defs.innerHTML=`<linearGradient id="${prefix}-pink" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#9b45ff"/><stop offset=".55" stop-color="#dd3df1"/><stop offset="1" stop-color="#ff63e4"/></linearGradient><linearGradient id="${prefix}-violet" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d949ee"/><stop offset=".52" stop-color="#713cf0"/><stop offset="1" stop-color="#3c45f4"/></linearGradient><linearGradient id="${prefix}-cyan" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#149fe9"/><stop offset=".52" stop-color="#18c9ed"/><stop offset="1" stop-color="#24d7ef"/></linearGradient><linearGradient id="${prefix}-blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#15c5ec"/><stop offset=".5" stop-color="#246cf3"/><stop offset="1" stop-color="#4939ef"/></linearGradient>`;
  svg.prepend(defs);
  const gradients=['pink','violet','cyan','blue'];
+ const ribbonPaths=['M20 61 39 15','M39 15 59 61','M59 61 79 15','M79 15 100 61'];
  svg.querySelectorAll('path').forEach((path,index)=>{
+  path.setAttribute('d',ribbonPaths[index]);
   path.style.setProperty('fill','none','important');
   path.style.setProperty('stroke',`url(#${prefix}-${gradients[index]})`,'important');
   path.style.setProperty('stroke-width','24','important');
