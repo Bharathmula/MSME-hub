@@ -279,3 +279,46 @@ html:has(#login-screen:not(.hidden)),body:has(#login-screen:not(.hidden)){height
 .landing-logo b{text-shadow:0 5px 20px rgba(0,8,52,.48)}
 
 @media(max-width:760px){.msme-landing .landing-copy{min-height:112vh;padding-bottom:52px}.landing-title p{padding-left:12px}}
+
+/* Let long sign-in and account-creation forms use the page scrollbar. */
+#login-screen{
+  height:auto;
+  min-height:100vh;
+  max-height:none;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior-y:contain;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(142,173,255,.7) rgba(3,15,48,.35);
+}
+html:has(#login-screen:not(.hidden):not(.entry-hidden)),
+body:has(#login-screen:not(.hidden):not(.entry-hidden)){
+  height:auto;
+  min-height:100%;
+  max-height:none;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+}
+#login-screen::-webkit-scrollbar{width:9px}
+#login-screen::-webkit-scrollbar-track{background:rgba(3,15,48,.35)}
+#login-screen::-webkit-scrollbar-thumb{border:2px solid transparent;border-radius:10px;background:rgba(142,173,255,.7);background-clip:padding-box}
+#login-screen .login-side{min-height:100vh;height:auto}
+#login-screen .login-card{max-height:none;overflow:visible}
+
+/* Use the same four-colour M treatment as the logo displayed on the hero laptop. */
+#login-screen .msme-mark path:nth-of-type(1){stroke:#ef42dc}
+#login-screen .msme-mark path:nth-of-type(2){stroke:#5938ea}
+#login-screen .msme-mark path:nth-of-type(3){stroke:#11c5ea}
+#login-screen .msme-mark path:nth-of-type(4){stroke:#4050ff}
+.landing-title h1 i,
+#login-screen .art-copy h2 i{
+  background:linear-gradient(90deg,#ef42dc 0%,#5938ea 34%,#11c5ea 68%,#4050ff 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+@media(max-width:760px){
+  #login-screen .login-side{min-height:100vh;height:auto;padding-bottom:34px}
+  #login-screen .login-card{max-height:none;overflow:visible}
+}

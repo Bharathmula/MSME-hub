@@ -53,6 +53,15 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("Opening your workspace", authentication)
         self.assertIn(".session-restore-overlay", styles)
 
+    def test_login_scroll_and_brand_match_hero_logo(self):
+        styles = (ROOT / "static" / "owned-authentication.css").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("overflow-y:auto", styles)
+        self.assertIn("#login-screen .msme-mark path:nth-of-type(1)", styles)
+        self.assertIn("#ef42dc 0%,#5938ea 34%,#11c5ea 68%,#4050ff 100%", styles)
+
     def test_workforce_groups_are_sorted_by_natural_employee_id(self):
         application = (ROOT / "static" / "application-core-and-profiles.js").read_text(
             encoding="utf-8"
