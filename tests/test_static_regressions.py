@@ -63,6 +63,16 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("#login-screen .msme-mark path:nth-of-type(1)", styles)
         self.assertIn("stroke-width:18!important", styles)
         self.assertIn("#ef42dc 0%,#5938ea 34%,#11c5ea 68%,#4050ff 100%", styles)
+        self.assertIn("Promote the laptop's M mark into the primary hero identity", styles)
+        self.assertIn("drop-shadow(0 0 8px rgba(239,66,220,.42))", styles)
+
+        authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("function applyRibbonMark", authentication)
+        self.assertIn("path.style.setProperty('stroke-width','24','important')", authentication)
+        self.assertIn("landing-ribbon", authentication)
+        self.assertIn("login-ribbon", authentication)
 
     def test_workforce_groups_are_sorted_by_natural_employee_id(self):
         application = (ROOT / "static" / "application-core-and-profiles.js").read_text(
