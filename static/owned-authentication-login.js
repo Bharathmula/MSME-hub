@@ -15,7 +15,12 @@ landingTrialButton.parentNode.insertBefore(landingActions,landingTrialButton);
 landingActions.append(landing.querySelector('.landing-login'),landingTrialButton);
 const inviteOnArrival=Boolean(window.MSME_EMPLOYEE_INVITE||new URLSearchParams(location.search).get('employee_invite'));
 const returningSession=Boolean(sessionStorage.getItem('msme-admin-auth')||sessionStorage.getItem('msme-employee-token'));
-if(!inviteOnArrival&&!returningSession)screen.classList.add('entry-hidden');else landing.classList.add('hidden');
+if(!inviteOnArrival&&!returningSession){
+ screen.classList.add('entry-hidden');
+}else{
+ landing.classList.add('hidden');
+ screen.classList.remove('entry-hidden');
+}
 function openLandingAuth(nextTab){landing.classList.add('hidden');screen.classList.remove('entry-hidden');mode='workspace';tab=nextTab;screen.querySelectorAll('[data-access]').forEach(x=>x.classList.toggle('active',x.dataset.access==='workspace'));screen.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===nextTab));show()}
 landing.querySelector('.landing-enter').addEventListener('click',()=>openLandingAuth('signup'));
 landing.querySelector('.landing-login').addEventListener('click',()=>openLandingAuth('signin'));

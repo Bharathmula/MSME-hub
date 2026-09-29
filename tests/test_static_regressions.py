@@ -6,6 +6,21 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 class StaticRegressionTests(unittest.TestCase):
+    def test_login_screen_does_not_flash_before_welcome_screen(self):
+        index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('class="login-screen entry-hidden"', index)
+        self.assertIn("screen.classList.remove('entry-hidden')", authentication)
+
+    def test_workforce_groups_are_sorted_by_natural_employee_id(self):
+        application = (ROOT / "static" / "application-core-and-profiles.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("function compareWorkforceIds", application)
+        self.assertIn(".sort(compareWorkforceIds)", application)
+
     def test_dashboard_greeting_uses_one_india_time_source(self):
         greeting = (ROOT / "static" / "sections" / "dashboard-greeting.js").read_text(
             encoding="utf-8"
