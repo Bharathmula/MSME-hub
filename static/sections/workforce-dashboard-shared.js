@@ -13,6 +13,14 @@
     return normalized || fallback;
   }
 
+  function workforceIdOrder(left, right) {
+    return String(left?.id || "").localeCompare(
+      String(right?.id || ""),
+      "en",
+      { numeric: true, sensitivity: "base" },
+    );
+  }
+
   function durationMinutes(value) {
     const raw = String(value || "").toLowerCase();
     const hours = Number(raw.match(/([\d.]+)\s*h/)?.[1] || 0);
@@ -149,7 +157,7 @@
   }
 
   function renderDashboard(configuration) {
-    const records = configuration.records();
+    const records = [...configuration.records()].sort(workforceIdOrder);
     const label = configuration.label;
 
     if (configuration.attendance === false) {

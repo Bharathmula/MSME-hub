@@ -6,6 +6,16 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 class StaticRegressionTests(unittest.TestCase):
+    def test_shared_workforce_dashboards_sort_by_natural_id(self):
+        shared = (
+            ROOT / "static" / "sections" / "workforce-dashboard-shared.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("function workforceIdOrder", shared)
+        self.assertIn(
+            "[...configuration.records()].sort(workforceIdOrder)", shared
+        )
+
     def test_login_screen_does_not_flash_before_welcome_screen(self):
         index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
         authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(
