@@ -437,6 +437,15 @@ function timingRowV21(person, savedRecord = null, editable = true, serialNumber 
     overtime_period: savedRecord.overtime_period || String(savedRecord.overtime || '').match(/\b(AM|PM)\b/)?.[1] || 'PM'
   } : person;
   const calculation = attendanceCalculationV21(source);
+  const savedWork = String(savedRecord?.work || '').trim();
+  const savedTotal = String(savedRecord?.total || '').trim();
+  const attendanceInProgress = savedWork === 'In progress' || savedTotal === 'In progress';
+  const workedTimeDisplay = !editable && attendanceInProgress
+    ? 'In progress'
+    : (!editable && savedWork && savedWork !== '-' ? savedWork : durationTextV21(calculation.work));
+  const finalTotalDisplay = !editable && attendanceInProgress
+    ? 'In progress'
+    : (!editable && savedTotal && savedTotal !== '-' ? savedTotal : durationTextV21(calculation.total));
   const halfDisplay = source.halftime_time
     ? show12(source.halftime_time)
     : (savedRecord?.half || '-');
@@ -457,10 +466,10 @@ function timingRowV21(person, savedRecord = null, editable = true, serialNumber 
     <td>${editable ? fixedPeriodInput(person, 'logout_time', 'PM', '06:00 PM') : show12(source.logout_time)}</td>
     <td>${editable ? halfTimeControlV21(person) : `${esc(halfDisplay)}<small class="record-id">${source.halftime_time ? '30m break' : '-'}</small>`}</td>
     <td>${editable ? overtimeSliderV21(person) : `${selectedOvertimeHoursV21(source)} hr ${esc(source.overtime_period || 'PM')}`}</td>
-    <td>${durationTextV21(calculation.work)}</td>
+    <td><b>${esc(workedTimeDisplay)}</b></td>
     <td>${durationTextV21(calculation.breakMinutes)}</td>
     <td>${durationTextV21(calculation.overtime)}</td>
-    <td><b>${durationTextV21(calculation.total)}</b><small class="record-id">${esc(calculation.late)}</small></td>
+    <td><b>${esc(finalTotalDisplay)}</b><small class="record-id">${esc(calculation.late)}</small></td>
     ${editable ? `<td><div class="row-actions">
       <button class="action save-person-button" data-save-person="${esc(person.id)}">Save</button></div></td>` : ''}
   </tr>`;
@@ -470,7 +479,7 @@ function attendanceTableV21(personList, record, editable = false) {
   return `<div class="table-wrap unified-attendance-table"><table><thead><tr>
     <th>S.NO</th><th>DATE</th><th>NAME</th><th>ATTENDANCE</th><th>SHIFT</th><th>GRACE PERIOD</th>
     <th>LOGIN (AM)</th><th>LOGOUT (PM)</th><th>HALF TIME</th><th>OVERTIME 0–5 HR</th>
-    <th>WORKING HOURS</th><th>BREAK</th><th>OVERTIME</th><th>FINAL TOTAL</th>
+    <th>WORKED TIME</th><th>BREAK</th><th>OVERTIME</th><th>FINAL TOTAL</th>
     ${editable ? '<th>ACTIONS</th>' : ''}
   </tr></thead><tbody>${personList.map((person, index) => {
     const saved = record?.records?.find(item => item.id === person.id) || null;
