@@ -15,7 +15,7 @@ class EmployeePortalTests(unittest.TestCase):
  def headers(self,t,extra=None):return {'Authorization':'Bearer '+t,**(extra or {})}
  def test_health_reports_photo_api_schema(self):
   response=self.c.get('/api/health');self.assertEqual(response.status_code,200,response.text)
-  self.assertTrue(response.json['attendance_photo_api']);self.assertGreaterEqual(response.json['schema_version'],7);self.assertEqual(response.json['database'],'sqlite')
+  self.assertTrue(response.json['attendance_photo_api']);self.assertGreaterEqual(response.json['schema_version'],7);self.assertEqual(response.json['database'],'sqlite');self.assertEqual(response.json['photo_storage'],'database_fallback')
  def test_legacy_manager_becomes_a_persistent_editable_account(self):
   login=self.c.post('/api/auth/login',json={'email':'manager@msme.com','password':'Manager@123'});self.assertEqual(login.status_code,200,login.text)
   workspace={'account':{'email':'manager@msme.com','company':'MSME Hub'},'storage':{'people':[],'attendance':[]}}

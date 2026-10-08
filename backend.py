@@ -17,6 +17,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 from employee_portal import install as install_employee_portal
 from employee_portal.database import connect, database_url
+from employee_portal.photo_storage import storage_mode
 from employee_portal.security import token as access_token
 from employee_portal.security import require
 from authentication.account_database import AccountDatabase
@@ -245,6 +246,7 @@ def health():
         "service": "msme-employee-api",
         "schema_version": 13,
         "attendance_photo_api": True,
+        "photo_storage": storage_mode(),
         "database": "postgresql" if database_url() else "sqlite",
     })
 

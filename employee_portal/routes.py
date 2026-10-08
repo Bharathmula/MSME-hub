@@ -6,6 +6,7 @@ from flask import Blueprint,current_app,g,jsonify,request
 from itsdangerous import BadSignature,SignatureExpired,URLSafeTimedSerializer
 from werkzeug.security import check_password_hash,generate_password_hash
 from .database import connect,transaction
+from .photo_storage import PhotoStorageError,photo_url,store_photo
 from .security import require,token
 
 employee_api=Blueprint('employee_api',__name__)
@@ -18,7 +19,9 @@ def category_invite_signer():return URLSafeTimedSerializer(current_app.config['S
 def public(row):
  columns=set(row.keys())
  fields=('id','employee_id','name','email','workforce_role','status','biometric_status','phone','profile_photo_data','tenant_email')
- return {key:row[key] for key in fields if key in columns}
+ result={key:row[key] for key in fields if key in columns}
+ if result.get('profile_photo_data'):result['profile_photo_data']=photo_url(result['profile_photo_data'])
+ return result
 def audit(db,action,kind,eid,details):
  i=g.employee_identity;db.execute('INSERT INTO employee_audit_log VALUES(?,?,?,?,?,?,?,?)',(uuid4().hex,i['email'],i['role'],action,kind,str(eid),json.dumps(details),stamp()))
 def current(db):
@@ -30,7 +33,7 @@ def start_login_session(db,row):
  return session_id,login_at
 def shift_photos(db,shift_id):
  events=db.execute('SELECT event_type,face_capture_data FROM employee_attendance_events WHERE shift_id=? ORDER BY server_timestamp',(shift_id,)).fetchall()
- photos={item['event_type']:item['face_capture_data'] or '' for item in events}
+ photos={item['event_type']:photo_url(item['face_capture_data']) for item in events}
  return photos.get('CHECK_IN',''),photos.get('CHECK_OUT','')
 def configured_attendance_mode(db,tenant):
  stored=db.execute('SELECT workspace_json FROM tenant_workspaces WHERE tenant_email=?',(tenant,)).fetchone()
@@ -179,8 +182,8 @@ def dashboard():
   if not row:return jsonify({'error':'Employee account is not active.'}),403
   shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(row['id'],now().date().isoformat())).fetchone()
   history=db.execute('''SELECT s.*,
-   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND e.face_capture_data LIKE 'data:image/%%') AS checkin_face_captured,
-   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND e.face_capture_data LIKE 'data:image/%%') AS checkout_face_captured
+   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND COALESCE(e.face_capture_data,'') <> '') AS checkin_face_captured,
+   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND COALESCE(e.face_capture_data,'') <> '') AS checkout_face_captured
    FROM employee_shifts s WHERE s.employee_account_id=? ORDER BY s.work_date DESC LIMIT 400''',(row['id'],)).fetchall()
   sessions=db.execute('SELECT id,login_at,logout_at FROM employee_login_sessions WHERE employee_account_id=? ORDER BY login_at DESC LIMIT 50',(row['id'],)).fetchall()
   current_session=next((item for item in sessions if item['id']==g.employee_identity.get('session_id')),None)
@@ -259,11 +262,16 @@ def profile_photo():
  photo=str(data().get('profile_photo',''))
  if not photo.startswith('data:image/') or len(photo)>1_500_000:
   return jsonify({'error':'Choose a valid profile photo smaller than 1.5 MB.'}),400
- with transaction() as db:
-  row=current(db)
-  if not row:return jsonify({'error':'Employee account is not active.'}),403
-  db.execute('UPDATE employee_accounts SET profile_photo_data=?,updated_at=? WHERE id=?',(photo,stamp(),row['id']))
-  audit(db,'PROFILE_PHOTO_UPDATED','employee_account',row['id'],{})
+ try:
+  with transaction() as db:
+   row=current(db)
+   if not row:return jsonify({'error':'Employee account is not active.'}),403
+   stored_photo=store_photo(photo,tenant=row['tenant_email'],employee_id=row['employee_id'],category='profile',event_type='profile',captured_at=stamp())
+   db.execute('UPDATE employee_accounts SET profile_photo_data=?,updated_at=? WHERE id=?',(stored_photo,stamp(),row['id']))
+   audit(db,'PROFILE_PHOTO_UPDATED','employee_account',row['id'],{'cloud_storage':stored_photo.startswith('r2://')})
+ except PhotoStorageError as exc:
+  current_app.logger.exception('Unable to save employee profile photo')
+  return jsonify({'error':str(exc)}),503
  return jsonify({'ok':True})
 
 @employee_api.post('/api/employee/attendance')
@@ -272,23 +280,28 @@ def attendance():
  p=data();key=request.headers.get('Idempotency-Key','').strip();device=str(p.get('device_identifier','')).strip()[:250];face=str(p.get('face_capture',''));expected_action=str(p.get('expected_action','')).upper()
  if not key or not device:return jsonify({'error':'Idempotency key and device identifier are required.'}),400
  if not face.startswith('data:image/') or len(face)>1_500_000:return jsonify({'error':'Capture a current face photo before recording attendance.'}),400
- with transaction() as db:
-  row=current(db)
-  if not row:return jsonify({'error':'Employee account is not active.'}),403
-  if configured_attendance_mode(db,row['tenant_email'])!='face':
-   return jsonify({'error':'Face Authentication is not enabled for this company. Ask the administrator to change Attendance Integration settings.'}),403
-  duplicate=db.execute('SELECT * FROM employee_attendance_events WHERE employee_account_id=? AND idempotency_key=?',(row['id'],key)).fetchone()
-  if duplicate:return jsonify({'ok':True,'duplicate':True,'event':dict(duplicate)})
-  date=now().date().isoformat();shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(row['id'],date)).fetchone();event_time=stamp()
-  if shift and shift['status']=='COMPLETED':return jsonify({'error':'Today’s attendance is already completed.'}),409
-  action='CHECK_IN' if not shift else 'CHECK_OUT'
-  if expected_action and expected_action!=action:return jsonify({'error':'Attendance status changed before this photo was saved. Refresh and capture a new photo.'}),409
-  if not shift:
-   sid=uuid4().hex;db.execute('INSERT INTO employee_shifts(id,employee_account_id,work_date,check_in_at,status) VALUES(?,?,?,?,?)',(sid,row['id'],date,event_time,'OPEN'))
-  else:
-   sid=shift['id'];minutes=max(0,int((now()-datetime.fromisoformat(shift['check_in_at'])).total_seconds()//60));db.execute("UPDATE employee_shifts SET check_out_at=?,worked_minutes=?,status='COMPLETED' WHERE id=?",(event_time,minutes,sid))
-  eid=uuid4().hex;db.execute('INSERT INTO employee_attendance_events(id,employee_account_id,shift_id,event_type,server_timestamp,verification_method,idempotency_key,device_identifier,face_capture_data) VALUES(?,?,?,?,?,?,?,?,?)',(eid,row['id'],sid,action,event_time,'FACE_CAPTURE',key,device,face));event=db.execute('SELECT * FROM employee_attendance_events WHERE id=?',(eid,)).fetchone()
- return jsonify({'ok':True,'event':dict(event)})
+ try:
+  with transaction() as db:
+   row=current(db)
+   if not row:return jsonify({'error':'Employee account is not active.'}),403
+   if configured_attendance_mode(db,row['tenant_email'])!='face':
+    return jsonify({'error':'Face Authentication is not enabled for this company. Ask the administrator to change Attendance Integration settings.'}),403
+   duplicate=db.execute('SELECT * FROM employee_attendance_events WHERE employee_account_id=? AND idempotency_key=?',(row['id'],key)).fetchone()
+   if duplicate:return jsonify({'ok':True,'duplicate':True,'event':{**dict(duplicate),'face_capture_data':photo_url(duplicate['face_capture_data'])}})
+   date=now().date().isoformat();shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(row['id'],date)).fetchone();event_time=stamp()
+   if shift and shift['status']=='COMPLETED':return jsonify({'error':'Today’s attendance is already completed.'}),409
+   action='CHECK_IN' if not shift else 'CHECK_OUT'
+   if expected_action and expected_action!=action:return jsonify({'error':'Attendance status changed before this photo was saved. Refresh and capture a new photo.'}),409
+   stored_face=store_photo(face,tenant=row['tenant_email'],employee_id=row['employee_id'],category='attendance',event_type=action,captured_at=event_time)
+   if not shift:
+    sid=uuid4().hex;db.execute('INSERT INTO employee_shifts(id,employee_account_id,work_date,check_in_at,status) VALUES(?,?,?,?,?)',(sid,row['id'],date,event_time,'OPEN'))
+   else:
+    sid=shift['id'];minutes=max(0,int((now()-datetime.fromisoformat(shift['check_in_at'])).total_seconds()//60));db.execute("UPDATE employee_shifts SET check_out_at=?,worked_minutes=?,status='COMPLETED' WHERE id=?",(event_time,minutes,sid))
+   eid=uuid4().hex;db.execute('INSERT INTO employee_attendance_events(id,employee_account_id,shift_id,event_type,server_timestamp,verification_method,idempotency_key,device_identifier,face_capture_data) VALUES(?,?,?,?,?,?,?,?,?)',(eid,row['id'],sid,action,event_time,'FACE_CAPTURE',key,device,stored_face));event=db.execute('SELECT * FROM employee_attendance_events WHERE id=?',(eid,)).fetchone()
+ except PhotoStorageError as exc:
+  current_app.logger.exception('Unable to save attendance photo')
+  return jsonify({'error':str(exc)}),503
+ return jsonify({'ok':True,'event':{**dict(event),'face_capture_data':photo_url(event['face_capture_data'])}})
 
 @employee_api.patch('/api/employee/account-controls')
 @require('EMPLOYEE')
@@ -412,8 +425,8 @@ def employee_attendance():
  work_date=str(request.args.get('date','')).strip()
  query='''
   SELECT s.work_date,s.check_in_at,s.check_out_at,s.worked_minutes,s.status,
-          EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND e.face_capture_data LIKE 'data:image/%%') AS checkin_face_captured,
-          EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND e.face_capture_data LIKE 'data:image/%%') AS checkout_face_captured,
+          EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND COALESCE(e.face_capture_data,'') <> '') AS checkin_face_captured,
+          EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND COALESCE(e.face_capture_data,'') <> '') AS checkout_face_captured,
          (SELECT ls.login_at FROM employee_login_sessions ls WHERE ls.employee_account_id=a.id ORDER BY ls.login_at DESC LIMIT 1) AS portal_login_at,
          (SELECT ls.logout_at FROM employee_login_sessions ls WHERE ls.employee_account_id=a.id AND ls.logout_at IS NOT NULL ORDER BY ls.login_at DESC LIMIT 1) AS portal_logout_at,
          a.employee_id,a.name,a.email,a.workforce_role,a.profile_json
@@ -447,8 +460,8 @@ def employee_attendance_month():
   account=db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? AND employee_id=?',(tenant,employee_id)).fetchone()
   if not account:return jsonify({'error':'Employee attendance account was not found.'}),404
   shifts=db.execute('''SELECT s.*,
-   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND e.face_capture_data LIKE 'data:image/%%') AS checkin_face_captured,
-   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND e.face_capture_data LIKE 'data:image/%%') AS checkout_face_captured
+   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND COALESCE(e.face_capture_data,'') <> '') AS checkin_face_captured,
+   EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND COALESCE(e.face_capture_data,'') <> '') AS checkout_face_captured
    FROM employee_shifts s WHERE s.employee_account_id=? AND s.work_date LIKE ? ORDER BY s.work_date''',(account['id'],month+'-%')).fetchall()
   return jsonify({'employee':public(account),'month':month,'attendance':[dict(item) for item in shifts]})
  finally:db.close()

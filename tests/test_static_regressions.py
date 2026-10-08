@@ -153,10 +153,11 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("data-copy-invitation", portal)
         self.assertNotIn("data-bulk-invite-role", portal)
 
-    def test_postgres_photo_patterns_escape_percent_placeholders(self):
+    def test_photo_presence_queries_support_legacy_and_cloud_references(self):
         routes = (ROOT / "employee_portal" / "routes.py").read_text(encoding="utf-8")
         self.assertNotIn("LIKE 'data:image/%'", routes)
-        self.assertGreaterEqual(routes.count("LIKE 'data:image/%%'"), 6)
+        self.assertNotIn("LIKE 'data:image/%%'", routes)
+        self.assertGreaterEqual(routes.count("COALESCE(e.face_capture_data,'') <> ''"), 6)
 
     def test_attendance_capture_is_single_submission_and_backend_action_guarded(self):
         portal = (ROOT / "static" / "employee-portal" / "employee-portal.js").read_text(encoding="utf-8")

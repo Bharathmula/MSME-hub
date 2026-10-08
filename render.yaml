@@ -14,3 +14,11 @@ services:
         value: https://msme-app-ignv75tsx32ds4bqvsvsz3.streamlit.app
       - key: DATABASE_URL
         sync: false
+      - key: MSME_R2_ACCOUNT_ID
+        sync: false
+      - key: MSME_R2_ACCESS_KEY_ID
+        sync: false
+      - key: MSME_R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: MSME_R2_BUCKET_NAME
+        sync: false

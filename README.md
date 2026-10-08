@@ -38,6 +38,17 @@ Never commit secrets. Exact database steps and table names are in `DATABASE-SETU
 - Payroll source values, training records, recycle-bin items and dashboard settings.
 - Employee access accounts, invitations, profile photos, shifts, face-capture attendance events and audit records.
 
+## Private face-photo storage
+
+Production face photos can be stored in a private Cloudflare R2 bucket. Set
+`MSME_R2_ACCOUNT_ID`, `MSME_R2_ACCESS_KEY_ID`, `MSME_R2_SECRET_ACCESS_KEY` and
+`MSME_R2_BUCKET_NAME` on Render. New attendance/profile photos are then uploaded
+to R2, while Neon stores only an `r2://` object reference. The API generates a
+short-lived signed URL when an authorized employee or administrator opens a
+photo. Existing Base64 photos in Neon remain readable and are not migrated or
+deleted automatically. Without all four variables, local/test behaviour safely
+falls back to the existing database storage.
+
 Records persist until they are explicitly changed or deleted in the application. Each API request is restricted to the company identified by the signed manager session.
 
 ## VS Code maintenance
