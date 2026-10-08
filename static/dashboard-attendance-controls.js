@@ -820,14 +820,17 @@ document.addEventListener('click', event => {
 
   event.preventDefault();
   event.stopImmediatePropagation();
+  if (!manualAttendanceEnabledV21) return;
   const person = [...people, ...temporaryWorkers].find(item => item.id === saveButton.dataset.savePerson);
   if (!person) return;
 
-  const today = new Date().toISOString().slice(0, 10);
-  const newRecord = attendanceRecordsForTodayV21().find(item => item.id === person.id);
-  let day = attendanceLog.find(item => item.date === today);
+  const selectedDate = calendarDay;
+  const calculatedRecord = attendanceRecordsForTodayV21().find(item => item.id === person.id);
+  if (!calculatedRecord) return;
+  const newRecord = { ...calculatedRecord, source: 'Manual attendance' };
+  let day = attendanceLog.find(item => item.date === selectedDate);
   if (!day) {
-    day = { date: today, records: [] };
+    day = { date: selectedDate, records: [] };
     attendanceLog.push(day);
   }
   const recordIndex = day.records.findIndex(item => item.id === person.id);

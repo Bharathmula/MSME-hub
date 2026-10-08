@@ -97,6 +97,16 @@ class EmployeePortalTests(unittest.TestCase):
   accidental_checkout=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face,'expected_action':'CHECK_IN'},headers=self.headers(employee,{'Idempotency-Key':'second-checkin-submit'}));self.assertEqual(accidental_checkout.status_code,409,accidental_checkout.text)
   after_checkin=self.c.get('/api/employee/dashboard',headers=self.headers(employee));self.assertEqual(after_checkin.json['today']['status'],'OPEN');self.assertIsNone(after_checkin.json['today']['check_out_at'])
   out=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face,'expected_action':'CHECK_OUT'},headers=self.headers(employee,{'Idempotency-Key':'out'}));self.assertEqual(out.json['event']['event_type'],'CHECK_OUT')
+  company_workspace=self.c.get('/api/workspace',headers=self.headers(self.admin)).json
+  company_workspace['storage']['attendance-integration-settings']={'modes':['manual']}
+  company_workspace['expected_updated_at']=company_workspace.get('updated_at')
+  self.assertEqual(self.c.put('/api/workspace',json=company_workspace,headers=self.headers(self.admin)).status_code,200)
+  manual_dashboard=self.c.get('/api/employee/dashboard',headers=self.headers(employee));self.assertFalse(manual_dashboard.json['biometric_ready'])
+  face_disabled=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face,'expected_action':'CHECK_IN'},headers=self.headers(employee,{'Idempotency-Key':'face-disabled'}));self.assertEqual(face_disabled.status_code,403,face_disabled.text)
+  company_workspace=self.c.get('/api/workspace',headers=self.headers(self.admin)).json
+  company_workspace['storage']['attendance-integration-settings']={'modes':['face']}
+  company_workspace['expected_updated_at']=company_workspace.get('updated_at')
+  self.assertEqual(self.c.put('/api/workspace',json=company_workspace,headers=self.headers(self.admin)).status_code,200)
   detail=self.c.get('/api/employee/attendance-detail',query_string={'date':datetime.now(timezone.utc).date().isoformat()},headers=self.headers(employee));self.assertEqual(detail.status_code,200,detail.text);self.assertEqual(detail.json['check_in_photo'],face);self.assertEqual(detail.json['check_out_photo'],face)
   admin_attendance=self.c.get('/api/admin/employee-attendance',headers=self.headers(self.admin));self.assertEqual(admin_attendance.status_code,200,admin_attendance.text);self.assertEqual(admin_attendance.json['attendance'][0]['employee_id'],'W-100')
   self.assertEqual(admin_attendance.json['attendance'][0]['profile_details']['child_name_2'],'Arun')

@@ -675,6 +675,8 @@ function calendarYearOptionsV25(selectedYear) {
 }
 
 window.attendanceCalendar = function advancedAttendanceCalendarV25() {
+  manualAttendanceEnabledV21 = typeof configuredAttendanceModeV39 === 'function'
+    && configuredAttendanceModeV39() === 'manual';
   const date = new Date(`${calendarDay}T00:00:00`);
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -728,8 +730,8 @@ window.attendanceCalendar = function advancedAttendanceCalendarV25() {
       <div class="calendar-legend"><span><i class="legend-today">✓</i> Today</span>
         <span><i class="legend-selected"></i> Selected date</span>
         <b>${savedRecord ? `Attendance saved for ${calendarDay}` : `No saved attendance for ${calendarDay}`}</b></div>
-      <div class="manual-attendance-switch"><span><b>Automatic attendance: ON</b><small>Live check-in and checkout are calculated automatically. Turn manual entry ON only to add or override a person’s record.</small></span>
-        <label class="enter-manually-button"><input type="checkbox" id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? 'checked' : ''}><i></i><b>Enter manually: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b></label></div>
+      <div class="manual-attendance-switch ${manualAttendanceEnabledV21 ? 'manual-mode-on' : 'manual-mode-off'}"><span><b>Manual attendance: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b><small>This switch follows Settings → Attendance Integration. Turn off the current method there before selecting another method.</small></span>
+        <label class="enter-manually-button" title="Change this from Settings → Attendance Integration"><input type="checkbox" id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? 'checked' : ''} disabled aria-disabled="true"><i></i><b>Enter manually: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b></label></div>
     </section>
     <div class="calendar-role-sections">
       ${calendarTemporarySectionV21(record)}

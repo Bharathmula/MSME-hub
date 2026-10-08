@@ -32,6 +32,15 @@ def shift_photos(db,shift_id):
  events=db.execute('SELECT event_type,face_capture_data FROM employee_attendance_events WHERE shift_id=? ORDER BY server_timestamp',(shift_id,)).fetchall()
  photos={item['event_type']:item['face_capture_data'] or '' for item in events}
  return photos.get('CHECK_IN',''),photos.get('CHECK_OUT','')
+def configured_attendance_mode(db,tenant):
+ stored=db.execute('SELECT workspace_json FROM tenant_workspaces WHERE tenant_email=?',(tenant,)).fetchone()
+ if not stored:return 'face'
+ try:workspace=json.loads(stored['workspace_json'])
+ except (TypeError,json.JSONDecodeError):return 'face'
+ storage=workspace.get('storage',{}) if isinstance(workspace,dict) else {}
+ settings=storage.get('attendance-integration-settings',{}) if isinstance(storage,dict) else {}
+ modes=settings.get('modes',['face']) if isinstance(settings,dict) else ['face']
+ return str(modes[-1]) if isinstance(modes,list) and modes else ''
 
 EMPLOYEE_EDITABLE_PROFILE_FIELDS={
  'name','phone','dob','gender','marital_status','aadhaar','qualification','hobbies','passion',
@@ -177,6 +186,7 @@ def dashboard():
   current_session=next((item for item in sessions if item['id']==g.employee_identity.get('session_id')),None)
   previous_logout=next((item['logout_at'] for item in sessions if item['logout_at']),None)
   _,_,_,profile=workspace_profile(db,row)
+  face_enabled=configured_attendance_mode(db,row['tenant_email'])=='face'
   return jsonify({
    'employee':public(row),
    'profile':profile,
@@ -187,8 +197,8 @@ def dashboard():
    'session':dict(current_session) if current_session else None,
    'last_logout_at':previous_logout,
    'login_history':[dict(item) for item in sessions],
-   'verification_method':'FACE_CAPTURE',
-   'biometric_ready':True,
+   'verification_method':'FACE_CAPTURE' if face_enabled else None,
+   'biometric_ready':face_enabled,
   })
  finally:db.close()
 
@@ -265,6 +275,8 @@ def attendance():
  with transaction() as db:
   row=current(db)
   if not row:return jsonify({'error':'Employee account is not active.'}),403
+  if configured_attendance_mode(db,row['tenant_email'])!='face':
+   return jsonify({'error':'Face Authentication is not enabled for this company. Ask the administrator to change Attendance Integration settings.'}),403
   duplicate=db.execute('SELECT * FROM employee_attendance_events WHERE employee_account_id=? AND idempotency_key=?',(row['id'],key)).fetchone()
   if duplicate:return jsonify({'ok':True,'duplicate':True,'event':dict(duplicate)})
   date=now().date().isoformat();shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(row['id'],date)).fetchone();event_time=stamp()

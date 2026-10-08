@@ -235,6 +235,11 @@
   function renderOverview() {
     const today = dashboard.today;
     const action = dashboard.next_action;
+    if (!dashboard.biometric_ready) {
+      employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">TODAY</p><h1>Face attendance is turned off</h1><p>Your company is using another attendance method. You can still open Attendance to view your saved records.</p></section>
+        <section class="ep-card"><h2>Attendance method controlled by your administrator</h2><p>Face check-in and check-out are unavailable until Face Authentication is selected in Settings → Attendance Integration.</p></section>`);
+      return;
+    }
     employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">TODAY</p><h1>${action === 'CHECK_IN' ? 'Ready to check in?' : 'Ready to check out?'}</h1><p>Capture a current live face photo to record your attendance.</p></section>
       <div class="ep-overview-grid">
         <section class="ep-card"><h2>Attendance status</h2><div class="ep-status ${(today?.status || 'not-started').toLowerCase()}">${esc(today?.status || 'NOT STARTED')}</div>

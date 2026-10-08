@@ -10,6 +10,7 @@
   let reportType = 'monthly';
   let reportDate = new Date().toISOString().slice(0, 10);
   let integrationDetailPage = null;
+  let modeSelectionMessage = '';
 
   function settingsKey() {
     return tenantKey('attendance-integration-settings');
@@ -205,6 +206,7 @@
         ${modeCard('manual', 'Manual', 'Allow authorised admins to enter or correct attendance in Attendance Calendar.')}
         ${modeCard('spreadsheet', 'CSV Report / Excel Sheet', 'Import past attendance exported from Excel or another attendance system.')}
       </div>
+      <p class="settings-import-status" id="attendance-mode-status">${esc(modeSelectionMessage)}</p>
       ${detail}
       ${!detail ? '<p class="settings-selection-help">Select Biometric or CSV Report / Excel Sheet to open its setup page. Face Authentication opens Employee Login Setup and controls its sidebar visibility.</p>' : ''}
     </section>`;
@@ -440,11 +442,22 @@
       const current = integrationSettings();
       const mode = modeButton.dataset.attendanceMode;
       const selected = !current.modes.includes(mode);
+      if (selected && current.modes.length) {
+        const labels = { biometric: 'Biometric', face: 'Face Authentication', manual: 'Manual', spreadsheet: 'CSV Report / Excel Sheet' };
+        modeSelectionMessage = `Turn off ${labels[current.modes[0]] || 'the selected attendance method'} before selecting ${labels[mode] || mode}.`;
+        settingsPage();
+        return;
+      }
       const modes = selected ? [mode] : [];
       saveIntegrationSettings({ ...current, modes });
+      modeSelectionMessage = selected ? `${modeButton.closest('[data-mode-card]')?.querySelector('b')?.textContent || 'Attendance method'} selected.` : 'Attendance method turned off. You can now select another method.';
       updateEmployeeLoginSetupVisibility();
       if (selected && mode === 'face') {
         document.querySelector('.nav-link[data-view="employeeaccess"]')?.click();
+        return;
+      }
+      if (selected && mode === 'manual') {
+        document.querySelector('.nav-link[data-view="attendance"]')?.click();
         return;
       }
       if (selected && (mode === 'biometric' || mode === 'spreadsheet')) integrationDetailPage = mode;
