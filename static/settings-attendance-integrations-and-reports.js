@@ -9,6 +9,7 @@
   let subscriptionLoading = false;
   let reportType = 'monthly';
   let reportDate = new Date().toISOString().slice(0, 10);
+  let integrationDetailPage = null;
 
   function settingsKey() {
     return tenantKey('attendance-integration-settings');
@@ -30,8 +31,12 @@
     return {
       modes: ['face'],
       provider: '',
+      softwareUrl: '',
       endpoint: '',
       deviceId: '',
+      branchId: '',
+      apiUsername: '',
+      secretReference: '',
       syncInterval: '15',
       ...readJson(settingsKey(), {}),
     };
@@ -39,6 +44,16 @@
 
   function saveIntegrationSettings(value) {
     localStorage.setItem(settingsKey(), JSON.stringify(value));
+  }
+
+  function updateEmployeeLoginSetupVisibility() {
+    const enabled = integrationSettings().modes.includes('face');
+    const navigation = document.querySelector('.nav-link[data-view="employeeaccess"]');
+    if (navigation) {
+      navigation.hidden = !enabled;
+      navigation.setAttribute('aria-hidden', String(!enabled));
+    }
+    return enabled;
   }
 
   function allAttendanceRows() {
@@ -147,10 +162,35 @@
       const selected = current.modes.includes(mode);
       return `<article class="settings-mode-card ${selected ? 'selected' : ''}" data-mode-card="${mode}">
         <span><b>${title}</b><small>${description}</small></span>
-        <button type="button" class="settings-mode-select ${selected ? 'selected' : ''}" data-attendance-mode="${mode}" aria-pressed="${selected}">${selected ? 'Selected' : 'Select'}</button>
+        <div class="settings-mode-actions">${selected && ['biometric','spreadsheet'].includes(mode) ? `<button type="button" class="settings-mode-open" data-open-integration-detail="${mode}">Open setup</button>` : ''}<button type="button" class="settings-mode-select ${selected ? 'selected' : ''}" data-attendance-mode="${mode}" aria-pressed="${selected}">${selected ? 'Turn off' : 'Select'}</button></div>
       </article>`;
     };
-    return `<section class="panel">
+    const biometricPage = `<section class="settings-detail-page" data-integration-detail="biometric">
+      <div class="settings-detail-heading"><button type="button" class="settings-back-button" data-close-integration-detail>← Attendance options</button><div><h2>Biometric Software Connection</h2><p>Enter the connection information supplied by the biometric software provider.</p></div></div>
+      <div class="settings-form-grid">
+        <label>BIOMETRIC SOFTWARE / PROVIDER<input id="biometric-provider" value="${esc(current.provider)}" placeholder="Example: BioMax Smart Office Suite"></label>
+        <label>SOFTWARE PORTAL URL<input type="url" id="biometric-software-url" value="${esc(current.softwareUrl)}" placeholder="https://attendance.company.com"></label>
+        <label>API OR SYNC ENDPOINT<input type="url" id="biometric-endpoint" value="${esc(current.endpoint)}" placeholder="https://provider.example/api/attendance"></label>
+        <label>DEVICE / SITE ID<input id="biometric-device-id" value="${esc(current.deviceId)}" placeholder="Device serial number or site ID"></label>
+        <label>BRANCH / LOCATION ID<input id="biometric-branch-id" value="${esc(current.branchId)}" placeholder="Factory or branch identifier"></label>
+        <label>API USERNAME<input id="biometric-api-username" value="${esc(current.apiUsername)}" autocomplete="off" placeholder="Integration username"></label>
+        <label>CREDENTIAL SECRET NAME<input id="biometric-secret-reference" value="${esc(current.secretReference)}" autocomplete="off" placeholder="Example: BIOMAX_API_TOKEN"></label>
+        <label>SYNC INTERVAL<select id="biometric-sync-interval">${['5','15','30','60'].map(value => `<option value="${value}" ${current.syncInterval === value ? 'selected' : ''}>Every ${value} minutes</option>`).join('')}</select></label>
+      </div>
+      <div class="settings-note"><b>Security:</b> do not enter the actual biometric password or API token in this browser. Store it in Render as a secret environment variable and enter only its variable name above.</div>
+      <div class="settings-actions"><button class="primary" id="save-attendance-settings">Save biometric settings</button><span id="settings-save-status"></span></div>
+    </section>`;
+    const spreadsheetPage = `<section class="settings-detail-page settings-import-box" data-integration-detail="spreadsheet">
+      <div class="settings-detail-heading"><button type="button" class="settings-back-button" data-close-integration-detail>← Attendance options</button><div><h2>CSV Report / Excel Sheet</h2><p>Upload previous attendance exported from Excel or another attendance system.</p></div></div>
+      <div class="settings-upload-guide"><b>Required columns</b><span>Date, Name and Status</span><b>Optional columns</b><span>ID, Role, Check In, Check Out, Shift and Working Hours</span></div>
+      <label>CSV FILE<input type="file" id="attendance-import-file" accept=".csv,text/csv"></label>
+      <div class="settings-actions"><button class="secondary" id="download-attendance-template">Download CSV template</button><button class="primary" id="import-attendance-sheet">Import past data</button></div>
+      <p class="settings-import-status" id="attendance-import-status"></p>
+    </section>`;
+    const detail = integrationDetailPage === 'biometric' && current.modes.includes('biometric')
+      ? biometricPage
+      : integrationDetailPage === 'spreadsheet' && current.modes.includes('spreadsheet') ? spreadsheetPage : '';
+    return `<section class="panel settings-integration-panel">
       <div class="panel-header"><div><h2>Attendance Integration</h2><p>Choose one or more attendance sources for this company.</p></div><span class="tag complete">Company settings</span></div>
       <div class="settings-mode-grid">
         ${modeCard('biometric', 'Biometric', 'Connect a fingerprint, card or device provider through its API or scheduled export.')}
@@ -158,29 +198,44 @@
         ${modeCard('manual', 'Manual', 'Allow authorised admins to enter or correct attendance in Attendance Calendar.')}
         ${modeCard('spreadsheet', 'CSV Report / Excel Sheet', 'Import past attendance exported from Excel or another attendance system.')}
       </div>
-      <div class="settings-form-grid" id="biometric-connection-fields">
-        <label>BIOMETRIC SOFTWARE / PROVIDER<input id="biometric-provider" value="${esc(current.provider)}" placeholder="Example: eSSL, ZKTeco, Matrix"></label>
-        <label>API OR SYNC ENDPOINT<input id="biometric-endpoint" value="${esc(current.endpoint)}" placeholder="https://provider.example/api"></label>
-        <label>DEVICE / SITE ID<input id="biometric-device-id" value="${esc(current.deviceId)}" placeholder="Device or branch identifier"></label>
-        <label>SYNC INTERVAL<select id="biometric-sync-interval">${['5','15','30','60'].map(value => `<option value="${value}" ${current.syncInterval === value ? 'selected' : ''}>Every ${value} minutes</option>`).join('')}</select></label>
-      </div>
-      <div class="settings-note"><b>Biometric connection note:</b> the admin can use biometric together with face and manual attendance. Each device vendor must provide an API, SDK or CSV export. Saving this form prepares the company configuration; provider credentials should be configured securely on the Render backend, not placed in the browser.</div>
-      <div class="settings-actions"><button class="primary" id="save-attendance-settings">Save attendance settings</button><span id="settings-save-status"></span></div>
-    </section>
-    <section class="panel settings-import-box">
-      <div class="panel-header"><div><h2>Import past attendance</h2><p>Upload a CSV exported from Excel. Existing matching employee/date rows are updated; other rows are added.</p></div></div>
-      <label>CSV / EXCEL-EXPORTED SHEET<input type="file" id="attendance-import-file" accept=".csv,.xlsx,.xls,text/csv"></label>
-      <div class="settings-actions"><button class="secondary" id="download-attendance-template">Download template</button><button class="primary" id="import-attendance-sheet">Import past data</button></div>
-      <p class="settings-import-status" id="attendance-import-status"></p>
+      ${detail}
+      ${!detail ? '<p class="settings-selection-help">Select Biometric or CSV Report / Excel Sheet to open its setup page. Face Authentication opens Employee Login Setup and controls its sidebar visibility.</p>' : ''}
     </section>`;
+  }
+
+  function clockParts24(value, fallback) {
+    const [hourValue, minuteValue] = String(value || fallback).slice(0, 5).split(':').map(Number);
+    const period = hourValue >= 12 ? 'PM' : 'AM';
+    const hour = hourValue % 12 || 12;
+    return { hour: String(hour).padStart(2, '0'), minute: String(minuteValue || 0).padStart(2, '0'), period };
+  }
+
+  function clockSelector(prefix, label, value, fallback) {
+    const selected = clockParts24(value, fallback);
+    const hours = Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, '0'));
+    const minutes = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0'));
+    return `<fieldset class="shift-clock-field"><legend>${label}</legend>
+      <label>HOUR<select id="${prefix}-hour">${hours.map(hour => `<option ${hour === selected.hour ? 'selected' : ''}>${hour}</option>`).join('')}</select></label>
+      <label>MINUTE<select id="${prefix}-minute">${minutes.map(minute => `<option ${minute === selected.minute ? 'selected' : ''}>${minute}</option>`).join('')}</select></label>
+      <label>AM / PM<select id="${prefix}-period"><option ${selected.period === 'AM' ? 'selected' : ''}>AM</option><option ${selected.period === 'PM' ? 'selected' : ''}>PM</option></select></label>
+    </fieldset>`;
+  }
+
+  function selectedClock24(prefix) {
+    let hour = Number(document.querySelector(`#${prefix}-hour`)?.value || 0);
+    const minute = document.querySelector(`#${prefix}-minute`)?.value || '00';
+    const period = document.querySelector(`#${prefix}-period`)?.value || 'AM';
+    if (period === 'PM' && hour < 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
+    return `${String(hour).padStart(2, '0')}:${minute}`;
   }
 
   function companyShiftPanel() {
     const start = String(admin.shift_start || '09:00').slice(0, 5);
     const end = String(admin.shift_end || '18:00').slice(0, 5);
     return `<section class="panel settings-shift-panel">
-      <div class="panel-header"><div><h2>Shift Timings</h2><p>Set the standard company shift for Workers, Staff, Entrepreneurs and Temporary Workers.</p></div><span class="tag complete">Company-wide</span></div>
-      <div class="settings-form-grid"><label>SHIFT START<input type="time" id="company-shift-start" value="${esc(start)}" required></label><label>SHIFT END<input type="time" id="company-shift-end" value="${esc(end)}" required></label></div>
+      <div class="panel-header"><div><h2>Shift Timings</h2><p>Set the standard company shift in 12-hour AM/PM format.</p></div><span class="tag complete">Company-wide</span></div>
+      <div class="shift-clock-grid">${clockSelector('company-shift-start', 'SHIFT START', start, '09:00')}${clockSelector('company-shift-end', 'SHIFT END', end, '18:00')}</div>
       <div class="settings-note"><b>Company shift:</b> saving applies the timing to every existing workforce profile and becomes the default for newly created employees.</div>
       <div class="settings-actions"><button class="primary" id="save-company-shift">Save shift timings</button><span id="shift-save-status"></span></div>
     </section>`;
@@ -253,9 +308,9 @@
   }
 
   function settingsPage() {
-    root.innerHTML = `<div class="page-heading"><div><div class="eyebrow">COMPANY CONFIGURATION</div><h1>Settings.</h1><p>Manage attendance sources, historical imports and operational reports.</p></div></div>
+    root.innerHTML = `<div class="settings-page"><div class="page-heading"><div><div class="eyebrow">COMPANY CONFIGURATION</div><h1>Settings.</h1><p>Manage attendance sources, historical imports and operational reports.</p></div></div>
       <div class="settings-tabs"><button data-settings-tab="subscription" class="${settingsTab === 'subscription' ? 'active' : ''}">Subscription & Billing</button><button data-settings-tab="integration" class="${settingsTab === 'integration' ? 'active' : ''}">Attendance Integration</button><button data-settings-tab="reports" class="${settingsTab === 'reports' ? 'active' : ''}">Reports</button><button data-settings-tab="shift" class="${settingsTab === 'shift' ? 'active' : ''}">Shift Timings</button></div>
-      ${settingsTab === 'subscription' ? subscriptionPanel() : settingsTab === 'integration' ? integrationPanel() : settingsTab === 'reports' ? reportsPanel() : settingsTab === 'shift' ? companyShiftPanel() : ''}`;
+      ${settingsTab === 'subscription' ? subscriptionPanel() : settingsTab === 'integration' ? integrationPanel() : settingsTab === 'reports' ? reportsPanel() : settingsTab === 'shift' ? companyShiftPanel() : ''}</div>`;
     if (settingsTab === 'subscription' && !subscriptionState && !subscriptionLoading) loadSubscription();
   }
 
@@ -367,13 +422,32 @@
       settingsPage();
       return;
     }
+    const openIntegrationDetail = event.target.closest('[data-open-integration-detail]');
+    if (openIntegrationDetail) {
+      integrationDetailPage = openIntegrationDetail.dataset.openIntegrationDetail;
+      settingsPage();
+      return;
+    }
     const modeButton = event.target.closest('[data-attendance-mode]');
     if (modeButton) {
-      const selected = !modeButton.classList.contains('selected');
-      modeButton.classList.toggle('selected', selected);
-      modeButton.closest('[data-mode-card]')?.classList.toggle('selected', selected);
-      modeButton.setAttribute('aria-pressed', String(selected));
-      modeButton.textContent = selected ? 'Selected' : 'Select';
+      const current = integrationSettings();
+      const mode = modeButton.dataset.attendanceMode;
+      const selected = !current.modes.includes(mode);
+      const modes = selected ? [...new Set([...current.modes, mode])] : current.modes.filter(item => item !== mode);
+      saveIntegrationSettings({ ...current, modes });
+      updateEmployeeLoginSetupVisibility();
+      if (selected && mode === 'face') {
+        document.querySelector('.nav-link[data-view="employeeaccess"]')?.click();
+        return;
+      }
+      if (selected && (mode === 'biometric' || mode === 'spreadsheet')) integrationDetailPage = mode;
+      if (!selected && integrationDetailPage === mode) integrationDetailPage = null;
+      settingsPage();
+      return;
+    }
+    if (event.target.closest('[data-close-integration-detail]')) {
+      integrationDetailPage = null;
+      settingsPage();
       return;
     }
     const tab = event.target.closest('[data-settings-tab]');
@@ -383,13 +457,17 @@
       return;
     }
     if (event.target.closest('#save-attendance-settings')) {
-      const modes = [...document.querySelectorAll('[data-attendance-mode].selected')].map(button => button.dataset.attendanceMode);
+      const current = integrationSettings();
       saveIntegrationSettings({
-        modes,
-        provider: document.querySelector('#biometric-provider')?.value.trim() || '',
-        endpoint: document.querySelector('#biometric-endpoint')?.value.trim() || '',
-        deviceId: document.querySelector('#biometric-device-id')?.value.trim() || '',
-        syncInterval: document.querySelector('#biometric-sync-interval')?.value || '15',
+        ...current,
+        provider: document.querySelector('#biometric-provider')?.value.trim() || current.provider,
+        softwareUrl: document.querySelector('#biometric-software-url')?.value.trim() || current.softwareUrl,
+        endpoint: document.querySelector('#biometric-endpoint')?.value.trim() || current.endpoint,
+        deviceId: document.querySelector('#biometric-device-id')?.value.trim() || current.deviceId,
+        branchId: document.querySelector('#biometric-branch-id')?.value.trim() || current.branchId,
+        apiUsername: document.querySelector('#biometric-api-username')?.value.trim() || current.apiUsername,
+        secretReference: document.querySelector('#biometric-secret-reference')?.value.trim() || current.secretReference,
+        syncInterval: document.querySelector('#biometric-sync-interval')?.value || current.syncInterval,
       });
       const status = document.querySelector('#settings-save-status');
       if (status) {
@@ -401,8 +479,8 @@
       return;
     }
     if (event.target.closest('#save-company-shift')) {
-      const start = document.querySelector('#company-shift-start')?.value || '';
-      const end = document.querySelector('#company-shift-end')?.value || '';
+      const start = selectedClock24('company-shift-start');
+      const end = selectedClock24('company-shift-end');
       const status = document.querySelector('#shift-save-status');
       if (!start || !end || start === end) {
         if (status) status.textContent = 'Enter different start and end times.';
@@ -469,6 +547,11 @@
 
   const previousRender = window.render;
   window.render = function renderWithSettings(...args) {
+    const faceEnabled = updateEmployeeLoginSetupVisibility();
+    if (typeof view !== 'undefined' && view === 'employeeaccess' && !faceEnabled) {
+      view = 'settings';
+      settingsTab = 'integration';
+    }
     if (typeof view !== 'undefined' && view === 'settings') {
       if (!settingsWasOpen) settingsTab = null;
       settingsWasOpen = true;
@@ -478,4 +561,5 @@
     settingsWasOpen = false;
     return previousRender.apply(this, args);
   };
+  updateEmployeeLoginSetupVisibility();
 })();

@@ -1,8 +1,16 @@
 .sidebar-settings-button {
   width: calc(100% - 24px);
-  margin: 10px 12px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  margin: 10px 12px 4px;
+  border: 0;
 }
+
+.sidebar-account-divider {
+  height: 1px;
+  margin: 4px 12px 0;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.sidebar-footer { border-top: 0 !important; }
 
 .settings-tabs,
 .settings-mode-grid,
@@ -19,7 +27,7 @@
 .settings-tabs button {
   min-height: 42px;
   padding: 9px 12px;
-  border: 1px solid #cddae8;
+  border: 0;
   border-radius: 12px;
   background: #f4f7fb;
   color: #18324b;
@@ -43,13 +51,12 @@
   align-items: flex-start;
   gap: 12px;
   padding: 18px;
-  border: 1px solid #d8e2ed;
+  border: 0;
   border-radius: 14px;
   background: #fff;
 }
 
 .settings-mode-card.selected {
-  border-color: #1465b6;
   background: #eef6ff;
   box-shadow: 0 0 0 2px rgba(20, 101, 182, 0.1);
 }
@@ -141,6 +148,31 @@
   color: #275f3d;
 }
 
+.settings-mode-actions { display: flex; flex: 0 0 auto; gap: 7px; align-items: center; }
+.settings-mode-open { padding: 9px 11px; border: 0; border-radius: 9px; background: #dcecff; color: #0b4f91; font-weight: 800; cursor: pointer; }
+
+.settings-page > .panel,
+.settings-page .settings-detail-page,
+.settings-page .settings-import-box {
+  border: 0 !important;
+  box-shadow: none;
+}
+
+.settings-page .settings-integration-panel { background: transparent; padding: 0; }
+.settings-selection-help { margin: 16px 0 0; color: #66798d; font-size: 12px; }
+.settings-detail-page { margin-top: 18px; padding: 20px; border-radius: 14px; background: #fff; }
+.settings-detail-heading { display: flex; align-items: flex-start; gap: 16px; }
+.settings-detail-heading h2 { margin: 0 0 5px; }
+.settings-detail-heading p { margin: 0; color: #66798d; font-size: 12px; }
+.settings-back-button { border: 0; border-radius: 9px; padding: 9px 12px; background: #eaf2fa; color: #174f78; font-weight: 800; cursor: pointer; }
+.settings-upload-guide { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; margin: 18px 0; padding: 14px; border-radius: 10px; background: #f1f6fb; font-size: 12px; }
+.settings-upload-guide span { color: #5d7185; }
+.shift-clock-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
+.shift-clock-field { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 18px; border: 0; border-radius: 14px; background: #f3f7fb; }
+.shift-clock-field legend { padding: 0 8px; color: #18324b; font-weight: 900; }
+.shift-clock-field label { display: grid; gap: 6px; color: #52687d; font-size: 10px; font-weight: 800; }
+.shift-clock-field select { min-height: 44px; padding: 9px; border: 0; border-radius: 9px; background: #fff; color: #18324b; font-weight: 800; }
+
 .report-summary-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 18px 0;
@@ -168,6 +200,7 @@
   .settings-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .settings-mode-grid,
   .settings-form-grid,
+  .shift-clock-grid,
   .report-summary-grid {
     grid-template-columns: 1fr;
   }
