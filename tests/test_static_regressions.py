@@ -300,6 +300,16 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("base64.b64encode(asset_path.read_bytes())", streamlit)
         self.assertIn('url("data:{mime_type};base64,{encoded}")', streamlit)
 
+    def test_subscription_catalog_uses_sustainable_company_pricing(self):
+        service = (ROOT / "authentication" / "subscription_service.py").read_text(encoding="utf-8")
+        settings = (ROOT / "static" / "settings-attendance-integrations-and-reports.js").read_text(encoding="utf-8")
+        self.assertIn('"name": "Starter", "monthly_price": 999, "annual_price": 9990, "employee_limit": 25', service)
+        self.assertIn('"name": "Growth", "monthly_price": 1799, "annual_price": 17990, "employee_limit": 50', service)
+        self.assertIn('"name": "Pro", "monthly_price": 3499, "annual_price": 34990, "employee_limit": 100', service)
+        self.assertIn('"name": "Enterprise", "monthly_price": 7999, "annual_price": 79990, "employee_limit": 300', service)
+        self.assertIn("GROWTH: ['50 employee accounts'", settings)
+        self.assertIn("Razorpay subscriptions and payment webhooks", settings)
+
 
 if __name__ == "__main__":
     unittest.main()

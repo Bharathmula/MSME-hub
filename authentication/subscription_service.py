@@ -8,11 +8,19 @@ from employee_portal.database import connect, transaction
 TRIAL_DAYS = 30
 TRIAL_EMPLOYEE_LIMIT = 10
 PLAN_CATALOG = [
-    {"code": "PLUS", "name": "Plus", "monthly_price": 499, "annual_price": 4990, "employee_limit": 30},
-    {"code": "PRO", "name": "Pro", "monthly_price": 999, "annual_price": 9990, "employee_limit": 100},
-    {"code": "ULTRA", "name": "Ultra", "monthly_price": 1999, "annual_price": 19990, "employee_limit": 300},
+    {"code": "PLUS", "name": "Starter", "monthly_price": 999, "annual_price": 9990, "employee_limit": 25},
+    {"code": "GROWTH", "name": "Growth", "monthly_price": 1799, "annual_price": 17990, "employee_limit": 50},
+    {"code": "PRO", "name": "Pro", "monthly_price": 3499, "annual_price": 34990, "employee_limit": 100},
+    {"code": "ULTRA", "name": "Enterprise", "monthly_price": 7999, "annual_price": 79990, "employee_limit": 300},
     {"code": "CUSTOM", "name": "Custom", "monthly_price": None, "annual_price": None, "employee_limit": None},
 ]
+
+
+def _plan_name(code: str) -> str:
+    if code == "TRIAL":
+        return "30-day Free Trial"
+    plan = next((item for item in PLAN_CATALOG if item["code"] == code), None)
+    return plan["name"] if plan else str(code).title()
 
 
 def _now() -> datetime:
@@ -87,7 +95,7 @@ def subscription_summary(company_id: str, row=None) -> dict:
     return {
         "company_id": company_id,
         "plan_code": row["plan_code"],
-        "plan_name": "30-day Free Trial" if row["plan_code"] == "TRIAL" else str(row["plan_code"]).title(),
+        "plan_name": _plan_name(row["plan_code"]),
         "status": status.lower(),
         "trial_started_at": row["trial_started_at"],
         "trial_ends_at": row["trial_ends_at"],

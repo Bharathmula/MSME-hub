@@ -334,9 +334,10 @@
     const plans = [trialPlan, ...subscriptionPlans];
     const features = {
       TRIAL: ['10 employee accounts', 'Face and manual attendance', 'Basic dashboard and reports', '30 days with no credit card'],
-      PLUS: ['30 employee accounts', 'Attendance and payroll', 'CSV import and reports', '90-day photo retention'],
-      PRO: ['100 employee accounts', 'Biometric integration', 'Advanced attendance reports', 'One-year photo retention'],
-      ULTRA: ['300 employee accounts', 'Multiple branches', 'API access and priority support', 'Two-year photo retention'],
+      PLUS: ['25 employee accounts', 'Attendance and payroll', 'CSV import and reports', '90-day photo retention'],
+      GROWTH: ['50 employee accounts', 'Attendance and payroll', 'Advanced attendance reports', '180-day photo retention'],
+      PRO: ['100 employee accounts', 'Integration-ready attendance settings', 'Advanced reports and exports', 'One-year photo retention'],
+      ULTRA: ['300 employee accounts', 'Priority onboarding and support', 'API integration support', 'Custom retention options'],
       CUSTOM: ['Custom employee and branch limits', 'Custom storage and retention', 'Dedicated integrations', 'Custom onboarding and support'],
     };
     const planCards = plans.map(plan => {
@@ -422,7 +423,7 @@
         ? 'Your current plan is selected.'
         : selectedPlan === 'CUSTOM'
         ? 'Custom Plan selected. Contact the MSME platform administrator to configure employee limits, storage, integrations and pricing.'
-        : `${selectedPlan} selected. Online payment activation requires the Razorpay account keys to be configured on Render.`;
+        : `${selectedPlan} selected. Online checkout will be available after Razorpay subscriptions and payment webhooks are configured.`;
       return;
     }
     const planCard = event.target.closest('[data-plan-card]');
