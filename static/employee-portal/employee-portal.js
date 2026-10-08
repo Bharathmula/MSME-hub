@@ -552,9 +552,20 @@
     results.querySelectorAll('[data-ea-profile-id]').forEach(button => button.onclick = () => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.id === button.dataset.eaProfileId)));
   }
 
+  function employeeLoginSetupEnabled() {
+    const navigation = document.querySelector('.nav-link[data-view="employeeaccess"]');
+    return Boolean(navigation && !navigation.hidden && navigation.getAttribute('aria-hidden') !== 'true');
+  }
+
   async function adminView() {
     const page = document.querySelector('#view-root');
     if (!page || document.body.dataset.employeeAccess !== 'yes') return;
+    if (!employeeLoginSetupEnabled()) {
+      delete document.body.dataset.employeeAccess;
+      if (typeof view !== 'undefined') view = 'settings';
+      if (typeof render === 'function') render();
+      return;
+    }
     if (!apiBase()) {
       page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1></div></div><section class="panel"><h2>Public employee service is not connected</h2><p>Employee accounts and attendance require the public Python backend. Deploy <b>backend.py</b>, then add its HTTPS address to Streamlit secrets as <b>MSME_EMPLOYEE_API_URL</b>.</p><p>This replaces the unclear “Unsupported request” message. Clerk is not required.</p></section>`;
       return;
@@ -614,6 +625,14 @@
     const navigation = event.target.closest('[data-view]');
     if (!navigation) return;
     if (navigation.dataset.view === 'employeeaccess') {
+      if (!employeeLoginSetupEnabled()) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        delete document.body.dataset.employeeAccess;
+        if (typeof view !== 'undefined') view = 'settings';
+        if (typeof render === 'function') render();
+        return;
+      }
       document.body.dataset.employeeAccess = 'yes';
       setTimeout(adminView, 0);
     } else {

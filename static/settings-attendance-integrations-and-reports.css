@@ -1,6 +1,6 @@
 .sidebar-settings-button {
   width: calc(100% - 24px);
-  margin: 10px 12px 4px;
+  margin: auto 12px 4px;
   border: 0;
 }
 
@@ -10,7 +10,7 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
-.sidebar-footer { border-top: 0 !important; }
+.sidebar-footer { margin-top: 0 !important; border-top: 0 !important; }
 
 .settings-tabs,
 .settings-mode-grid,
