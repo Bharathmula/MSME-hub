@@ -212,6 +212,16 @@
     return rows.sort((a, b) => b.date.localeCompare(a.date));
   }
 
+  function reportVariance(row, kind) {
+    const [start, end] = shiftBounds(row);
+    const actual = parseClockMinutes(kind === 'late' ? row.login : row.logout);
+    const expected = kind === 'late' ? start : end;
+    if (actual === null || expected === null) return '—';
+    const difference = kind === 'late' ? Math.max(0, actual - expected) : Math.max(0, expected - actual);
+    if (!difference) return kind === 'late' ? 'On time' : 'Full shift';
+    return `${Math.floor(difference / 60) ? `${Math.floor(difference / 60)}h ` : ''}${difference % 60}m ${kind}`;
+  }
+
   function reportsPanel() {
     const rows = filteredReportRows();
     const present = rows.filter(row => normalizedStatus(row.status) === 'Present').length;
@@ -236,8 +246,8 @@
         <div class="report-summary-card"><b>${absent}</b><span>Absent</span></div>
         <div class="report-summary-card"><b>${leave}</b><span>On leave</span></div>
       </div>
-      <div class="table-wrap"><table><thead><tr><th>DATE</th><th>NAME</th><th>ROLE</th><th>STATUS</th><th>CHECK-IN</th><th>CHECK-OUT</th><th>WORKING HOURS</th></tr></thead><tbody>
-        ${rows.map(row => `<tr><td>${esc(row.date)}</td><td>${esc(row.name || '-')}</td><td>${esc(row.role || '-')}</td><td>${esc(row.status || '-')}</td><td>${esc(row.login || '-')}</td><td>${esc(row.logout || '-')}</td><td>${esc(row.total || row.work || '-')}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">No attendance records match this report.</td></tr>'}
+      <div class="table-wrap"><table><thead><tr><th>DATE</th><th>NAME</th><th>ROLE</th><th>STATUS</th><th>CHECK-IN</th><th>CHECK-OUT</th><th>LATE JOIN</th><th>EARLY LEFT</th><th>WORKING HOURS</th></tr></thead><tbody>
+        ${rows.map(row => `<tr><td>${esc(row.date)}</td><td>${esc(row.name || '-')}</td><td>${esc(row.role || '-')}</td><td>${esc(row.status || '-')}</td><td>${esc(row.login || '-')}</td><td>${esc(row.logout || '-')}</td><td>${esc(reportVariance(row, 'late'))}</td><td>${esc(reportVariance(row, 'early'))}</td><td>${esc(row.total || row.work || '-')}</td></tr>`).join('') || '<tr><td colspan="9" class="empty">No attendance records match this report.</td></tr>'}
       </tbody></table></div>
     </section>`;
   }

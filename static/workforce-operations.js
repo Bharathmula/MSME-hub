@@ -127,7 +127,27 @@ async function adminAttendanceRequestV33(path) {
   return payload;
 }
 
-function adminAttendancePhotoPanelV33(detail, date) {
+function attendanceVarianceV38(shiftValue, actualValue, kind, grace = 15) {
+  const parseClock = value => {
+    if (!value) return null;
+    const raw = String(value).trim(), asDate = new Date(raw);
+    if (/\d{4}-\d{2}-\d{2}T/.test(raw) && !Number.isNaN(asDate.getTime())) return asDate.getHours() * 60 + asDate.getMinutes();
+    const match = raw.match(/(\d{1,2}):(\d{2})(?:\s*([AP]M))?/i);
+    if (!match) return null;
+    let hour = Number(match[1]); const minute = Number(match[2]); const period = String(match[3] || '').toUpperCase();
+    if (period === 'PM' && hour < 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
+    return hour * 60 + minute;
+  };
+  const parts = String(shiftValue || '09:00 AM - 06:00 PM').split(/\s+-\s+/);
+  const actual = parseClock(actualValue), expected = parseClock(parts[kind === 'early' ? 1 : 0]);
+  if (actual === null || expected === null) return { minutes: 0, display: '—', active: false };
+  const difference = kind === 'late' ? Math.max(0, actual - expected - Number(grace || 0)) : Math.max(0, expected - actual);
+  const duration = `${Math.floor(difference / 60) ? `${Math.floor(difference / 60)}h ` : ''}${difference % 60}m`;
+  return { minutes: difference, display: difference ? `${duration} ${kind}` : (kind === 'late' ? 'On time' : 'Full shift'), active: difference > 0 };
+}
+
+function adminAttendancePhotoPanelV33(detail, date, person = {}) {
   const shift = detail?.attendance;
   const status = shift ? (shift.status === 'COMPLETED' ? 'Present' : 'Checked in') : 'Absent';
   const total = shift?.work_display || (shift?.status === 'COMPLETED' ? durationTextV21(shift.worked_minutes || 0) : (shift ? 'In progress' : '—'));
@@ -139,7 +159,10 @@ function adminAttendancePhotoPanelV33(detail, date) {
   const photo = (title, source) => `<figure><figcaption>${title}</figcaption>${source
     ? `<img src="${esc(source)}" alt="${title} for ${esc(date)}">`
     : `<span>No ${title.toLowerCase()}</span>`}</figure>`;
-  return `<div class="admin-person-day-summary"><div><span>Date</span><b>${esc(date)}</b></div><div><span>Status</span><b>${status}</b></div><div><span>Check-in</span><b>${displayTime(shift?.check_in_at)}</b></div><div><span>Check-out</span><b>${displayTime(shift?.check_out_at)}</b></div><div><span>Working hours</span><b>${total}</b></div></div><div class="admin-attendance-photos">${photo('Check-in photo',detail?.check_in_photo)}${photo('Check-out photo',detail?.check_out_photo)}</div>`;
+  const grace = Number(String(person.grace_period || person.grace || '15').match(/\d+/)?.[0] || 15);
+  const late = attendanceVarianceV38(person.shift, shift?.check_in_at, 'late', grace);
+  const early = attendanceVarianceV38(person.shift, shift?.check_out_at, 'early', 0);
+  return `<div class="admin-person-day-summary"><div><span>Date</span><b>${esc(date)}</b></div><div><span>Status</span><b>${status}</b></div><div><span>Check-in</span><b>${displayTime(shift?.check_in_at)}</b></div><div><span>Check-out</span><b>${displayTime(shift?.check_out_at)}</b></div><div><span>Working hours</span><b>${total}</b></div><div class="attendance-variance-box ${late.active?'warning':'ok'}"><span>Late join</span><b>${esc(late.display)}</b></div><div class="attendance-variance-box ${early.active?'warning':'ok'}"><span>Early left</span><b>${esc(early.display)}</b></div></div><div class="admin-attendance-photos">${photo('Check-in photo',detail?.check_in_photo)}${photo('Check-out photo',detail?.check_out_photo)}</div>`;
 }
 
 function localIndividualAttendanceV34(person, monthValue) {
@@ -195,7 +218,7 @@ function renderIndividualAttendanceCalendarV34(person, monthValue, records, warn
   panel.querySelector('#individual-attendance-month').onchange=changeMonth;
   panel.querySelector('#individual-attendance-year').onchange=changeMonth;
   panel.querySelector('#individual-attendance-today').onclick=()=>openIndividualAttendanceCalendarV33(person,new Date().toISOString().slice(0,7));
-  panel.querySelectorAll('[data-admin-attendance-date]').forEach(button=>button.onclick=async()=>{const date=button.dataset.adminAttendanceDate,selected=panel.querySelector('#admin-person-selected-day'),localRecord=byDate.get(date);if(button.dataset.noRecord==='yes'){selected.innerHTML=adminAttendancePhotoPanelV33({attendance:null},date);return}selected.innerHTML=adminAttendancePhotoPanelV33({attendance:localRecord},date)+'<p>Loading permanently saved photos…</p>';try{const detail=await adminAttendanceRequestV33(`/api/admin/employee-attendance-detail?employee_id=${encodeURIComponent(person.id)}&date=${encodeURIComponent(date)}`);selected.innerHTML=adminAttendancePhotoPanelV33(detail,date)}catch(error){selected.insertAdjacentHTML('beforeend',`<p class="login-error">Photos unavailable: ${esc(error.message)} Confirm that Render successfully deployed this Git commit and that DATABASE_URL is configured.</p>`)}});
+  panel.querySelectorAll('[data-admin-attendance-date]').forEach(button=>button.onclick=async()=>{const date=button.dataset.adminAttendanceDate,selected=panel.querySelector('#admin-person-selected-day'),localRecord=byDate.get(date);if(button.dataset.noRecord==='yes'){selected.innerHTML=adminAttendancePhotoPanelV33({attendance:null},date,person);return}selected.innerHTML=adminAttendancePhotoPanelV33({attendance:localRecord},date,person)+'<p>Loading permanently saved photos…</p>';try{const detail=await adminAttendanceRequestV33(`/api/admin/employee-attendance-detail?employee_id=${encodeURIComponent(person.id)}&date=${encodeURIComponent(date)}`);selected.innerHTML=adminAttendancePhotoPanelV33(detail,date,person)}catch(error){selected.insertAdjacentHTML('beforeend',`<p class="login-error">Photos unavailable: ${esc(error.message)} Confirm that Render successfully deployed this Git commit and that DATABASE_URL is configured.</p>`)}});
   const automaticDate = monthValue === today.slice(0,7)
     ? today
     : [...byDate.keys()].sort().reverse()[0];

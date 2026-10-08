@@ -106,6 +106,46 @@
       : '<span class="face-status missing">No</span>';
   }
 
+  function clockMinutes(value) {
+    if (!value) return null;
+    const raw = String(value).trim();
+    const parsedDate = new Date(raw);
+    if (/\d{4}-\d{2}-\d{2}T/.test(raw) && !Number.isNaN(parsedDate.getTime())) {
+      return parsedDate.getHours() * 60 + parsedDate.getMinutes();
+    }
+    const match = raw.match(/(\d{1,2}):(\d{2})(?:\s*([AP]M))?/i);
+    if (!match) return null;
+    let hour = Number(match[1]);
+    const minute = Number(match[2]);
+    const period = String(match[3] || '').toUpperCase();
+    if (period === 'PM' && hour < 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
+    return hour * 60 + minute;
+  }
+
+  function shiftBoundaryMinutes(shift, boundary) {
+    const parts = String(shift || '09:00 AM - 06:00 PM').split(/\s+-\s+/);
+    return clockMinutes(parts[boundary === 'end' ? 1 : 0]);
+  }
+
+  function graceMinutes(person) {
+    return Number(String(person.grace_period || person.grace || '15').match(/\d+/)?.[0] || 15);
+  }
+
+  function varianceDisplay(person, actualValue, kind) {
+    const actual = clockMinutes(actualValue);
+    if (actual === null) return '—';
+    const boundary = shiftBoundaryMinutes(person.shift, kind === 'early' ? 'end' : 'start');
+    if (boundary === null) return '—';
+    const difference = kind === 'late'
+      ? Math.max(0, actual - boundary - graceMinutes(person))
+      : Math.max(0, boundary - actual);
+    const label = difference
+      ? `${Math.floor(difference / 60) ? `${Math.floor(difference / 60)}h ` : ''}${difference % 60}m ${kind}`
+      : kind === 'late' ? 'On time' : 'Full shift';
+    return `${text(actualValue)} · ${label}`;
+  }
+
   function workforceRows(records) {
     const monthPrefix = currentMonthPrefix();
 
@@ -126,6 +166,8 @@
           <td>${esc(text(person.shift, "09:00 AM - 06:00 PM"))}</td>
           <td>${esc(text(today.login || today.login_time))}</td>
           <td>${esc(text(today.logout || today.logout_time))}</td>
+          <td><span class="attendance-variance ${varianceDisplay(person, today.login || today.login_time, 'late').includes(' late') ? 'warning' : 'ok'}">${esc(varianceDisplay(person, today.login || today.login_time, 'late'))}</span></td>
+          <td><span class="attendance-variance ${varianceDisplay(person, today.logout || today.logout_time, 'early').includes(' early') ? 'warning' : 'ok'}">${esc(varianceDisplay(person, today.logout || today.logout_time, 'early'))}</span></td>
           <td>${esc(text(today.portal_login_at))}</td>
           <td>${esc(text(today.portal_logout_at))}</td>
           <td>${faceStatus(today.checkin_face_captured || today.checkin_photo)}</td>
@@ -218,6 +260,8 @@
               <th>SHIFT TIMINGS</th>
               <th>CHECK-IN TIME</th>
               <th>CHECK-OUT TIME</th>
+              <th>LATE JOIN</th>
+              <th>EARLY LEFT</th>
               <th>PORTAL LOGIN</th>
               <th>PORTAL LOGOUT</th>
               <th>CHECK-IN FACE</th>
@@ -232,7 +276,7 @@
           <tbody>
             ${workforceRows(records) || `
               <tr>
-                <td colspan="15" class="empty">No ${esc(label.toLowerCase())} records.</td>
+                <td colspan="17" class="empty">No ${esc(label.toLowerCase())} records.</td>
               </tr>
             `}
           </tbody>

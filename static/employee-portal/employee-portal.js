@@ -101,6 +101,30 @@
     return Number.isNaN(parsed.getTime()) ? esc(value) : parsed.toLocaleString('en-IN');
   }
 
+  function attendanceVariance(shiftValue, actualValue, kind) {
+    const parseClock = value => {
+      if (!value) return null;
+      const raw = String(value).trim(), asDate = new Date(raw);
+      if (/\d{4}-\d{2}-\d{2}T/.test(raw) && !Number.isNaN(asDate.getTime())) return asDate.getHours() * 60 + asDate.getMinutes();
+      const match = raw.match(/(\d{1,2}):(\d{2})(?:\s*([AP]M))?/i);
+      if (!match) return null;
+      let hour = Number(match[1]); const minute = Number(match[2]); const period = String(match[3] || '').toUpperCase();
+      if (period === 'PM' && hour < 12) hour += 12;
+      if (period === 'AM' && hour === 12) hour = 0;
+      return hour * 60 + minute;
+    };
+    const parts = String(shiftValue || '09:00 AM - 06:00 PM').split(/\s+-\s+/);
+    const actual = parseClock(actualValue), expected = parseClock(parts[kind === 'early' ? 1 : 0]);
+    if (actual === null || expected === null) return '—';
+    const grace = kind === 'late' ? 15 : 0;
+    const difference = kind === 'late' ? Math.max(0, actual - expected - grace) : Math.max(0, expected - actual);
+    return difference ? `${Math.floor(difference / 60) ? `${Math.floor(difference / 60)}h ` : ''}${difference % 60}m ${kind}` : (kind === 'late' ? 'On time' : 'Full shift');
+  }
+
+  function employeeShift() {
+    return dashboard?.profile?.shift || dashboard?.employee?.shift || '09:00 AM - 06:00 PM';
+  }
+
   function loginFrame(content) {
     stopCamera();
     root.style.display = 'block';
@@ -214,7 +238,7 @@
     employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">TODAY</p><h1>${action === 'CHECK_IN' ? 'Ready to check in?' : 'Ready to check out?'}</h1><p>Capture a current live face photo to record your attendance.</p></section>
       <div class="ep-overview-grid">
         <section class="ep-card"><h2>Attendance status</h2><div class="ep-status ${(today?.status || 'not-started').toLowerCase()}">${esc(today?.status || 'NOT STARTED')}</div>
-          <dl class="ep-details"><div><dt>Portal login</dt><dd>${dateTime(dashboard.session?.login_at)}</dd></div><div><dt>Previous logout</dt><dd>${dateTime(dashboard.last_logout_at)}</dd></div><div><dt>Check-in</dt><dd>${dateTime(today?.check_in_at)}</dd></div><div><dt>Check-out</dt><dd>${dateTime(today?.check_out_at)}</dd></div><div><dt>Total time</dt><dd>${today?.status==='OPEN'?'In progress':duration(today?.worked_minutes || 0)}</dd></div></dl>
+          <dl class="ep-details"><div><dt>Portal login</dt><dd>${dateTime(dashboard.session?.login_at)}</dd></div><div><dt>Previous logout</dt><dd>${dateTime(dashboard.last_logout_at)}</dd></div><div><dt>Check-in</dt><dd>${dateTime(today?.check_in_at)}</dd></div><div><dt>Check-out</dt><dd>${dateTime(today?.check_out_at)}</dd></div><div><dt>Late join</dt><dd>${attendanceVariance(employeeShift(), today?.check_in_at, 'late')}</dd></div><div><dt>Early left</dt><dd>${attendanceVariance(employeeShift(), today?.check_out_at, 'early')}</dd></div><div><dt>Total time</dt><dd>${today?.status==='OPEN'?'In progress':duration(today?.worked_minutes || 0)}</dd></div></dl>
         </section>
         <section class="ep-card ep-camera-card"><h2>${esc(action.replace('_', ' '))} face capture</h2>
           <div class="ep-camera-stage"><video id="ep-camera" autoplay playsinline></video><canvas id="ep-canvas" hidden></canvas><img id="ep-face-preview" alt="Captured face" hidden><span id="ep-camera-placeholder">Camera preview</span></div>
@@ -226,7 +250,7 @@
   }
 
   function renderAttendance() {
-    const rows = dashboard.history.map(item => `<tr><td>${esc(item.work_date)}</td><td>${dateTime(item.check_in_at)}</td><td>${dateTime(item.check_out_at)}</td><td>${duration(item.worked_minutes || 0)}</td><td><span class="ep-table-status">${esc(item.status)}</span></td></tr>`).join('');
+    const rows = dashboard.history.map(item => `<tr><td>${esc(item.work_date)}</td><td>${dateTime(item.check_in_at)}</td><td>${dateTime(item.check_out_at)}</td><td>${esc(attendanceVariance(employeeShift(), item.check_in_at, 'late'))}</td><td>${esc(attendanceVariance(employeeShift(), item.check_out_at, 'early'))}</td><td>${duration(item.worked_minutes || 0)}</td><td><span class="ep-table-status">${esc(item.status)}</span></td></tr>`).join('');
     const loginRows = (dashboard.login_history || []).map(item => `<tr><td>${dateTime(item.login_at)}</td><td>${dateTime(item.logout_at)}</td><td>${item.logout_at ? 'Logged out' : 'Current / open session'}</td></tr>`).join('');
     const monthStart = new Date(attendanceCalendarMonth);
     const year = monthStart.getFullYear(), month = monthStart.getMonth(), days = new Date(year, month + 1, 0).getDate(), offset = (monthStart.getDay() + 6) % 7;
@@ -239,11 +263,11 @@
       ? selectedAttendanceDetail.attendance
       : byDate.get(selectedAttendanceDate);
     const selectedStatus = selected ? (selected.status === 'COMPLETED' ? 'Present' : 'Checked in') : (selectedAttendanceDate < todayKey ? 'Absent' : 'No attendance recorded');
-    const selectedDetails = `<div class="ep-selected-day"><div><span>Selected date</span><b>${esc(selectedAttendanceDate)}</b></div><div><span>Status</span><b class="${selectedStatus==='Present'?'present-text':selectedStatus==='Absent'?'absent-text':''}">${esc(selectedStatus)}</b></div><div><span>Check-in</span><b>${dateTime(selected?.check_in_at)}</b></div><div><span>Check-out</span><b>${dateTime(selected?.check_out_at)}</b></div><div><span>Total time</span><b>${duration(selected?.worked_minutes || 0)}</b></div></div>`;
+    const selectedDetails = `<div class="ep-selected-day"><div><span>Selected date</span><b>${esc(selectedAttendanceDate)}</b></div><div><span>Status</span><b class="${selectedStatus==='Present'?'present-text':selectedStatus==='Absent'?'absent-text':''}">${esc(selectedStatus)}</b></div><div><span>Check-in</span><b>${dateTime(selected?.check_in_at)}</b></div><div><span>Check-out</span><b>${dateTime(selected?.check_out_at)}</b></div><div><span>Late join</span><b>${esc(attendanceVariance(employeeShift(), selected?.check_in_at, 'late'))}</b></div><div><span>Early left</span><b>${esc(attendanceVariance(employeeShift(), selected?.check_out_at, 'early'))}</b></div><div><span>Total time</span><b>${duration(selected?.worked_minutes || 0)}</b></div></div>`;
     const attendancePhotos = selectedAttendanceDetail?.date === selectedAttendanceDate
       ? `<div class="ep-attendance-photos"><figure><figcaption>Check-in photo</figcaption>${selectedAttendanceDetail.check_in_photo ? `<img src="${esc(selectedAttendanceDetail.check_in_photo)}" alt="Check-in face captured on ${esc(selectedAttendanceDate)}">` : '<span>No check-in photo</span>'}</figure><figure><figcaption>Check-out photo</figcaption>${selectedAttendanceDetail.check_out_photo ? `<img src="${esc(selectedAttendanceDetail.check_out_photo)}" alt="Check-out face captured on ${esc(selectedAttendanceDate)}">` : '<span>No check-out photo</span>'}</figure></div>`
       : '<p class="ep-photo-loading">Loading selected date photos…</p>';
-    employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">MY RECORDS</p><h1>Attendance</h1><p>Choose a month and click a date to see that day's attendance, working hours and saved face photos.</p></section><section class="ep-card ep-personal-calendar attendance-calendar-panel advanced-calendar-panel"><div class="advanced-calendar-toolbar"><button type="button" class="calendar-nav-button" id="ep-calendar-previous" aria-label="Previous month">‹</button><div class="calendar-title-block"><small>SELECTED MONTH</small><h2>${monthStart.toLocaleString('en-IN',{month:'long',year:'numeric'})}</h2></div><button type="button" class="calendar-nav-button" id="ep-calendar-next" aria-label="Next month">›</button><div class="calendar-month-year-picker"><label>Month<select id="ep-calendar-month">${monthOptions}</select></label><label>Year<select id="ep-calendar-year">${yearOptions}</select></label><button type="button" id="ep-calendar-today" class="calendar-today-button">Today</button></div></div><div class="ep-calendar-weekdays">${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day=>`<b>${day}</b>`).join('')}</div><div class="ep-calendar-grid attendance-calendar">${calendar}</div><div class="calendar-legend"><span><i class="legend-today">✓</i> Today</span><span><i class="ep-legend-present"></i> Present</span><span><i class="ep-legend-absent"></i> Absent</span><b>Click a date for details</b></div>${selectedDetails}${attendancePhotos}</section><section class="ep-card"><h2>Attendance history</h2><div class="ep-table-wrap"><table><thead><tr><th>Date</th><th>Check-in</th><th>Check-out</th><th>Total time</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="5">No attendance recorded.</td></tr>'}</tbody></table></div></section><section class="ep-card"><h2>Portal login and logout history</h2><div class="ep-table-wrap"><table><thead><tr><th>Login time</th><th>Logout time</th><th>Session status</th></tr></thead><tbody>${loginRows || '<tr><td colspan="3">No login sessions recorded.</td></tr>'}</tbody></table></div></section>`);
+    employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">MY RECORDS</p><h1>Attendance</h1><p>Choose a month and click a date to see that day's attendance, working hours and saved face photos.</p></section><section class="ep-card ep-personal-calendar attendance-calendar-panel advanced-calendar-panel"><div class="advanced-calendar-toolbar"><button type="button" class="calendar-nav-button" id="ep-calendar-previous" aria-label="Previous month">‹</button><div class="calendar-title-block"><small>SELECTED MONTH</small><h2>${monthStart.toLocaleString('en-IN',{month:'long',year:'numeric'})}</h2></div><button type="button" class="calendar-nav-button" id="ep-calendar-next" aria-label="Next month">›</button><div class="calendar-month-year-picker"><label>Month<select id="ep-calendar-month">${monthOptions}</select></label><label>Year<select id="ep-calendar-year">${yearOptions}</select></label><button type="button" id="ep-calendar-today" class="calendar-today-button">Today</button></div></div><div class="ep-calendar-weekdays">${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day=>`<b>${day}</b>`).join('')}</div><div class="ep-calendar-grid attendance-calendar">${calendar}</div><div class="calendar-legend"><span><i class="legend-today">✓</i> Today</span><span><i class="ep-legend-present"></i> Present</span><span><i class="ep-legend-absent"></i> Absent</span><b>Click a date for details</b></div>${selectedDetails}${attendancePhotos}</section><section class="ep-card"><h2>Attendance history</h2><div class="ep-table-wrap"><table><thead><tr><th>Date</th><th>Check-in</th><th>Check-out</th><th>Late join</th><th>Early left</th><th>Total time</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="7">No attendance recorded.</td></tr>'}</tbody></table></div></section><section class="ep-card"><h2>Portal login and logout history</h2><div class="ep-table-wrap"><table><thead><tr><th>Login time</th><th>Logout time</th><th>Session status</th></tr></thead><tbody>${loginRows || '<tr><td colspan="3">No login sessions recorded.</td></tr>'}</tbody></table></div></section>`);
     root.querySelector('#ep-calendar-previous').onclick=()=>{attendanceCalendarMonth=new Date(year,month-1,1);selectedAttendanceDate=`${attendanceCalendarMonth.getFullYear()}-${String(attendanceCalendarMonth.getMonth()+1).padStart(2,'0')}-01`;renderAttendance()};
     root.querySelector('#ep-calendar-next').onclick=()=>{attendanceCalendarMonth=new Date(year,month+1,1);selectedAttendanceDate=`${attendanceCalendarMonth.getFullYear()}-${String(attendanceCalendarMonth.getMonth()+1).padStart(2,'0')}-01`;renderAttendance()};
     const changeCalendarMonth=()=>{const nextYear=Number(root.querySelector('#ep-calendar-year').value),nextMonth=Number(root.querySelector('#ep-calendar-month').value);attendanceCalendarMonth=new Date(nextYear,nextMonth,1);selectedAttendanceDate=`${nextYear}-${String(nextMonth+1).padStart(2,'0')}-01`;renderAttendance()};

@@ -238,7 +238,7 @@ class StaticRegressionTests(unittest.TestCase):
         authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(encoding="utf-8")
         styles = (ROOT / "static" / "owned-authentication.css").read_text(encoding="utf-8")
         self.assertIn("Go to Workspace", authentication)
-        self.assertIn("Start 30-Day Free Trial", authentication)
+        self.assertIn("Create Your Workspace", authentication)
         self.assertIn("openLandingAuth('signin')", authentication)
         self.assertIn("openLandingAuth('signup')", authentication)
         self.assertIn("Existing customers can sign in", authentication)
