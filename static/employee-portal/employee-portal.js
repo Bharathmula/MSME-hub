@@ -554,7 +554,7 @@
 
   function employeeLoginSetupEnabled() {
     const navigation = document.querySelector('.nav-link[data-view="employeeaccess"]');
-    return Boolean(navigation && !navigation.hidden && navigation.getAttribute('aria-hidden') !== 'true');
+    return Boolean(navigation && !navigation.disabled && navigation.getAttribute('aria-disabled') !== 'true');
   }
 
   async function adminView() {

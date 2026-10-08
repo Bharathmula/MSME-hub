@@ -12,6 +12,19 @@
 
 .sidebar-footer { margin-top: 0 !important; border-top: 0 !important; }
 
+.nav-link.employee-setup-disabled,
+.nav-link.employee-setup-disabled:hover {
+  opacity: 0.42;
+  background: transparent !important;
+  color: inherit !important;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
+
+.manual-attendance-switch.manual-mode-off { opacity: 0.58; }
+.manual-attendance-switch.manual-mode-off label { cursor: not-allowed; }
+.manual-attendance-switch.manual-mode-on { opacity: 1; }
+
 .settings-tabs,
 .settings-mode-grid,
 .report-summary-grid {

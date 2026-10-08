@@ -493,6 +493,16 @@ const automaticAttendanceDraftsV21 = new Map();
 const automaticAttendanceLoadedV21 = new Set();
 const automaticAttendanceSignaturesV21 = new Map();
 
+function configuredAttendanceModeV39() {
+  try {
+    const settings = JSON.parse(localStorage.getItem(tenantKey('attendance-integration-settings')) || '{}');
+    const modes = Array.isArray(settings.modes) ? settings.modes.filter(Boolean) : ['face'];
+    return modes.length ? modes[modes.length - 1] : '';
+  } catch (_) {
+    return 'face';
+  }
+}
+
 function indiaAttendanceDateV37(date = new Date()) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
@@ -663,6 +673,7 @@ function calendarTemporarySectionV21(record) {
 }
 
 window.attendanceCalendar = function attendanceCalendarWithRoleSections() {
+  manualAttendanceEnabledV21 = configuredAttendanceModeV39() === 'manual';
   const date = new Date(`${calendarDay}T00:00:00`);
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -689,7 +700,7 @@ window.attendanceCalendar = function attendanceCalendarWithRoleSections() {
         return `<button class="attendance-day ${key === calendarDay ? 'selected' : ''}" data-attendance-date="${key}">
           <b>${index + 1}</b><small>${entry ? `${present} present` : 'Not saved'}</small></button>`;
       }).join('')}</div>
-      <div class="manual-attendance-switch"><span><b>Enter manually</b><small>Turn on only when you need to override or enter attendance yourself.</small></span><button type="button" id="refresh-automatic-attendance" class="secondary">Refresh automatic attendance</button><label><input type="checkbox" id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? 'checked' : ''}><i></i><b>${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b></label></div></section>
+      <div class="manual-attendance-switch ${manualAttendanceEnabledV21 ? 'manual-mode-on' : 'manual-mode-off'}"><span><b>Enter manually</b><small>Controlled by the attendance method selected in Settings.</small></span><button type="button" id="refresh-automatic-attendance" class="secondary">Refresh automatic attendance</button><label title="Change this from Settings → Attendance Integration"><input type="checkbox" id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? 'checked' : ''} disabled aria-disabled="true"><i></i><b>${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b></label></div></section>
     <div class="calendar-role-sections">
       ${calendarTemporarySectionV21(record)}
       ${calendarRoleSectionV21('Workers', 'Worker', record)}
@@ -795,7 +806,7 @@ document.addEventListener('click', event => {
   const manualToggle = event.target.closest('#manual-attendance-toggle');
   const refreshAutomatic = event.target.closest('#refresh-automatic-attendance');
   if (manualToggle) {
-    manualAttendanceEnabledV21 = manualToggle.checked;
+    manualAttendanceEnabledV21 = configuredAttendanceModeV39() === 'manual';
     attendanceCalendar();
     return;
   }

@@ -28,8 +28,11 @@
   }
 
   function integrationSettings() {
+    const stored = readJson(settingsKey(), {});
+    const storedModes = Array.isArray(stored.modes) ? stored.modes.filter(Boolean) : ['face'];
+    const selectedMode = storedModes.length ? storedModes[storedModes.length - 1] : null;
     return {
-      modes: ['face'],
+      modes: selectedMode ? [selectedMode] : [],
       provider: '',
       softwareUrl: '',
       endpoint: '',
@@ -38,7 +41,8 @@
       apiUsername: '',
       secretReference: '',
       syncInterval: '15',
-      ...readJson(settingsKey(), {}),
+      ...stored,
+      modes: selectedMode ? [selectedMode] : [],
     };
   }
 
@@ -50,8 +54,11 @@
     const enabled = integrationSettings().modes.includes('face');
     const navigation = document.querySelector('.nav-link[data-view="employeeaccess"]');
     if (navigation) {
-      navigation.hidden = !enabled;
-      navigation.setAttribute('aria-hidden', String(!enabled));
+      navigation.hidden = false;
+      navigation.disabled = !enabled;
+      navigation.classList.toggle('employee-setup-disabled', !enabled);
+      navigation.setAttribute('aria-disabled', String(!enabled));
+      navigation.title = enabled ? 'Open Employee Login Setup' : 'Turn on Face Authentication in Settings to enable Employee Login Setup';
     }
     return enabled;
   }
@@ -433,7 +440,7 @@
       const current = integrationSettings();
       const mode = modeButton.dataset.attendanceMode;
       const selected = !current.modes.includes(mode);
-      const modes = selected ? [...new Set([...current.modes, mode])] : current.modes.filter(item => item !== mode);
+      const modes = selected ? [mode] : [];
       saveIntegrationSettings({ ...current, modes });
       updateEmployeeLoginSetupVisibility();
       if (selected && mode === 'face') {
