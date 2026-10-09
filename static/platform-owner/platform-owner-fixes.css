@@ -27,7 +27,7 @@
   stroke: #4050ff;
 }
 
-/* Match the public welcome hero while preserving the private owner sign-in. */
+/* Use the Developer Platform composition without mirroring the India artwork. */
 .owner-login {
   position: relative;
   isolation: isolate;
@@ -48,7 +48,7 @@
   position: absolute;
   z-index: -2;
   inset: 0;
-  background: url("/assets/msme-welcome-hero.png") center / cover no-repeat;
+  background: url("/assets/developer-platform-hero.png") center / cover no-repeat;
 }
 
 .owner-login .login-brand {

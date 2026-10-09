@@ -30,6 +30,7 @@ class EmployeePortalTests(unittest.TestCase):
   os.environ['MSME_PLATFORM_OWNER_EMAIL']='platform.owner@example.com';os.environ['MSME_PLATFORM_OWNER_PASSWORD']='PlatformOwner123!'
   try:
    page=self.c.get('/platform-owner');self.assertEqual(page.status_code,200,page.text);self.assertIn(b'DEVELOPER DASHBOARD',page.data);self.assertIn(b'MSME M logo',page.data);self.assertIn(b'M20 61 39 15',page.data);self.assertIn(b'owner-input-wrap',page.data);self.assertIn(b'owner-field-icon',page.data);self.assertIn(b'owner-password-toggle',page.data);self.assertIn(b'owner-account-control',page.data);self.assertIn(b'owner-current-date',page.data);self.assertIn(b'platform-owner-fixes.css',page.data);self.assertNotIn(b'Use the private owner credentials configured on Render.',page.data);self.assertNotIn(b'Separate owner access',page.data);self.assertNotIn(b'Manage Workforce',page.data);page.close()
+   hero=self.c.get('/assets/developer-platform-hero.png');self.assertEqual(hero.status_code,200);self.assertEqual(hero.mimetype,'image/png');hero.close()
    signed_in=self.c.post('/api/platform-owner/login',json={'email':'platform.owner@example.com','password':'PlatformOwner123!'});self.assertEqual(signed_in.status_code,200,signed_in.text)
    owner_headers=self.headers(signed_in.json['access_token'])
    overview=self.c.get('/api/platform-owner/overview',headers=owner_headers);self.assertEqual(overview.status_code,200,overview.text)
