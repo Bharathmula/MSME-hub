@@ -29,12 +29,12 @@ class EmployeePortalTests(unittest.TestCase):
   previous_email=os.environ.get('MSME_PLATFORM_OWNER_EMAIL');previous_password=os.environ.get('MSME_PLATFORM_OWNER_PASSWORD')
   os.environ['MSME_PLATFORM_OWNER_EMAIL']='platform.owner@example.com';os.environ['MSME_PLATFORM_OWNER_PASSWORD']='PlatformOwner123!'
   try:
-   page=self.c.get('/platform-owner');self.assertEqual(page.status_code,200,page.text);self.assertIn(b'PLATFORM OWNER ACCESS',page.data);self.assertIn(b'MSME M logo',page.data);self.assertIn(b'platform-owner-fixes.css',page.data);page.close()
+   page=self.c.get('/platform-owner');self.assertEqual(page.status_code,200,page.text);self.assertIn(b'PLATFORM OWNER',page.data);self.assertIn(b'MSME M logo',page.data);self.assertIn(b'M20 61 39 15',page.data);self.assertIn(b'owner-password-toggle',page.data);self.assertIn(b'platform-owner-fixes.css',page.data);page.close()
    signed_in=self.c.post('/api/platform-owner/login',json={'email':'platform.owner@example.com','password':'PlatformOwner123!'});self.assertEqual(signed_in.status_code,200,signed_in.text)
    owner_headers=self.headers(signed_in.json['access_token'])
    overview=self.c.get('/api/platform-owner/overview',headers=owner_headers);self.assertEqual(overview.status_code,200,overview.text)
    company=next(item for item in overview.json['companies'] if item['owner_email']==tenant);company_id=company['company_id'];self.assertEqual(company['employee_count'],2);self.assertEqual(company['roles']['temporary'],1)
-   self.assertGreaterEqual(overview.json['totals']['employees'],2);self.assertIn('neon',overview.json['infrastructure']);self.assertIn('cloudflare',overview.json['infrastructure']);self.assertIn('render',overview.json['infrastructure']);self.assertIn('streamlit',overview.json['infrastructure']);self.assertIsNotNone(overview.json['infrastructure']['neon']['used_bytes'])
+   self.assertGreaterEqual(overview.json['totals']['employees'],2);self.assertIn('r2_object_count',company);self.assertIn('neon',overview.json['infrastructure']);self.assertIn('cloudflare',overview.json['infrastructure']);self.assertIn('render',overview.json['infrastructure']);self.assertIn('streamlit',overview.json['infrastructure']);self.assertIsNotNone(overview.json['infrastructure']['neon']['used_bytes'])
    plan=self.c.patch(f'/api/platform-owner/companies/{company_id}/plan',json={'plan_code':'PLUS','billing_cycle':'MONTHLY','employee_limit':25},headers=owner_headers);self.assertEqual(plan.status_code,200,plan.text)
    suspended=self.c.patch(f'/api/platform-owner/companies/{company_id}/status',json={'status':'SUSPENDED','reason':'Owner dashboard test'},headers=owner_headers);self.assertEqual(suspended.status_code,200,suspended.text)
    self.assertEqual(self.c.post('/api/auth/login',json={'email':tenant,'password':password}).status_code,403)

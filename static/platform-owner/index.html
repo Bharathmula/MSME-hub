@@ -14,10 +14,10 @@
   <section class="owner-login" id="owner-login">
     <div class="login-brand">
       <div class="brand-lockup">
-        <svg class="msme-mark" viewBox="0 0 120 76" role="img" aria-label="MSME M logo"><defs><linearGradient id="owner-msme-pink" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff49cf"/><stop offset=".58" stop-color="#d22df0"/><stop offset="1" stop-color="#6848ff"/></linearGradient><linearGradient id="owner-msme-fold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b2be5"/><stop offset=".52" stop-color="#253eea"/><stop offset="1" stop-color="#087fff"/></linearGradient><linearGradient id="owner-msme-cyan" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#18d4e8"/><stop offset=".52" stop-color="#0a9ef2"/><stop offset="1" stop-color="#4350ff"/></linearGradient><linearGradient id="owner-msme-blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#165df7"/><stop offset="1" stop-color="#4f3dff"/></linearGradient></defs><path d="M12 61 35 15" fill="none" stroke="url(#owner-msme-pink)"/><path d="M35 15 59 61" fill="none" stroke="url(#owner-msme-fold)"/><path d="M59 61 83 15" fill="none" stroke="url(#owner-msme-cyan)"/><path d="M83 15 108 61" fill="none" stroke="url(#owner-msme-blue)"/></svg>
+        <svg class="msme-mark" viewBox="0 0 120 76" role="img" aria-label="MSME M logo"><defs><linearGradient id="owner-msme-pink" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#9b45ff"/><stop offset=".55" stop-color="#dd3df1"/><stop offset="1" stop-color="#ff63e4"/></linearGradient><linearGradient id="owner-msme-fold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d949ee"/><stop offset=".52" stop-color="#713cf0"/><stop offset="1" stop-color="#3c45f4"/></linearGradient><linearGradient id="owner-msme-cyan" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#149fe9"/><stop offset=".52" stop-color="#18c9ed"/><stop offset="1" stop-color="#24d7ef"/></linearGradient><linearGradient id="owner-msme-blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#15c5ec"/><stop offset=".5" stop-color="#246cf3"/><stop offset="1" stop-color="#4939ef"/></linearGradient></defs><path d="M20 61 39 15" fill="none" stroke="url(#owner-msme-pink)"/><path d="M39 15 59 61" fill="none" stroke="url(#owner-msme-fold)"/><path d="M59 61 79 15" fill="none" stroke="url(#owner-msme-cyan)"/><path d="M79 15 100 61" fill="none" stroke="url(#owner-msme-blue)"/></svg>
         <div><b>MSME</b><span>Track · Manage · Grow</span></div>
       </div>
-      <div class="login-copy"><p>PLATFORM OWNER ACCESS</p><h1 id="platform-dashboard-name">DEVELOPER DASHBOARD</h1><span>Monitor company accounts, subscriptions, employees, storage and platform health without entering a customer workspace.</span></div>
+      <div class="login-copy"><p id="platform-dashboard-name">DEVELOPER DASHBOARD</p><h1 class="owner-hero-title"><span>MSME</span><i>MULTI SKILL</i><i>PLANNER</i></h1><em class="owner-hero-line"></em><span>A smart workforce management system for Indian MSMEs to plan, manage and optimize employee skills, attendance and efficiency.</span><div class="owner-hero-benefits"><span><b>♙</b>Manage Workforce</span><span><b>▥</b>Track Attendance</span><span><b>⚙</b>Grow Together</span></div></div>
       <div class="security-note"><b>Separate owner access</b><span>This account is independent from all company administrator and employee accounts.</span></div>
     </div>
     <div class="login-form-wrap">
@@ -26,7 +26,7 @@
         <h2>Sign in</h2>
         <p>Use the private owner credentials configured on Render.</p>
         <label>OWNER EMAIL<input type="email" name="email" autocomplete="username" required></label>
-        <label>PASSWORD<input type="password" name="password" autocomplete="current-password" required minlength="8"></label>
+        <label>PASSWORD<span class="owner-password-wrap"><input type="password" name="password" autocomplete="current-password" required minlength="8"><button type="button" id="owner-password-toggle" aria-label="Show password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></button></span></label>
         <p class="message" id="login-message"></p>
         <button class="primary" type="submit">Open owner dashboard</button>
         <small id="configuration-note"></small>
@@ -37,7 +37,7 @@
   <div class="owner-app" id="owner-app" hidden>
     <aside class="sidebar">
       <div class="brand-lockup compact">
-        <svg class="msme-mark" viewBox="0 0 120 76" aria-hidden="true"><path d="M12 61 35 15"/><path d="M35 15 59 61"/><path d="M59 61 83 15"/><path d="M83 15 108 61"/></svg>
+        <svg class="msme-mark" viewBox="0 0 120 76" aria-hidden="true"><path d="M20 61 39 15"/><path d="M39 15 59 61"/><path d="M59 61 79 15"/><path d="M79 15 100 61"/></svg>
         <div><b>MSME</b><span>Track · Manage · Grow</span></div>
       </div>
       <nav>

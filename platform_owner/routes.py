@@ -480,12 +480,15 @@ def owner_overview():
         db.close()
     r2 = r2_usage_snapshot()
     company_r2 = r2.get("company_bytes", {})
+    company_r2_objects = r2.get("company_objects", {})
     for company in companies:
-        company["r2_storage_bytes"] = int(
-            company_r2.get(tenant_storage_key(company["owner_email"]), 0)
-        )
+        storage_key = tenant_storage_key(company["owner_email"])
+        company["r2_storage_bytes"] = int(company_r2.get(storage_key, 0))
+        company["r2_object_count"] = int(company_r2_objects.get(storage_key, 0))
     total_employees = sum(item["employee_count"] for item in companies)
-    total_photos = sum(item["photo_count"] for item in companies)
+    database_photo_count = sum(item["photo_count"] for item in companies)
+    live_r2_object_count = int(r2.get("object_count") or 0)
+    total_photos = max(database_photo_count, live_r2_object_count)
     total_database_bytes = sum(
         item["database_bytes_estimate"] for item in companies
     )
@@ -546,6 +549,8 @@ def owner_overview():
                 ),
                 "employees": total_employees,
                 "photos": total_photos,
+                "database_photo_references": database_photo_count,
+                "r2_objects": live_r2_object_count,
                 "r2_photos": sum(item["r2_photo_count"] for item in companies),
                 "database_bytes_estimate": total_database_bytes,
                 "persistent_storage_used_bytes": persistent_used,

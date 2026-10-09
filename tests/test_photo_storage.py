@@ -93,6 +93,7 @@ class PhotoStorageTests(unittest.TestCase):
         self.assertEqual(snapshot["object_count"], 2)
         self.assertEqual(snapshot["used_bytes"], 500)
         self.assertEqual(snapshot["company_bytes"][tenant_hash], 500)
+        self.assertEqual(snapshot["company_objects"][tenant_hash], 2)
 
 
 if __name__ == "__main__":

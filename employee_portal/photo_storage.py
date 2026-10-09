@@ -25,7 +25,7 @@ CONTENT_EXTENSIONS = {
     "image/png": "png",
     "image/webp": "webp",
 }
-R2_USAGE_CACHE_SECONDS = 300
+R2_USAGE_CACHE_SECONDS = 60
 _usage_lock = threading.Lock()
 _usage_cache: dict = {"key": None, "expires": 0.0, "value": None}
 
@@ -119,6 +119,7 @@ def r2_usage_snapshot(*, force: bool = False) -> dict:
             "used_bytes": 0,
             "object_count": 0,
             "company_bytes": {},
+            "company_objects": {},
             "error": "Cloudflare R2 is not configured.",
         }
     cache_key = (
@@ -139,6 +140,7 @@ def r2_usage_snapshot(*, force: bool = False) -> dict:
     total_bytes = 0
     object_count = 0
     company_bytes: dict[str, int] = {}
+    company_objects: dict[str, int] = {}
     try:
         paginator = _client().get_paginator("list_objects_v2")
         for page in paginator.paginate(Bucket=bucket):
@@ -149,12 +151,14 @@ def r2_usage_snapshot(*, force: bool = False) -> dict:
                 parts = str(item.get("Key") or "").split("/")
                 if len(parts) > 1 and parts[0] == "companies" and parts[1]:
                     company_bytes[parts[1]] = company_bytes.get(parts[1], 0) + size
+                    company_objects[parts[1]] = company_objects.get(parts[1], 0) + 1
         value = {
             "configured": True,
             "available": True,
             "used_bytes": total_bytes,
             "object_count": object_count,
             "company_bytes": company_bytes,
+            "company_objects": company_objects,
             "checked_at": datetime.now(timezone.utc).isoformat(),
             "error": "",
         }
@@ -165,6 +169,7 @@ def r2_usage_snapshot(*, force: bool = False) -> dict:
             "used_bytes": 0,
             "object_count": 0,
             "company_bytes": {},
+            "company_objects": {},
             "error": "Cloudflare R2 usage is temporarily unavailable.",
         }
     with _usage_lock:
