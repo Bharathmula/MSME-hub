@@ -200,13 +200,6 @@ CREATE TABLE IF NOT EXISTS company_subscriptions (
     updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_employee_accounts_tenant_role ON employee_accounts(tenant_email, workforce_role);
-CREATE INDEX IF NOT EXISTS idx_employee_accounts_company_role ON employee_accounts(company_id, workforce_role);
-CREATE INDEX IF NOT EXISTS idx_tenant_workspaces_company ON tenant_workspaces(company_id);
-CREATE INDEX IF NOT EXISTS idx_workspace_backups_company_created ON tenant_workspace_backups(company_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_employee_shifts_company_date ON employee_shifts(company_id, work_date DESC);
-CREATE INDEX IF NOT EXISTS idx_employee_events_company_time ON employee_attendance_events(company_id, server_timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_employee_audit_company_created ON employee_audit_log(company_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_employee_sessions_company_login ON employee_login_sessions(company_id, login_at DESC);
 CREATE INDEX IF NOT EXISTS idx_workspace_backups_tenant_created ON tenant_workspace_backups(tenant_email, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_employee_events_time ON employee_attendance_events(server_timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_employee_login_sessions_account ON employee_login_sessions(employee_account_id, login_at DESC);
