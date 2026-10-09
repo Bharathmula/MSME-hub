@@ -528,6 +528,49 @@ function automaticTimeV21(value) {
   return new Date(value).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
+function automaticGraceDeadlineV40(person) {
+  const shiftStart = String(person?.shift || '').split(/\s+(?:-|–|—)\s+/)[0].trim();
+  const start = minutes(shiftStart) ?? minutes(admin?.shift_start || '09:00') ?? 540;
+  const graceValue = String(person?.grace_period || person?.grace || '15 min').trim();
+  const fixedDeadline = /:|\b(?:AM|PM)\b/i.test(graceValue) ? minutes(graceValue) : null;
+  const graceMinutes = Number(graceValue.match(/\d+/)?.[0] || 15);
+  return fixedDeadline ?? start + graceMinutes;
+}
+
+function indiaClockMinutesV40(date = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+  }).formatToParts(date).filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+  return Number(parts.hour) * 60 + Number(parts.minute) + Number(parts.second) / 60;
+}
+
+function automaticNoCheckinStatusV40(person, date, now = new Date()) {
+  const today = indiaAttendanceDateV37(now);
+  if (date < today) return 'Absent';
+  if (date > today) return 'Not checked in';
+  return indiaClockMinutesV40(now) > automaticGraceDeadlineV40(person) ? 'Absent' : 'Not checked in';
+}
+
+function missingAutomaticAttendanceV40(person, date) {
+  return {
+    id: person.id,
+    name: person.name,
+    email: person.email || '',
+    role: person.role || 'Worker',
+    status: automaticNoCheckinStatusV40(person, date),
+    login: '', logout: '', work: '-', half: '-', overtime: '-', total: '-',
+    shift: person.shift || `${admin?.shift_start || '09:00'} - ${admin?.shift_end || '18:00'}`,
+    grace: person.grace_period || person.grace || '15 min',
+    checkin_face_captured: false,
+    checkout_face_captured: false,
+    face_captured: false,
+    portal_login_at: '',
+    portal_logout_at: '',
+    profile_details: {},
+    source: 'Automatic no check-in'
+  };
+}
+
 function combinedAttendanceRecordV21(date, savedRecord) {
   const automatic = automaticAttendanceDraftsV21.get(date) || [];
   if (!automatic.length) return savedRecord;
@@ -580,8 +623,8 @@ async function syncAutomaticAttendanceV21(date, force = false) {
     const response = await fetch(`${base}/api/admin/employee-attendance?date=${encodeURIComponent(date)}`, { headers: { Authorization: `Bearer ${token}` } });
     const payload = await response.json();
     if (!response.ok) throw Error(payload.error || 'Automatic attendance could not be loaded.');
-    const mappedAttendance = payload.attendance.map(item => {
-      const workforce = [...people, ...temporaryWorkers];
+    const workforce = [...people, ...temporaryWorkers];
+    const mappedFromApi = payload.attendance.map(item => {
       const normalizedEmail = String(item.email || '').trim().toLowerCase();
       const person = workforce.find(record => record.id === item.employee_id)
         || workforce.find(record => normalizedEmail && String(record.email || '').trim().toLowerCase() === normalizedEmail);
@@ -602,11 +645,17 @@ async function syncAutomaticAttendanceV21(date, force = false) {
       source: 'Face check-in / check-out'
       };
     });
+    const mappedIds = new Set(mappedFromApi.map(record => record.id));
+    const mappedEmails = new Set(mappedFromApi.map(record => String(record.email || '').trim().toLowerCase()).filter(Boolean));
+    const missingAttendance = workforce
+      .filter(person => !mappedIds.has(person.id)
+        && !mappedEmails.has(String(person.email || '').trim().toLowerCase()))
+      .map(person => missingAutomaticAttendanceV40(person, date));
+    const mappedAttendance = [...mappedFromApi, ...missingAttendance];
     const signature = JSON.stringify(mappedAttendance);
     const changed = automaticAttendanceSignaturesV21.get(date) !== signature;
     automaticAttendanceSignaturesV21.set(date, signature);
     automaticAttendanceDraftsV21.set(date, mappedAttendance);
-    const workforce = [...people, ...temporaryWorkers];
     const manualToday = new Map((attendanceLog.find(day => day.date === date)?.records || [])
       .filter(record => record.source === 'Manual attendance')
       .map(record => [record.id, record]));

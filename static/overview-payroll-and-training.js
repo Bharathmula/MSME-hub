@@ -1135,7 +1135,7 @@ function enhanceContractorForm() {
 
 function attendanceStatusCounts(records) {
   const list = Array.isArray(records) ? records : [];
-  const uncertain = new Set(['On leave', 'Not sure', 'Not sure absent', 'Pending']);
+  const uncertain = new Set(['On leave', 'Not checked in', 'Not sure', 'Not sure absent', 'Pending']);
   return {
     total: list.length,
     present: list.filter(item => item.status === 'Present').length,

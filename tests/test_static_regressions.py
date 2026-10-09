@@ -200,6 +200,22 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("refreshUpdateLabel();", dashboard_refresh)
         self.assertIn("refreshOperationsEnhancements();", dashboard_refresh)
 
+    def test_no_checkin_becomes_absent_only_after_same_day_grace_deadline(self):
+        controls = (ROOT / "static" / "dashboard-attendance-controls.js").read_text(
+            encoding="utf-8"
+        )
+        overview = (ROOT / "static" / "overview-payroll-and-training.js").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("function automaticGraceDeadlineV40", controls)
+        self.assertIn("function automaticNoCheckinStatusV40", controls)
+        self.assertIn("indiaAttendanceDateV37(now)", controls)
+        self.assertIn("return 'Absent';", controls)
+        self.assertIn("return 'Not checked in';", controls)
+        self.assertIn("missingAutomaticAttendanceV40(person, date)", controls)
+        self.assertIn("'Not checked in'", overview)
+
     def test_settings_has_company_attendance_integrations_and_reports(self):
         index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
         settings = (ROOT / "static" / "settings-attendance-integrations-and-reports.js").read_text(encoding="utf-8")
