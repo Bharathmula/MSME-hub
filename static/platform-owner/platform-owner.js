@@ -5,6 +5,7 @@
   let state={companies:[],totals:{},system:{},plans:[],audit:[]};
   let section='overview';
   let selected=null;
+  const dashboardName=()=>$('#platform-dashboard-name')?.textContent.trim()||'Developer Dashboard';
   const token=()=>sessionStorage.getItem(tokenKey)||'';
   async function api(path,options={}){
     const response=await fetch(path,{...options,cache:'no-store',headers:{'Content-Type':'application/json',...(options.headers||{}),...(token()?{Authorization:`Bearer ${token()}`}:{})}});
@@ -35,7 +36,7 @@
     search?.addEventListener('input',apply);filter?.addEventListener('change',apply);
   }
   function render(){
-    const totals=state.totals||{};$('#page-title').textContent=section==='companies'?'Company management':section==='activity'?'Owner activity':'SaaS overview';
+    const totals=state.totals||{};$('#page-title').textContent=section==='companies'?'Company management':section==='activity'?'Owner activity':dashboardName();
     document.querySelectorAll('.nav').forEach(item=>item.classList.toggle('active',item.dataset.section===section));
     if(section==='overview'){$('#owner-root').innerHTML=`<div class="metric-grid">${metric('Registered companies',totals.companies||0,`${totals.active_companies||0} active`,'▤')}${metric('Employees',totals.employees||0,'Across every company','♙')}${metric('Private photos',totals.photos||0,`${totals.r2_photos||0} in Cloudflare R2`,'▣')}${metric('Estimated database data',moneyBytes(totals.database_bytes_estimate),'Workspace and profile records','◫')}</div><div class="dashboard-grid"><div>${companyPanel(state.companies.slice(0,8))}</div><div>${systemPanel()}<div style="height:20px"></div>${activityPanel(6)}</div></div>`;bindCompanyTable();return}
     if(section==='companies'){$('#owner-root').innerHTML=companyPanel();bindCompanyTable();return}
