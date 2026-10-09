@@ -31,12 +31,8 @@
 .owner-login {
   position: relative;
   isolation: isolate;
-  background-image:
-    linear-gradient(90deg, rgba(0, 12, 43, 0.3), rgba(0, 12, 43, 0.05) 54%, rgba(9, 16, 65, 0.2)),
-    url("/assets/msme-welcome-hero.png");
-  background-position: center;
-  background-size: cover;
-  background-repeat: no-repeat;
+  grid-template-columns: minmax(380px, 0.9fr) minmax(420px, 1.1fr);
+  background: #020b20;
 }
 
 .owner-login::before {
@@ -44,7 +40,26 @@
   position: absolute;
   z-index: -1;
   inset: 0;
-  background: linear-gradient(90deg, rgba(0, 10, 38, 0.55), rgba(0, 10, 38, 0.06) 55%, rgba(2, 10, 35, 0.23));
+  background: linear-gradient(270deg, rgba(0, 10, 38, 0.55), rgba(0, 10, 38, 0.06) 55%, rgba(2, 10, 35, 0.23));
+}
+
+.owner-login::after {
+  content: "";
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  background: url("/assets/msme-welcome-hero.png") center / cover no-repeat;
+  transform: scaleX(-1);
+}
+
+.owner-login .login-brand {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.owner-login .login-form-wrap {
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .owner-login .login-brand,
@@ -429,6 +444,25 @@
 
   .overview-lower-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1000px) {
+  .owner-login {
+    grid-template-columns: 1fr;
+  }
+
+  .owner-login .login-brand,
+  .owner-login .login-form-wrap {
+    grid-column: 1;
+  }
+
+  .owner-login .login-brand {
+    grid-row: 1;
+  }
+
+  .owner-login .login-form-wrap {
+    grid-row: 2;
   }
 }
 
