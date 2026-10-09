@@ -15,8 +15,12 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash
 
 from authentication.subscription_service import PLAN_CATALOG, ensure_subscription
-from employee_portal.database import connect, database_url, transaction
-from employee_portal.photo_storage import storage_mode
+from employee_portal.database import connect, database_url, path, transaction
+from employee_portal.photo_storage import (
+    r2_usage_snapshot,
+    storage_mode,
+    tenant_storage_key,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static" / "platform-owner"
@@ -151,6 +155,80 @@ def _days_remaining(value: str | None) -> int:
         return 0
 
 
+def _positive_int_setting(name: str, default: int) -> int:
+    try:
+        return max(1, int(os.environ.get(name, str(default))))
+    except (TypeError, ValueError):
+        return default
+
+
+def _workspace_workforce(value) -> dict:
+    """Count the complete saved workforce, not only employee-login accounts."""
+    payload = _safe_json(value)
+    storage = payload.get("storage") if isinstance(payload.get("storage"), dict) else {}
+    people = storage.get("people") if isinstance(storage.get("people"), list) else []
+    temporary = (
+        storage.get("temporary") if isinstance(storage.get("temporary"), list) else []
+    )
+    roles = {"workers": 0, "staff": 0, "temporary": 0, "entrepreneurs": 0}
+    seen: set[str] = set()
+    for source, records in (("people", people), ("temporary", temporary)):
+        for index, record in enumerate(records):
+            if not isinstance(record, dict):
+                continue
+            identity = str(
+                record.get("id")
+                or record.get("employee_id")
+                or record.get("email")
+                or f"{source}-{index}"
+            ).strip().lower()
+            if identity in seen:
+                continue
+            seen.add(identity)
+            role = str(record.get("role") or record.get("workforce_role") or "").upper()
+            if source == "temporary" or "TEMPORARY" in role:
+                roles["temporary"] += 1
+            elif "ENTREPRENEUR" in role:
+                roles["entrepreneurs"] += 1
+            elif "STAFF" in role:
+                roles["staff"] += 1
+            else:
+                roles["workers"] += 1
+    return {"employee_count": len(seen), "roles": roles}
+
+
+def _database_storage_bytes(db, warnings: list[str]) -> int | None:
+    """Measure the current Neon database, with a local SQLite equivalent for tests."""
+    try:
+        if db.postgres:
+            row = db.execute(
+                "SELECT pg_database_size(current_database()) AS database_bytes"
+            ).fetchone()
+            return int(row["database_bytes"] or 0)
+        target = path()
+        return sum(
+            candidate.stat().st_size
+            for candidate in (target, Path(str(target) + "-wal"), Path(str(target) + "-shm"))
+            if candidate.exists()
+        )
+    except Exception:
+        current_app.logger.exception("Platform owner database-size measurement failed")
+        warnings.append("database storage measurement")
+        return None
+
+
+def _capacity(used: int | None, limit: int) -> dict:
+    remaining = None if used is None else max(0, limit - used)
+    return {
+        "used_bytes": used,
+        "limit_bytes": limit,
+        "remaining_bytes": remaining,
+        "used_percent": None
+        if used is None
+        else round(min(100, used * 100 / limit), 2),
+    }
+
+
 def _company_summaries(db, warnings: list[str] | None = None) -> list[dict]:
     warnings = warnings if warnings is not None else []
     companies = db.execute(
@@ -170,7 +248,7 @@ def _company_summaries(db, warnings: list[str] | None = None) -> list[dict]:
     workspaces = _map_rows(
         _optional_rows(
             db,
-            "SELECT company_id,updated_at,"
+            "SELECT company_id,workspace_json,updated_at,"
             "LENGTH(COALESCE(CAST(workspace_json AS TEXT),'')) AS workspace_bytes "
             "FROM tenant_workspaces WHERE company_id IS NOT NULL",
             "workspace storage",
@@ -239,6 +317,7 @@ def _company_summaries(db, warnings: list[str] | None = None) -> list[dict]:
         account = _safe_json(admin.get("account_json", ""))
         workspace = workspaces.get(company_id, {})
         employee = employees.get(company_id, {})
+        saved_workforce = _workspace_workforce(workspace.get("workspace_json"))
         shift = shifts.get(company_id, {})
         event = events.get(company_id, {})
         subscription = subscriptions.get(company_id, {})
@@ -269,6 +348,18 @@ def _company_summaries(db, warnings: list[str] | None = None) -> list[dict]:
             ],
             default=company.get("updated_at") or company.get("created_at"),
         )
+        database_employee_count = int(employee.get("employee_count") or 0)
+        if saved_workforce["employee_count"]:
+            roles = saved_workforce["roles"]
+            employee_count = saved_workforce["employee_count"]
+        else:
+            roles = {
+                "workers": int(employee.get("worker_count") or 0),
+                "staff": int(employee.get("staff_count") or 0),
+                "temporary": int(employee.get("temporary_count") or 0),
+                "entrepreneurs": int(employee.get("entrepreneur_count") or 0),
+            }
+            employee_count = database_employee_count
         results.append(
             {
                 "company_id": company_id,
@@ -280,16 +371,12 @@ def _company_summaries(db, warnings: list[str] | None = None) -> list[dict]:
                 "status": str(company.get("status") or "ACTIVE").upper(),
                 "created_at": company.get("created_at"),
                 "last_activity_at": last_activity,
-                "employee_count": int(employee.get("employee_count") or 0),
+                "employee_count": employee_count,
+                "employee_login_count": database_employee_count,
                 "active_employee_count": int(
                     employee.get("active_employee_count") or 0
                 ),
-                "roles": {
-                    "workers": int(employee.get("worker_count") or 0),
-                    "staff": int(employee.get("staff_count") or 0),
-                    "temporary": int(employee.get("temporary_count") or 0),
-                    "entrepreneurs": int(employee.get("entrepreneur_count") or 0),
-                },
+                "roles": roles,
                 "shift_count": int(shift.get("shift_count") or 0),
                 "attendance_event_count": int(
                     event.get("attendance_event_count") or 0
@@ -381,6 +468,7 @@ def owner_overview():
     warnings: list[str] = []
     try:
         companies = _company_summaries(db, warnings)
+        neon_used_bytes = _database_storage_bytes(db, warnings)
         audit_rows = _optional_rows(
             db,
             "SELECT id,owner_email,action,company_id,details_json,created_at "
@@ -390,11 +478,61 @@ def owner_overview():
         )
     finally:
         db.close()
+    r2 = r2_usage_snapshot()
+    company_r2 = r2.get("company_bytes", {})
+    for company in companies:
+        company["r2_storage_bytes"] = int(
+            company_r2.get(tenant_storage_key(company["owner_email"]), 0)
+        )
     total_employees = sum(item["employee_count"] for item in companies)
     total_photos = sum(item["photo_count"] for item in companies)
     total_database_bytes = sum(
         item["database_bytes_estimate"] for item in companies
     )
+    neon_limit = _positive_int_setting("MSME_NEON_FREE_BYTES", 1_000_000_000)
+    r2_limit = _positive_int_setting("MSME_R2_FREE_BYTES", 10_000_000_000)
+    infrastructure = {
+        "neon": {
+            **_capacity(neon_used_bytes, neon_limit),
+            "name": "Neon PostgreSQL",
+            "persistent": True,
+            "measurement": "Live database size" if neon_used_bytes is not None else "Unavailable",
+        },
+        "cloudflare": {
+            **_capacity(int(r2.get("used_bytes") or 0) if r2.get("available") else None, r2_limit),
+            "name": "Cloudflare R2",
+            "persistent": True,
+            "configured": bool(r2.get("configured")),
+            "available": bool(r2.get("available")),
+            "object_count": int(r2.get("object_count") or 0),
+            "measurement": "Live private-bucket objects" if r2.get("available") else r2.get("error"),
+        },
+        "render": {
+            "name": "Render API",
+            "persistent": False,
+            "used_bytes": 0,
+            "limit_bytes": None,
+            "remaining_bytes": None,
+            "free_hours_monthly": _positive_int_setting("MSME_RENDER_FREE_HOURS", 750),
+            "measurement": "Runtime only; no persistent free disk",
+        },
+        "streamlit": {
+            "name": "Streamlit Community Cloud",
+            "persistent": False,
+            "used_bytes": 0,
+            "limit_bytes": _positive_int_setting(
+                "MSME_STREAMLIT_RUNTIME_BYTES", 50_000_000_000
+            ),
+            "remaining_bytes": None,
+            "sleep_after_hours": 12,
+            "measurement": "Ephemeral runtime; not permanent customer storage",
+        },
+    }
+    persistent_used = sum(
+        int(infrastructure[name].get("used_bytes") or 0)
+        for name in ("neon", "cloudflare")
+    )
+    persistent_limit = neon_limit + r2_limit
     return jsonify(
         {
             "companies": companies,
@@ -410,6 +548,11 @@ def owner_overview():
                 "photos": total_photos,
                 "r2_photos": sum(item["r2_photo_count"] for item in companies),
                 "database_bytes_estimate": total_database_bytes,
+                "persistent_storage_used_bytes": persistent_used,
+                "persistent_storage_limit_bytes": persistent_limit,
+                "persistent_storage_remaining_bytes": max(
+                    0, persistent_limit - persistent_used
+                ),
             },
             "system": {
                 "api": "ONLINE",
@@ -419,6 +562,7 @@ def owner_overview():
                 "warnings": warnings,
             },
             "plans": PLAN_CATALOG,
+            "infrastructure": infrastructure,
             "audit": [
                 {
                     **dict(row),

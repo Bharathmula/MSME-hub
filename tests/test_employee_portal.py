@@ -22,6 +22,10 @@ class EmployeePortalTests(unittest.TestCase):
   registered=self.c.post('/api/auth/register',json={'email':tenant,'password':password,'name':'Owner Controlled','company':'Owner Controlled Company','captcha_id':captcha['captcha_id'],'captcha_answer':captcha['captcha_code']});self.assertEqual(registered.status_code,200,registered.text)
   admin_token=registered.json['access_token']
   employee=self.c.post('/api/admin/employee-accounts',json={'name':'Protected Worker','employee_id':'OWN-1','email':'protected.worker@example.com','workforce_role':'WORKER','password':'Protected123!','pin':'123456'},headers=self.headers(admin_token));self.assertEqual(employee.status_code,201,employee.text)
+  workspace=self.c.get('/api/workspace',headers=self.headers(admin_token)).json
+  workspace['storage']['temporary']=[{'id':'TEMP-OWNER-1','name':'Saved Temporary Worker','role':'Temporary Worker'}]
+  workspace['expected_updated_at']=workspace.get('updated_at')
+  self.assertEqual(self.c.put('/api/workspace',json=workspace,headers=self.headers(admin_token)).status_code,200)
   previous_email=os.environ.get('MSME_PLATFORM_OWNER_EMAIL');previous_password=os.environ.get('MSME_PLATFORM_OWNER_PASSWORD')
   os.environ['MSME_PLATFORM_OWNER_EMAIL']='platform.owner@example.com';os.environ['MSME_PLATFORM_OWNER_PASSWORD']='PlatformOwner123!'
   try:
@@ -29,7 +33,8 @@ class EmployeePortalTests(unittest.TestCase):
    signed_in=self.c.post('/api/platform-owner/login',json={'email':'platform.owner@example.com','password':'PlatformOwner123!'});self.assertEqual(signed_in.status_code,200,signed_in.text)
    owner_headers=self.headers(signed_in.json['access_token'])
    overview=self.c.get('/api/platform-owner/overview',headers=owner_headers);self.assertEqual(overview.status_code,200,overview.text)
-   company=next(item for item in overview.json['companies'] if item['owner_email']==tenant);company_id=company['company_id'];self.assertEqual(company['employee_count'],1)
+   company=next(item for item in overview.json['companies'] if item['owner_email']==tenant);company_id=company['company_id'];self.assertEqual(company['employee_count'],2);self.assertEqual(company['roles']['temporary'],1)
+   self.assertGreaterEqual(overview.json['totals']['employees'],2);self.assertIn('neon',overview.json['infrastructure']);self.assertIn('cloudflare',overview.json['infrastructure']);self.assertIn('render',overview.json['infrastructure']);self.assertIn('streamlit',overview.json['infrastructure']);self.assertIsNotNone(overview.json['infrastructure']['neon']['used_bytes'])
    plan=self.c.patch(f'/api/platform-owner/companies/{company_id}/plan',json={'plan_code':'PLUS','billing_cycle':'MONTHLY','employee_limit':25},headers=owner_headers);self.assertEqual(plan.status_code,200,plan.text)
    suspended=self.c.patch(f'/api/platform-owner/companies/{company_id}/status',json={'status':'SUSPENDED','reason':'Owner dashboard test'},headers=owner_headers);self.assertEqual(suspended.status_code,200,suspended.text)
    self.assertEqual(self.c.post('/api/auth/login',json={'email':tenant,'password':password}).status_code,403)

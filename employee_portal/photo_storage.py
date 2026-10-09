@@ -12,6 +12,8 @@ import binascii
 import hashlib
 import os
 import re
+import threading
+import time
 from datetime import datetime, timezone
 from functools import lru_cache
 from uuid import uuid4
@@ -23,6 +25,9 @@ CONTENT_EXTENSIONS = {
     "image/png": "png",
     "image/webp": "webp",
 }
+R2_USAGE_CACHE_SECONDS = 300
+_usage_lock = threading.Lock()
+_usage_cache: dict = {"key": None, "expires": 0.0, "value": None}
 
 
 class PhotoStorageError(RuntimeError):
@@ -92,6 +97,81 @@ def _safe_segment(value: str, fallback: str) -> str:
 
 def _tenant_key(tenant: str) -> str:
     return hashlib.sha256(str(tenant).strip().lower().encode("utf-8")).hexdigest()[:24]
+
+
+def tenant_storage_key(tenant: str) -> str:
+    """Return the non-reversible company folder identifier used in R2."""
+    return _tenant_key(tenant)
+
+
+def r2_usage_snapshot(*, force: bool = False) -> dict:
+    """Return a cached, read-only measurement of the configured private bucket.
+
+    The snapshot never exposes object names or credentials. Company totals are
+    grouped by the existing hashed tenant folder so the owner dashboard can show
+    storage usage without weakening R2 privacy.
+    """
+    bucket = _setting("MSME_R2_BUCKET_NAME")
+    if not r2_configured():
+        return {
+            "configured": False,
+            "available": False,
+            "used_bytes": 0,
+            "object_count": 0,
+            "company_bytes": {},
+            "error": "Cloudflare R2 is not configured.",
+        }
+    cache_key = (
+        _setting("MSME_R2_ACCOUNT_ID"),
+        _setting("MSME_R2_ACCESS_KEY_ID"),
+        bucket,
+        _setting("MSME_R2_ENDPOINT_URL"),
+    )
+    now = time.monotonic()
+    with _usage_lock:
+        if (
+            not force
+            and _usage_cache["key"] == cache_key
+            and _usage_cache["expires"] > now
+            and _usage_cache["value"] is not None
+        ):
+            return dict(_usage_cache["value"])
+    total_bytes = 0
+    object_count = 0
+    company_bytes: dict[str, int] = {}
+    try:
+        paginator = _client().get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=bucket):
+            for item in page.get("Contents", []):
+                size = max(0, int(item.get("Size") or 0))
+                total_bytes += size
+                object_count += 1
+                parts = str(item.get("Key") or "").split("/")
+                if len(parts) > 1 and parts[0] == "companies" and parts[1]:
+                    company_bytes[parts[1]] = company_bytes.get(parts[1], 0) + size
+        value = {
+            "configured": True,
+            "available": True,
+            "used_bytes": total_bytes,
+            "object_count": object_count,
+            "company_bytes": company_bytes,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "error": "",
+        }
+    except Exception:
+        value = {
+            "configured": True,
+            "available": False,
+            "used_bytes": 0,
+            "object_count": 0,
+            "company_bytes": {},
+            "error": "Cloudflare R2 usage is temporarily unavailable.",
+        }
+    with _usage_lock:
+        _usage_cache.update(
+            {"key": cache_key, "expires": now + R2_USAGE_CACHE_SECONDS, "value": value}
+        )
+    return dict(value)
 
 
 def store_photo(
