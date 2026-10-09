@@ -103,6 +103,11 @@ CREATE TABLE IF NOT EXISTS platform_owner_audit_log (
     details_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS platform_owner_profiles (
+    owner_email TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL DEFAULT 'Platform Owner',
+    updated_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS admin_accounts (
     email TEXT PRIMARY KEY,
     company_id TEXT REFERENCES companies(id) ON DELETE RESTRICT,
@@ -560,6 +565,11 @@ def initialize() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_workspace_backups_tenant_created
                 ON tenant_workspace_backups(tenant_email, created_at DESC);
+            CREATE TABLE IF NOT EXISTS platform_owner_profiles (
+                owner_email TEXT PRIMARY KEY,
+                display_name TEXT NOT NULL DEFAULT 'Platform Owner',
+                updated_at TEXT NOT NULL
+            );
             """
         )
         event_columns = {

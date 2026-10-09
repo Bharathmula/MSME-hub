@@ -55,6 +55,18 @@ def _owner_configured() -> bool:
     )
 
 
+def _owner_profile(db) -> dict:
+    row = db.execute(
+        "SELECT display_name,updated_at FROM platform_owner_profiles WHERE owner_email=?",
+        (_owner_email(),),
+    ).fetchone()
+    return {
+        "email": _owner_email(),
+        "display_name": str(row["display_name"] if row else "Platform Owner"),
+        "updated_at": row["updated_at"] if row else None,
+    }
+
+
 def _password_matches(value: str) -> bool:
     password_hash = os.environ.get("MSME_PLATFORM_OWNER_PASSWORD_HASH", "").strip()
     if password_hash:
@@ -452,11 +464,16 @@ def owner_login():
         _record_failed_login(client)
         return jsonify({"error": "Incorrect platform owner email or password."}), 401
     _clear_logins(client)
+    db = connect()
+    try:
+        owner = _owner_profile(db)
+    finally:
+        db.close()
     return jsonify(
         {
             "ok": True,
             "access_token": _token(),
-            "owner": {"email": _owner_email(), "role": "PLATFORM_OWNER"},
+            "owner": {**owner, "role": "PLATFORM_OWNER"},
         }
     )
 
@@ -469,6 +486,7 @@ def owner_overview():
     try:
         companies = _company_summaries(db, warnings)
         neon_used_bytes = _database_storage_bytes(db, warnings)
+        owner = _owner_profile(db)
         audit_rows = _optional_rows(
             db,
             "SELECT id,owner_email,action,company_id,details_json,created_at "
@@ -539,6 +557,7 @@ def owner_overview():
     return jsonify(
         {
             "companies": companies,
+            "owner": owner,
             "totals": {
                 "companies": len(companies),
                 "active_companies": sum(
@@ -575,6 +594,42 @@ def owner_overview():
                 }
                 for row in audit_rows
             ],
+        }
+    )
+
+
+@platform_owner.patch("/api/platform-owner/profile")
+@owner_required
+def owner_profile_update():
+    payload = request.get_json(silent=True) or {}
+    display_name = " ".join(str(payload.get("display_name") or "").split())
+    if not display_name:
+        return jsonify({"error": "Enter the platform owner name."}), 400
+    if len(display_name) > 80:
+        return jsonify({"error": "The owner name must be 80 characters or fewer."}), 400
+    updated_at = _stamp()
+    with transaction() as db:
+        previous = _owner_profile(db)
+        db.execute(
+            """INSERT INTO platform_owner_profiles(owner_email,display_name,updated_at)
+            VALUES(?,?,?) ON CONFLICT(owner_email) DO UPDATE SET
+            display_name=excluded.display_name,updated_at=excluded.updated_at""",
+            (_owner_email(), display_name, updated_at),
+        )
+        _owner_audit(
+            db,
+            "OWNER_NAME_CHANGED",
+            None,
+            {"from": previous["display_name"], "to": display_name},
+        )
+    return jsonify(
+        {
+            "ok": True,
+            "owner": {
+                "email": _owner_email(),
+                "display_name": display_name,
+                "updated_at": updated_at,
+            },
         }
     )
 

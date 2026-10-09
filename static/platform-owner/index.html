@@ -46,14 +46,14 @@
         <button class="nav" data-section="activity">◷ <span>Owner activity</span></button>
       </nav>
       <div class="sidebar-spacer"></div>
-      <div class="owner-identity"><span>PO</span><div><b>Platform Owner</b><small id="owner-email"></small></div></div>
+      <button class="owner-identity" id="owner-account-control" type="button" aria-label="Open platform owner account controls"><span id="owner-initials">PO</span><div><b id="owner-display-name">Platform Owner</b><small id="owner-email"></small></div></button>
       <button class="logout" id="owner-logout">↗ Log out</button>
     </aside>
 
     <main>
       <header class="topbar">
         <div><p>PLATFORM OWNER</p><h1 id="page-title">DEVELOPER DASHBOARD</h1></div>
-        <div class="top-actions"><span class="live"><i></i> Live database</span></div>
+        <div class="top-actions"><span class="live"><i></i> Live database</span><div class="owner-date"><span>TODAY</span><b id="owner-current-date"></b></div></div>
       </header>
       <section class="page" id="owner-root">
         <div class="loading">Loading company information…</div>
