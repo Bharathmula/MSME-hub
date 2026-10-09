@@ -116,6 +116,8 @@ def _clear_logins(client: str) -> None:
 
 
 def _safe_json(value: str) -> dict:
+    if isinstance(value, dict):
+        return value
     try:
         parsed = json.loads(value or "{}")
         return parsed if isinstance(parsed, dict) else {}
@@ -125,6 +127,16 @@ def _safe_json(value: str) -> dict:
 
 def _map_rows(rows, key: str) -> dict:
     return {str(row[key]): dict(row) for row in rows if row[key] is not None}
+
+
+def _optional_rows(db, sql: str, label: str, warnings: list[str]):
+    """Keep the owner dashboard available if one legacy aggregate is incompatible."""
+    try:
+        return db.execute(sql).fetchall()
+    except Exception:
+        current_app.logger.exception("Platform owner aggregate failed: %s", label)
+        warnings.append(label)
+        return []
 
 
 def _days_remaining(value: str | None) -> int:
@@ -139,63 +151,83 @@ def _days_remaining(value: str | None) -> int:
         return 0
 
 
-def _company_summaries(db) -> list[dict]:
+def _company_summaries(db, warnings: list[str] | None = None) -> list[dict]:
+    warnings = warnings if warnings is not None else []
     companies = db.execute(
         "SELECT id,tenant_email,display_name,status,created_at,updated_at "
         "FROM companies ORDER BY created_at DESC"
     ).fetchall()
     admins = _map_rows(
-        db.execute(
+        _optional_rows(
+            db,
             "SELECT company_id,email,account_json,updated_at FROM admin_accounts "
-            "WHERE company_id IS NOT NULL"
-        ).fetchall(),
+            "WHERE company_id IS NOT NULL",
+            "administrator accounts",
+            warnings,
+        ),
         "company_id",
     )
     workspaces = _map_rows(
-        db.execute(
-            "SELECT company_id,updated_at,LENGTH(COALESCE(workspace_json,'')) AS workspace_bytes "
-            "FROM tenant_workspaces WHERE company_id IS NOT NULL"
-        ).fetchall(),
+        _optional_rows(
+            db,
+            "SELECT company_id,updated_at,"
+            "LENGTH(COALESCE(CAST(workspace_json AS TEXT),'')) AS workspace_bytes "
+            "FROM tenant_workspaces WHERE company_id IS NOT NULL",
+            "workspace storage",
+            warnings,
+        ),
         "company_id",
     )
     employees = _map_rows(
-        db.execute(
+        _optional_rows(
+            db,
             """SELECT company_id,COUNT(*) AS employee_count,
             SUM(CASE WHEN workforce_role='WORKER' THEN 1 ELSE 0 END) AS worker_count,
             SUM(CASE WHEN workforce_role='STAFF' THEN 1 ELSE 0 END) AS staff_count,
             SUM(CASE WHEN workforce_role='TEMPORARY' THEN 1 ELSE 0 END) AS temporary_count,
             SUM(CASE WHEN workforce_role='ENTREPRENEUR' THEN 1 ELSE 0 END) AS entrepreneur_count,
             SUM(CASE WHEN status='ACTIVE' THEN 1 ELSE 0 END) AS active_employee_count,
-            SUM(CASE WHEN COALESCE(profile_photo_data,'')<>'' THEN 1 ELSE 0 END) AS profile_photo_count,
-            SUM(CASE WHEN profile_photo_data LIKE 'r2://%' THEN 1 ELSE 0 END) AS r2_profile_count,
-            SUM(LENGTH(COALESCE(profile_json,''))+LENGTH(COALESCE(profile_photo_data,''))) AS employee_bytes,
+            SUM(CASE WHEN COALESCE(CAST(profile_photo_data AS TEXT),'')<>'' THEN 1 ELSE 0 END) AS profile_photo_count,
+            SUM(CASE WHEN CAST(profile_photo_data AS TEXT) LIKE 'r2://%' THEN 1 ELSE 0 END) AS r2_profile_count,
+            SUM(LENGTH(COALESCE(CAST(profile_json AS TEXT),''))+LENGTH(COALESCE(CAST(profile_photo_data AS TEXT),''))) AS employee_bytes,
             MAX(updated_at) AS last_employee_activity
-            FROM employee_accounts WHERE company_id IS NOT NULL GROUP BY company_id"""
-        ).fetchall(),
+            FROM employee_accounts WHERE company_id IS NOT NULL GROUP BY company_id""",
+            "employee totals",
+            warnings,
+        ),
         "company_id",
     )
     shifts = _map_rows(
-        db.execute(
+        _optional_rows(
+            db,
             "SELECT company_id,COUNT(*) AS shift_count,MAX(check_in_at) AS last_shift_at "
-            "FROM employee_shifts WHERE company_id IS NOT NULL GROUP BY company_id"
-        ).fetchall(),
+            "FROM employee_shifts WHERE company_id IS NOT NULL GROUP BY company_id",
+            "shift totals",
+            warnings,
+        ),
         "company_id",
     )
     events = _map_rows(
-        db.execute(
+        _optional_rows(
+            db,
             """SELECT company_id,COUNT(*) AS attendance_event_count,
-            SUM(CASE WHEN COALESCE(face_capture_data,'')<>'' THEN 1 ELSE 0 END) AS attendance_photo_count,
-            SUM(CASE WHEN face_capture_data LIKE 'r2://%' THEN 1 ELSE 0 END) AS r2_attendance_count,
-            SUM(LENGTH(COALESCE(face_capture_data,''))) AS attendance_bytes,
+            SUM(CASE WHEN COALESCE(CAST(face_capture_data AS TEXT),'')<>'' THEN 1 ELSE 0 END) AS attendance_photo_count,
+            SUM(CASE WHEN CAST(face_capture_data AS TEXT) LIKE 'r2://%' THEN 1 ELSE 0 END) AS r2_attendance_count,
+            SUM(LENGTH(COALESCE(CAST(face_capture_data AS TEXT),''))) AS attendance_bytes,
             MAX(server_timestamp) AS last_attendance_at
-            FROM employee_attendance_events WHERE company_id IS NOT NULL GROUP BY company_id"""
-        ).fetchall(),
+            FROM employee_attendance_events WHERE company_id IS NOT NULL GROUP BY company_id""",
+            "attendance totals",
+            warnings,
+        ),
         "company_id",
     )
     subscriptions = _map_rows(
-        db.execute(
-            "SELECT * FROM company_subscriptions WHERE tenant_company_id IS NOT NULL"
-        ).fetchall(),
+        _optional_rows(
+            db,
+            "SELECT * FROM company_subscriptions WHERE tenant_company_id IS NOT NULL",
+            "subscription totals",
+            warnings,
+        ),
         "tenant_company_id",
     )
 
@@ -346,12 +378,16 @@ def owner_login():
 @owner_required
 def owner_overview():
     db = connect()
+    warnings: list[str] = []
     try:
-        companies = _company_summaries(db)
-        audit_rows = db.execute(
+        companies = _company_summaries(db, warnings)
+        audit_rows = _optional_rows(
+            db,
             "SELECT id,owner_email,action,company_id,details_json,created_at "
-            "FROM platform_owner_audit_log ORDER BY created_at DESC LIMIT 30"
-        ).fetchall()
+            "FROM platform_owner_audit_log ORDER BY created_at DESC LIMIT 30",
+            "owner activity",
+            warnings,
+        )
     finally:
         db.close()
     total_employees = sum(item["employee_count"] for item in companies)
@@ -380,6 +416,7 @@ def owner_overview():
                 "database": "POSTGRESQL" if database_url() else "SQLITE",
                 "photo_storage": storage_mode(),
                 "schema_version": 15,
+                "warnings": warnings,
             },
             "plans": PLAN_CATALOG,
             "audit": [
