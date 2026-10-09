@@ -1,7 +1,7 @@
 from functools import wraps
 from flask import current_app,g,jsonify,request
 from itsdangerous import BadSignature,SignatureExpired,URLSafeTimedSerializer
-from .database import company_id_for_tenant
+from .database import company_id_for_tenant,company_status_for_id
 
 def signer(): return URLSafeTimedSerializer(current_app.config['SECRET_KEY'],salt='msme-employee-access-v1')
 def token(email,role,tenant,employee_account_id=None,session_id=None):
@@ -18,6 +18,7 @@ def require(*roles):
    if not identity.get('company_id'):
     identity['company_id']=company_id_for_tenant(identity.get('tenant',''),create=False)
    if not identity.get('company_id'):return jsonify({'error':'This company workspace is not available.'}),403
+   if company_status_for_id(identity['company_id'])=='SUSPENDED':return jsonify({'error':'This company workspace is suspended. Contact the platform owner.'}),403
    g.employee_identity=identity;return fn(*a,**kw)
   return guarded
  return decorate

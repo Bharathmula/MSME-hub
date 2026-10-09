@@ -16,6 +16,35 @@ class EmployeePortalTests(unittest.TestCase):
  def test_health_reports_photo_api_schema(self):
   response=self.c.get('/api/health');self.assertEqual(response.status_code,200,response.text)
   self.assertTrue(response.json['attendance_photo_api']);self.assertGreaterEqual(response.json['schema_version'],7);self.assertEqual(response.json['database'],'sqlite');self.assertEqual(response.json['photo_storage'],'database_fallback')
+ def test_platform_owner_dashboard_controls_company_without_deleting_data(self):
+  tenant='owner-controlled-company@example.com';password='CompanyOwner123!'
+  captcha=self.c.get('/api/auth/captcha').json
+  registered=self.c.post('/api/auth/register',json={'email':tenant,'password':password,'name':'Owner Controlled','company':'Owner Controlled Company','captcha_id':captcha['captcha_id'],'captcha_answer':captcha['captcha_code']});self.assertEqual(registered.status_code,200,registered.text)
+  admin_token=registered.json['access_token']
+  employee=self.c.post('/api/admin/employee-accounts',json={'name':'Protected Worker','employee_id':'OWN-1','email':'protected.worker@example.com','workforce_role':'WORKER','password':'Protected123!','pin':'123456'},headers=self.headers(admin_token));self.assertEqual(employee.status_code,201,employee.text)
+  previous_email=os.environ.get('MSME_PLATFORM_OWNER_EMAIL');previous_password=os.environ.get('MSME_PLATFORM_OWNER_PASSWORD')
+  os.environ['MSME_PLATFORM_OWNER_EMAIL']='platform.owner@example.com';os.environ['MSME_PLATFORM_OWNER_PASSWORD']='PlatformOwner123!'
+  try:
+   page=self.c.get('/platform-owner');self.assertEqual(page.status_code,200,page.text);self.assertIn(b'OWNER CONTROL PLANE',page.data);page.close()
+   signed_in=self.c.post('/api/platform-owner/login',json={'email':'platform.owner@example.com','password':'PlatformOwner123!'});self.assertEqual(signed_in.status_code,200,signed_in.text)
+   owner_headers=self.headers(signed_in.json['access_token'])
+   overview=self.c.get('/api/platform-owner/overview',headers=owner_headers);self.assertEqual(overview.status_code,200,overview.text)
+   company=next(item for item in overview.json['companies'] if item['owner_email']==tenant);company_id=company['company_id'];self.assertEqual(company['employee_count'],1)
+   plan=self.c.patch(f'/api/platform-owner/companies/{company_id}/plan',json={'plan_code':'PLUS','billing_cycle':'MONTHLY','employee_limit':25},headers=owner_headers);self.assertEqual(plan.status_code,200,plan.text)
+   suspended=self.c.patch(f'/api/platform-owner/companies/{company_id}/status',json={'status':'SUSPENDED','reason':'Owner dashboard test'},headers=owner_headers);self.assertEqual(suspended.status_code,200,suspended.text)
+   self.assertEqual(self.c.post('/api/auth/login',json={'email':tenant,'password':password}).status_code,403)
+   self.assertEqual(self.c.post('/api/employee/login',json={'email':'protected.worker@example.com','password':'Protected123!'}).status_code,403)
+   db=connect()
+   try:self.assertEqual(db.execute('SELECT COUNT(*) AS count FROM employee_accounts WHERE company_id=?',(company_id,)).fetchone()['count'],1)
+   finally:db.close()
+   restored=self.c.patch(f'/api/platform-owner/companies/{company_id}/status',json={'status':'ACTIVE'},headers=owner_headers);self.assertEqual(restored.status_code,200,restored.text)
+   self.assertEqual(self.c.post('/api/auth/login',json={'email':tenant,'password':password}).status_code,200)
+   detail=self.c.get(f'/api/platform-owner/companies/{company_id}',headers=owner_headers);self.assertEqual(detail.status_code,200,detail.text);self.assertGreaterEqual(len(detail.json['audit']),2)
+  finally:
+   if previous_email is None:os.environ.pop('MSME_PLATFORM_OWNER_EMAIL',None)
+   else:os.environ['MSME_PLATFORM_OWNER_EMAIL']=previous_email
+   if previous_password is None:os.environ.pop('MSME_PLATFORM_OWNER_PASSWORD',None)
+   else:os.environ['MSME_PLATFORM_OWNER_PASSWORD']=previous_password
  def test_company_migration_preserves_rows_and_backfills_ownership(self):
   tenant='migration-safety@example.com'
   with app.app_context():admin=token(tenant,'ADMIN',tenant)

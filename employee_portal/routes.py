@@ -5,7 +5,7 @@ from uuid import uuid4
 from flask import Blueprint,current_app,g,jsonify,request
 from itsdangerous import BadSignature,SignatureExpired,URLSafeTimedSerializer
 from werkzeug.security import check_password_hash,generate_password_hash
-from .database import connect,ensure_company,transaction
+from .database import company_status_for_id,connect,ensure_company,transaction
 from .photo_storage import PhotoStorageError,photo_url,store_photo
 from .security import require,token
 
@@ -98,6 +98,7 @@ def login():
   row=db.execute('SELECT * FROM employee_accounts WHERE lower(email)=? OR phone=?',(login_id,login_id)).fetchone()
   if not row or not row['password_hash'] or not check_password_hash(row['password_hash'],password):return jsonify({'error':'Incorrect employee email or password.'}),401
   if row['status']!='ACTIVE':return jsonify({'error':f"This account is {row['status'].lower()}."}),403
+  if company_status_for_id(row['company_id'])=='SUSPENDED':return jsonify({'error':'This company workspace is suspended. Contact the platform owner.'}),403
   session_id,login_at=start_login_session(db,row)
  return jsonify({'ok':True,'access_token':token(row['email'],'EMPLOYEE',row['tenant_email'],row['id'],session_id),'employee':public(row),'login_at':login_at})
 
@@ -108,6 +109,7 @@ def activate():
  with transaction() as db:
   row=db.execute('SELECT * FROM employee_accounts WHERE invite_hash=?',(hashlib.sha256(raw.encode()).hexdigest(),)).fetchone()
   if row:
+   if company_status_for_id(row['company_id'])=='SUSPENDED':return jsonify({'error':'This company workspace is suspended. Contact the platform owner.'}),403
    issued_at=datetime.fromisoformat(row['updated_at'] or row['created_at'])
    effective_expiry=min(datetime.fromisoformat(row['invite_expires_at']),issued_at+timedelta(hours=24))
    if effective_expiry<now():return jsonify({'error':'Invitation is invalid or expired.'}),400
@@ -121,6 +123,8 @@ def activate():
    tenant=str(category.get('tenant','')).strip().lower();role=str(category.get('role','')).upper()
    if category.get('kind')!='employee-category' or role not in {'WORKER','STAFF','TEMPORARY','ENTREPRENEUR'}:
     return jsonify({'error':'Invitation is invalid or expired.'}),400
+   company_id=ensure_company(db,tenant)
+   if company_status_for_id(company_id)=='SUSPENDED':return jsonify({'error':'This company workspace is suspended. Contact the platform owner.'}),403
    stored=db.execute('SELECT workspace_json FROM tenant_workspaces WHERE tenant_email=?',(tenant,)).fetchone()
    try:workspace=json.loads(stored['workspace_json']) if stored else {}
    except (TypeError,json.JSONDecodeError):workspace={}
@@ -139,7 +143,6 @@ def activate():
    if row:
     db.execute("UPDATE employee_accounts SET name=?,email=?,workforce_role=?,phone=?,password_hash=?,pin_hash=NULL,status='ACTIVE',invite_hash=NULL,invite_expires_at=NULL,profile_json=?,updated_at=? WHERE id=?",(name,contact,role,phone,generate_password_hash(password),json.dumps(profile),stamp(),row['id']))
    else:
-    company_id=ensure_company(db,tenant)
     db.execute('INSERT INTO employee_accounts(tenant_email,company_id,employee_id,name,email,workforce_role,phone,password_hash,pin_hash,status,invite_hash,invite_expires_at,profile_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(tenant,company_id,eid,name,contact,role,phone,generate_password_hash(password),None,'ACTIVE',None,None,json.dumps(profile),stamp(),stamp()))
     row=db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? AND employee_id=?',(tenant,eid)).fetchone()
   active=db.execute('SELECT * FROM employee_accounts WHERE id=?',(row['id'],)).fetchone()

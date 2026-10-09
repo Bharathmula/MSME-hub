@@ -95,6 +95,14 @@ CREATE TABLE IF NOT EXISTS companies (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS platform_owner_audit_log (
+    id TEXT PRIMARY KEY,
+    owner_email TEXT NOT NULL,
+    action TEXT NOT NULL,
+    company_id TEXT REFERENCES companies(id) ON DELETE RESTRICT,
+    details_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS admin_accounts (
     email TEXT PRIMARY KEY,
     company_id TEXT REFERENCES companies(id) ON DELETE RESTRICT,
@@ -204,6 +212,7 @@ CREATE INDEX IF NOT EXISTS idx_workspace_backups_tenant_created ON tenant_worksp
 CREATE INDEX IF NOT EXISTS idx_employee_events_time ON employee_attendance_events(server_timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_employee_login_sessions_account ON employee_login_sessions(employee_account_id, login_at DESC);
 CREATE INDEX IF NOT EXISTS idx_company_subscriptions_status ON company_subscriptions(status, current_period_end);
+CREATE INDEX IF NOT EXISTS idx_platform_owner_audit_created ON platform_owner_audit_log(created_at DESC);
 """
 
 
@@ -287,6 +296,33 @@ def company_id_for_tenant(tenant_email: str, create: bool = True) -> str | None:
         db.close()
 
 
+def company_status_for_tenant(tenant_email: str) -> str | None:
+    tenant = normalize_tenant(tenant_email)
+    if not tenant:
+        return None
+    db = connect()
+    try:
+        row = db.execute(
+            "SELECT status FROM companies WHERE tenant_email=?", (tenant,)
+        ).fetchone()
+        return str(row["status"]).upper() if row else None
+    finally:
+        db.close()
+
+
+def company_status_for_id(company_id: str) -> str | None:
+    if not str(company_id or "").strip():
+        return None
+    db = connect()
+    try:
+        row = db.execute(
+            "SELECT status FROM companies WHERE id=?", (str(company_id).strip(),)
+        ).fetchone()
+        return str(row["status"]).upper() if row else None
+    finally:
+        db.close()
+
+
 def _strengthen_company_isolation(db: DatabaseConnection) -> None:
     """Add and backfill immutable company ownership without deleting rows."""
     if db.postgres:
@@ -308,6 +344,16 @@ def _strengthen_company_isolation(db: DatabaseConnection) -> None:
         for table, column in COMPANY_COLUMNS.items():
             if column not in _columns(db, table):
                 db.execute(f"ALTER TABLE {table} ADD COLUMN {column} TEXT")
+
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS platform_owner_audit_log(
+        id TEXT PRIMARY KEY,
+        owner_email TEXT NOT NULL,
+        action TEXT NOT NULL,
+        company_id TEXT,
+        details_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL)"""
+    )
 
     tenant_sources = (
         ("tenant_workspaces", "tenant_email"),
@@ -391,6 +437,7 @@ def _strengthen_company_isolation(db: DatabaseConnection) -> None:
         "CREATE INDEX IF NOT EXISTS idx_employee_audit_company_created ON employee_audit_log(company_id,created_at DESC)",
         "CREATE INDEX IF NOT EXISTS idx_employee_sessions_company_login ON employee_login_sessions(company_id,login_at DESC)",
         "CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant_company ON company_subscriptions(tenant_company_id)",
+        "CREATE INDEX IF NOT EXISTS idx_platform_owner_audit_created ON platform_owner_audit_log(created_at DESC)",
     )
     for statement in indexes:
         db.execute(statement)
@@ -425,6 +472,7 @@ def _strengthen_company_isolation(db: DatabaseConnection) -> None:
             ("employee_login_sessions", "employee_sessions_company_fk", "FOREIGN KEY(company_id) REFERENCES companies(id) ON DELETE RESTRICT"),
             ("employee_login_sessions", "employee_sessions_owner_fk", "FOREIGN KEY(employee_account_id,company_id) REFERENCES employee_accounts(id,company_id) ON DELETE RESTRICT"),
             ("company_subscriptions", "subscriptions_company_fk", "FOREIGN KEY(tenant_company_id) REFERENCES companies(id) ON DELETE RESTRICT"),
+            ("platform_owner_audit_log", "platform_owner_audit_company_fk", "FOREIGN KEY(company_id) REFERENCES companies(id) ON DELETE RESTRICT"),
         )
         for table, constraint, definition in foreign_keys:
             exists = db.execute(

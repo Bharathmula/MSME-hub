@@ -22,3 +22,9 @@ services:
         sync: false
       - key: MSME_R2_BUCKET_NAME
         sync: false
+      - key: MSME_PLATFORM_OWNER_EMAIL
+        sync: false
+      - key: MSME_PLATFORM_OWNER_PASSWORD
+        sync: false
+      - key: MSME_PLATFORM_OWNER_PASSWORD_HASH
+        sync: false

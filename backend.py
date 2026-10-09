@@ -16,7 +16,7 @@ from flask import Flask, Response, abort, g, jsonify, request, send_from_directo
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 from employee_portal import install as install_employee_portal
-from employee_portal.database import connect, database_url
+from employee_portal.database import company_status_for_tenant, connect, database_url
 from employee_portal.photo_storage import storage_mode
 from employee_portal.security import token as access_token
 from employee_portal.security import require
@@ -24,6 +24,7 @@ from authentication.account_database import AccountDatabase
 from authentication.captcha_service import CaptchaService
 from authentication.workspace_database import WorkspaceConflictError, WorkspaceDatabase
 from authentication.subscription_service import PLAN_CATALOG, ensure_subscription, rename_subscription, require_writable
+from platform_owner import install as install_platform_owner
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -52,6 +53,7 @@ app.config.update(
 
 token_signer = URLSafeTimedSerializer(app.config["SECRET_KEY"], salt="msme-email-verification")
 install_employee_portal(app)
+install_platform_owner(app)
 
 
 def normalize_email(value: str) -> str:
@@ -244,7 +246,7 @@ def health():
     return jsonify({
         "ok": True,
         "service": "msme-employee-api",
-        "schema_version": 14,
+        "schema_version": 15,
         "tenant_isolation": "immutable-company-id",
         "attendance_photo_api": True,
         "photo_storage": storage_mode(),
@@ -398,6 +400,8 @@ def login_account():
         save_auth_accounts(accounts)
     if not account or not account.get("password_hash") or not check_password_hash(account["password_hash"], password):
         return jsonify({"error": "Incorrect email or password."}), 401
+    if company_status_for_tenant(email) == "SUSPENDED":
+        return jsonify({"error": "This company workspace is suspended. Contact the platform owner."}), 403
     return jsonify({"ok": True, "account": public_account(account),"access_token":access_token(email,"ADMIN",email)})
 
 
@@ -511,6 +515,8 @@ def google_account():
         }
         accounts.append(account)
         save_auth_accounts(accounts)
+    if company_status_for_tenant(email) == "SUSPENDED":
+        return jsonify({"error": "This company workspace is suspended. Contact the platform owner."}), 403
     return jsonify({"ok": True, "account": public_account(account)})
 
 

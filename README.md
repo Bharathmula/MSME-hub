@@ -30,6 +30,12 @@ MSME_EMPLOYEE_API_URL="https://your-render-service.onrender.com"
 
 Never commit secrets. Exact database steps and table names are in `DATABASE-SETUP.md`.
 
+## Platform owner dashboard
+
+The SaaS control plane is served by the Render backend at `/platform-owner`. It is separate from every company administrator and employee dashboard. Configure `MSME_PLATFORM_OWNER_EMAIL` and `MSME_PLATFORM_OWNER_PASSWORD` as private Render environment variables before signing in.
+
+The owner dashboard shows all company UUIDs, subscription status, employee totals, attendance activity, database estimates, private-photo counts and service health. Owner actions can activate or suspend a company and manually assign a plan until payment webhooks are connected. Every owner change is recorded in `platform_owner_audit_log`; suspending a company preserves its records and photos.
+
 ## What is stored
 
 - Manager accounts with hashed passwords.

@@ -21,5 +21,10 @@ The project no longer contains the old numbered files, Clerk remnants, legacy da
 | `employee-portal/employee-portal.js` | Employee activation, sign-in, attendance and admin access setup |
 | `owned-authentication-login.js` | Final login/create-account experience |
 | `public-adapter.js` | Sends API calls to the configured public backend |
+| `platform-owner/index.html` | Separate SaaS platform-owner login and dashboard shell |
+| `platform-owner/platform-owner.css` | Responsive platform-owner dashboard design |
+| `platform-owner/platform-owner.js` | Company metrics, filtering, details, status and plan controls |
+
+The protected owner APIs and audit operations are implemented in `platform_owner/routes.py`.
 
 For the complete visible-section and database map, open root `EDITING-GUIDE.md`.

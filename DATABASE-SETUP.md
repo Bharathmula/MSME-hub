@@ -22,6 +22,15 @@ MSME_EMPLOYEE_API_URL="https://your-render-service.onrender.com"
 
 6. Redeploy Render and reboot the Streamlit app.
 
+For the separate SaaS owner dashboard, also add these private Render variables:
+
+```text
+MSME_PLATFORM_OWNER_EMAIL=your-private-owner-email
+MSME_PLATFORM_OWNER_PASSWORD=use-a-long-unique-password
+```
+
+Open `https://your-render-service.onrender.com/platform-owner`. These credentials must never be committed to GitHub or shared with a company administrator.
+
 The Python service creates all tables automatically. Never commit `DATABASE_URL`, database passwords, `MSME_SECRET_KEY`, or Streamlit secrets to GitHub.
 
 ## Company isolation and safe upgrades
@@ -49,5 +58,6 @@ The migration does not delete employees, workspaces, attendance, subscriptions, 
 - `employee_login_sessions`: permanent employee portal login/logout history.
 - `employee_audit_log`: security and account-action audit history.
 - `company_subscriptions`: plan, trial and billing-provider state linked to the company UUID.
+- `platform_owner_audit_log`: immutable history of owner status and plan changes.
 
 Inside each `tenant_workspaces.workspace_json`, `storage` contains people, ex-employees, temporary workers, festivals, festival years, attendance, deleted attendance, contractors, recycle bin, training and dashboard visibility settings.
