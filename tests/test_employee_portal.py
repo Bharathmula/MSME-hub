@@ -25,7 +25,7 @@ class EmployeePortalTests(unittest.TestCase):
   previous_email=os.environ.get('MSME_PLATFORM_OWNER_EMAIL');previous_password=os.environ.get('MSME_PLATFORM_OWNER_PASSWORD')
   os.environ['MSME_PLATFORM_OWNER_EMAIL']='platform.owner@example.com';os.environ['MSME_PLATFORM_OWNER_PASSWORD']='PlatformOwner123!'
   try:
-   page=self.c.get('/platform-owner');self.assertEqual(page.status_code,200,page.text);self.assertIn(b'OWNER CONTROL PLANE',page.data);page.close()
+   page=self.c.get('/platform-owner');self.assertEqual(page.status_code,200,page.text);self.assertIn(b'PLATFORM OWNER ACCESS',page.data);self.assertIn(b'MSME M logo',page.data);self.assertIn(b'platform-owner-fixes.css',page.data);page.close()
    signed_in=self.c.post('/api/platform-owner/login',json={'email':'platform.owner@example.com','password':'PlatformOwner123!'});self.assertEqual(signed_in.status_code,200,signed_in.text)
    owner_headers=self.headers(signed_in.json['access_token'])
    overview=self.c.get('/api/platform-owner/overview',headers=owner_headers);self.assertEqual(overview.status_code,200,overview.text)

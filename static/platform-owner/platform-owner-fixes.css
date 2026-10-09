@@ -1,0 +1,27 @@
+/* Keep authenticated content and drawers hidden until JavaScript opens them. */
+[hidden] {
+  display: none !important;
+}
+
+/* Use the same four-part ribbon M as the public MSME application. */
+.brand-lockup .msme-mark path {
+  fill: none;
+  stroke-width: 19;
+  stroke-linecap: round;
+}
+
+.brand-lockup.compact .msme-mark path:nth-of-type(1) {
+  stroke: #ef42dc;
+}
+
+.brand-lockup.compact .msme-mark path:nth-of-type(2) {
+  stroke: #5938ea;
+}
+
+.brand-lockup.compact .msme-mark path:nth-of-type(3) {
+  stroke: #11c5ea;
+}
+
+.brand-lockup.compact .msme-mark path:nth-of-type(4) {
+  stroke: #4050ff;
+}
