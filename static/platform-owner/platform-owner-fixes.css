@@ -31,7 +31,7 @@
 .owner-login {
   position: relative;
   isolation: isolate;
-  grid-template-columns: minmax(380px, 0.9fr) minmax(420px, 1.1fr);
+  grid-template-columns: minmax(420px, 1.1fr) minmax(380px, 0.9fr);
   background: #020b20;
 }
 
@@ -40,7 +40,7 @@
   position: absolute;
   z-index: -1;
   inset: 0;
-  background: linear-gradient(270deg, rgba(0, 10, 38, 0.55), rgba(0, 10, 38, 0.06) 55%, rgba(2, 10, 35, 0.23));
+  background: linear-gradient(90deg, rgba(0, 10, 38, 0.55), rgba(0, 10, 38, 0.06) 55%, rgba(2, 10, 35, 0.23));
 }
 
 .owner-login::after {
@@ -49,16 +49,15 @@
   z-index: -2;
   inset: 0;
   background: url("/assets/msme-welcome-hero.png") center / cover no-repeat;
-  transform: scaleX(-1);
 }
 
 .owner-login .login-brand {
-  grid-column: 2;
+  grid-column: 1;
   grid-row: 1;
 }
 
 .owner-login .login-form-wrap {
-  grid-column: 1;
+  grid-column: 2;
   grid-row: 1;
 }
 
@@ -81,60 +80,6 @@
 
 .owner-login .brand-lockup > div > span {
   color: #dae4ff;
-}
-
-.owner-login .login-copy {
-  max-width: 640px;
-  text-shadow: 0 5px 24px rgba(0, 7, 48, 0.48);
-}
-
-.owner-hero-title span,
-.owner-hero-title i {
-  display: block;
-}
-
-.owner-hero-title i {
-  background: linear-gradient(100deg, #ef42dc 0%, #8e4ff4 40%, #11c5ea 72%, #4050ff 100%);
-  background-clip: text;
-  color: transparent;
-  font-style: normal;
-  filter: drop-shadow(0 8px 22px rgba(89, 72, 255, 0.22));
-}
-
-.owner-hero-line {
-  display: block;
-  width: 86px;
-  height: 6px;
-  margin: -10px 0 22px;
-  border-radius: 8px;
-  background: linear-gradient(90deg, #1ac8ff, #875cff);
-}
-
-.owner-hero-benefits {
-  display: flex;
-  gap: 22px;
-  margin-top: 28px;
-}
-
-.owner-hero-benefits span {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.owner-hero-benefits b {
-  display: grid;
-  width: 40px;
-  height: 40px;
-  place-items: center;
-  border: 1px solid rgba(184, 207, 255, 0.4);
-  border-radius: 11px;
-  background: linear-gradient(145deg, rgba(112, 65, 255, 0.84), rgba(10, 137, 241, 0.7));
-  box-shadow: 0 10px 24px rgba(0, 7, 60, 0.28);
-  font-size: 17px;
 }
 
 .owner-login .login-card {
