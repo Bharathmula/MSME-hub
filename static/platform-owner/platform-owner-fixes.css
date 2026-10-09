@@ -129,12 +129,33 @@
   box-shadow: 0 28px 80px rgba(0, 8, 48, 0.42);
 }
 
+.owner-input-wrap,
 .owner-password-wrap {
   position: relative;
   display: block;
 }
 
-.owner-password-wrap input {
+.owner-input-wrap .owner-field-icon {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 15px;
+  width: 21px;
+  height: 21px;
+  transform: translateY(-50%);
+  fill: none;
+  stroke: #536984;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.owner-input-wrap input {
+  padding-left: 48px;
+}
+
+.owner-password-wrap.owner-input-wrap input {
   padding-right: 54px;
 }
 
