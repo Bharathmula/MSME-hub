@@ -244,7 +244,8 @@ def health():
     return jsonify({
         "ok": True,
         "service": "msme-employee-api",
-        "schema_version": 13,
+        "schema_version": 14,
+        "tenant_isolation": "immutable-company-id",
         "attendance_photo_api": True,
         "photo_storage": storage_mode(),
         "database": "postgresql" if database_url() else "sqlite",
@@ -467,9 +468,12 @@ def update_admin_account():
             "disabled": True,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         })
+    if new_email != current_email:
+        # Move immutable ownership before the renamed administrator is saved,
+        # so an email change never creates a second company identity.
+        WorkspaceDatabase().rename(current_email, new_email)
+        rename_subscription(current_email, new_email)
     save_auth_accounts(accounts)
-    WorkspaceDatabase().rename(current_email, new_email)
-    rename_subscription(current_email, new_email)
     return jsonify({
         "ok": True,
         "account": public_account(account),

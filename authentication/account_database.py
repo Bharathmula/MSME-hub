@@ -5,7 +5,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from employee_portal.database import connect, initialize, transaction
+from employee_portal.database import connect, ensure_company, initialize, transaction
 
 
 class AccountDatabase:
@@ -49,13 +49,17 @@ class AccountDatabase:
         }
         with transaction() as db:
             for email, account in normalized.items():
+                company_id = None if account.get("disabled") else ensure_company(
+                    db, email, str(account.get("company") or account.get("name") or "")
+                )
                 db.execute(
-                    """INSERT INTO admin_accounts(email, account_json, updated_at)
-                       VALUES(?, ?, ?)
+                    """INSERT INTO admin_accounts(email, company_id, account_json, updated_at)
+                       VALUES(?, ?, ?, ?)
                        ON CONFLICT(email) DO UPDATE SET
+                         company_id=excluded.company_id,
                          account_json=excluded.account_json,
                          updated_at=excluded.updated_at""",
-                    (email, json.dumps(account, ensure_ascii=False), now),
+                    (email, company_id, json.dumps(account, ensure_ascii=False), now),
                 )
             rows = db.execute("SELECT email FROM admin_accounts").fetchall()
             for row in rows:

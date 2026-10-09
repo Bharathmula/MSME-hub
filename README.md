@@ -49,7 +49,7 @@ photo. Existing Base64 photos in Neon remain readable and are not migrated or
 deleted automatically. Without all four variables, local/test behaviour safely
 falls back to the existing database storage.
 
-Records persist until they are explicitly changed or deleted in the application. Each API request is restricted to the company identified by the signed manager session.
+Records persist until they are explicitly changed or deleted in the application. Each company has an immutable UUID shared by its workspace, employee, attendance, login, audit and subscription rows. Signed sessions include this company UUID, and PostgreSQL ownership constraints prevent child attendance/session rows from being attached to another company. Administrator email changes preserve the same UUID and existing data.
 
 ## VS Code maintenance
 

@@ -9,3 +9,5 @@ pip-ephem-wheel-cache-*/
 pip-install-*/
 output/
 tmp/
+.codex-testdeps/
+.pip-tmp/

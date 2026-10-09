@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-from employee_portal.database import connect, initialize, transaction
+from employee_portal.database import connect, ensure_company, initialize, transaction
 
 
 class WorkspaceConflictError(RuntimeError):
@@ -51,6 +51,13 @@ class WorkspaceDatabase:
         value["schema_version"] = 1
         value["updated_at"] = now
         with transaction() as db:
+            company_id = ensure_company(
+                db,
+                tenant,
+                str(value.get("account", {}).get("company", ""))
+                if isinstance(value.get("account"), dict)
+                else "",
+            )
             current = db.execute(
                 "SELECT workspace_json, updated_at FROM tenant_workspaces WHERE tenant_email=?",
                 (tenant,),
@@ -64,17 +71,18 @@ class WorkspaceDatabase:
             if current:
                 db.execute(
                     """INSERT INTO tenant_workspace_backups(
-                           tenant_email, workspace_json, source_updated_at, created_at
-                       ) VALUES(?, ?, ?, ?)""",
-                    (tenant, current["workspace_json"], current["updated_at"], now),
+                           tenant_email, company_id, workspace_json, source_updated_at, created_at
+                       ) VALUES(?, ?, ?, ?, ?)""",
+                    (tenant, company_id, current["workspace_json"], current["updated_at"], now),
                 )
             db.execute(
-                """INSERT INTO tenant_workspaces(tenant_email, workspace_json, updated_at)
-                   VALUES(?, ?, ?)
+                """INSERT INTO tenant_workspaces(tenant_email, company_id, workspace_json, updated_at)
+                   VALUES(?, ?, ?, ?)
                    ON CONFLICT(tenant_email) DO UPDATE SET
+                     company_id=excluded.company_id,
                      workspace_json=excluded.workspace_json,
                      updated_at=excluded.updated_at""",
-                (tenant, json.dumps(value, ensure_ascii=False), now),
+                (tenant, company_id, json.dumps(value, ensure_ascii=False), now),
             )
         return now
 
@@ -134,28 +142,50 @@ class WorkspaceDatabase:
         if not old_tenant or old_tenant == new_tenant:
             return
         with transaction() as db:
+            company_id = ensure_company(db, old_tenant)
+            conflict = db.execute(
+                "SELECT id FROM companies WHERE tenant_email=?", (new_tenant,)
+            ).fetchone()
+            if conflict and conflict["id"] != company_id:
+                raise ValueError("Another company already uses the new administrator email.")
+            workspace_conflict = db.execute(
+                "SELECT company_id FROM tenant_workspaces WHERE tenant_email=?",
+                (new_tenant,),
+            ).fetchone()
+            if workspace_conflict and workspace_conflict["company_id"] != company_id:
+                raise ValueError("Another company already owns the destination workspace.")
+            now = datetime.now(timezone.utc).isoformat()
+            db.execute(
+                "UPDATE companies SET tenant_email=?,updated_at=? WHERE id=?",
+                (new_tenant, now, company_id),
+            )
+            # Keep the account table internally consistent during the email
+            # rename. AccountDatabase.save immediately refreshes account_json.
+            db.execute(
+                "UPDATE admin_accounts SET email=?,company_id=? WHERE email=?",
+                (new_tenant, company_id, old_tenant),
+            )
             current = db.execute(
                 "SELECT workspace_json, updated_at FROM tenant_workspaces WHERE tenant_email=?",
                 (old_tenant,),
             ).fetchone()
             if current:
-                db.execute("DELETE FROM tenant_workspaces WHERE tenant_email=?", (new_tenant,))
                 db.execute(
-                    "UPDATE tenant_workspaces SET tenant_email=? WHERE tenant_email=?",
-                    (new_tenant, old_tenant),
+                    "UPDATE tenant_workspaces SET tenant_email=?,company_id=? WHERE tenant_email=?",
+                    (new_tenant, company_id, old_tenant),
                 )
             # Employee credentials, attendance ownership and login history must
             # remain attached to the same company after its administrator
             # changes the login email.
             db.execute(
-                "UPDATE employee_accounts SET tenant_email=? WHERE tenant_email=?",
-                (new_tenant, old_tenant),
+                "UPDATE employee_accounts SET tenant_email=?,company_id=? WHERE tenant_email=?",
+                (new_tenant, company_id, old_tenant),
             )
             db.execute(
-                "UPDATE employee_login_sessions SET tenant_email=? WHERE tenant_email=?",
-                (new_tenant, old_tenant),
+                "UPDATE employee_login_sessions SET tenant_email=?,company_id=? WHERE tenant_email=?",
+                (new_tenant, company_id, old_tenant),
             )
             db.execute(
-                "UPDATE tenant_workspace_backups SET tenant_email=? WHERE tenant_email=?",
-                (new_tenant, old_tenant),
+                "UPDATE tenant_workspace_backups SET tenant_email=?,company_id=? WHERE tenant_email=?",
+                (new_tenant, company_id, old_tenant),
             )

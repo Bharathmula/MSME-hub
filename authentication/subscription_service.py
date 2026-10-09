@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from employee_portal.database import connect, transaction
+from employee_portal.database import connect, ensure_company, transaction
 
 TRIAL_DAYS = 30
 TRIAL_EMPLOYEE_LIMIT = 10
@@ -35,6 +35,7 @@ def ensure_subscription(company_id: str) -> dict:
     """Return the company subscription, creating its one-time trial if absent."""
     company_id = str(company_id or "").strip().lower()
     with transaction() as db:
+        tenant_company_id = ensure_company(db, company_id)
         row = db.execute(
             "SELECT * FROM company_subscriptions WHERE company_id=?",
             (company_id,),
@@ -44,12 +45,12 @@ def ensure_subscription(company_id: str) -> dict:
             ends = started + timedelta(days=TRIAL_DAYS)
             db.execute(
                 """INSERT INTO company_subscriptions(
-                       company_id, plan_code, status, billing_cycle,
+                       company_id, tenant_company_id, plan_code, status, billing_cycle,
                        trial_started_at, trial_ends_at, current_period_start,
                        current_period_end, employee_limit, created_at, updated_at
-                   ) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+                   ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
-                    company_id, "TRIAL", "TRIALING", "TRIAL",
+                    company_id, tenant_company_id, "TRIAL", "TRIALING", "TRIAL",
                     started.isoformat(), ends.isoformat(), started.isoformat(),
                     ends.isoformat(), TRIAL_EMPLOYEE_LIMIT,
                     started.isoformat(), started.isoformat(),
@@ -82,18 +83,26 @@ def subscription_summary(company_id: str, row=None) -> dict:
                 "UPDATE company_subscriptions SET status='EXPIRED',updated_at=? WHERE company_id=?",
                 (now.isoformat(), company_id),
             )
+    tenant_company_id = row.get("tenant_company_id") if hasattr(row, "get") else row["tenant_company_id"]
     db = connect()
     try:
-        employee_count = db.execute(
-            "SELECT COUNT(*) AS count FROM employee_accounts WHERE tenant_email=?",
-            (company_id,),
-        ).fetchone()["count"]
+        if tenant_company_id:
+            employee_count = db.execute(
+                "SELECT COUNT(*) AS count FROM employee_accounts WHERE company_id=?",
+                (tenant_company_id,),
+            ).fetchone()["count"]
+        else:
+            employee_count = db.execute(
+                "SELECT COUNT(*) AS count FROM employee_accounts WHERE tenant_email=?",
+                (company_id,),
+            ).fetchone()["count"]
     finally:
         db.close()
     remaining_seconds = max(0, int((end - now).total_seconds()))
     days_remaining = (remaining_seconds + 86399) // 86400
     return {
         "company_id": company_id,
+        "tenant_company_id": tenant_company_id,
         "plan_code": row["plan_code"],
         "plan_name": _plan_name(row["plan_code"]),
         "status": status.lower(),

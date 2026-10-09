@@ -5,7 +5,7 @@ from uuid import uuid4
 from flask import Blueprint,current_app,g,jsonify,request
 from itsdangerous import BadSignature,SignatureExpired,URLSafeTimedSerializer
 from werkzeug.security import check_password_hash,generate_password_hash
-from .database import connect,transaction
+from .database import connect,ensure_company,transaction
 from .photo_storage import PhotoStorageError,photo_url,store_photo
 from .security import require,token
 
@@ -23,13 +23,13 @@ def public(row):
  if result.get('profile_photo_data'):result['profile_photo_data']=photo_url(result['profile_photo_data'])
  return result
 def audit(db,action,kind,eid,details):
- i=g.employee_identity;db.execute('INSERT INTO employee_audit_log VALUES(?,?,?,?,?,?,?,?)',(uuid4().hex,i['email'],i['role'],action,kind,str(eid),json.dumps(details),stamp()))
+ i=g.employee_identity;db.execute('INSERT INTO employee_audit_log(id,actor_email,company_id,actor_role,action,entity_type,entity_id,details_json,created_at) VALUES(?,?,?,?,?,?,?,?,?)',(uuid4().hex,i['email'],i.get('company_id'),i['role'],action,kind,str(eid),json.dumps(details),stamp()))
 def current(db):
  row=db.execute('SELECT * FROM employee_accounts WHERE id=?',(g.employee_identity.get('employee_account_id'),)).fetchone()
- return row if row and row['status']=='ACTIVE' and row['tenant_email']==g.employee_identity['tenant'] else None
+ return row if row and row['status']=='ACTIVE' and row['company_id']==g.employee_identity.get('company_id') else None
 def start_login_session(db,row):
  session_id=uuid4().hex;login_at=stamp()
- db.execute('INSERT INTO employee_login_sessions(id,employee_account_id,tenant_email,login_at,user_agent,created_at) VALUES(?,?,?,?,?,?)',(session_id,row['id'],row['tenant_email'],login_at,str(request.headers.get('User-Agent',''))[:500],login_at))
+ db.execute('INSERT INTO employee_login_sessions(id,employee_account_id,tenant_email,company_id,login_at,user_agent,created_at) VALUES(?,?,?,?,?,?,?)',(session_id,row['id'],row['tenant_email'],row['company_id'],login_at,str(request.headers.get('User-Agent',''))[:500],login_at))
  return session_id,login_at
 def shift_photos(db,shift_id):
  events=db.execute('SELECT event_type,face_capture_data FROM employee_attendance_events WHERE shift_id=? ORDER BY server_timestamp',(shift_id,)).fetchall()
@@ -139,7 +139,8 @@ def activate():
    if row:
     db.execute("UPDATE employee_accounts SET name=?,email=?,workforce_role=?,phone=?,password_hash=?,pin_hash=NULL,status='ACTIVE',invite_hash=NULL,invite_expires_at=NULL,profile_json=?,updated_at=? WHERE id=?",(name,contact,role,phone,generate_password_hash(password),json.dumps(profile),stamp(),row['id']))
    else:
-    db.execute('INSERT INTO employee_accounts(tenant_email,employee_id,name,email,workforce_role,phone,password_hash,pin_hash,status,invite_hash,invite_expires_at,profile_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(tenant,eid,name,contact,role,phone,generate_password_hash(password),None,'ACTIVE',None,None,json.dumps(profile),stamp(),stamp()))
+    company_id=ensure_company(db,tenant)
+    db.execute('INSERT INTO employee_accounts(tenant_email,company_id,employee_id,name,email,workforce_role,phone,password_hash,pin_hash,status,invite_hash,invite_expires_at,profile_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(tenant,company_id,eid,name,contact,role,phone,generate_password_hash(password),None,'ACTIVE',None,None,json.dumps(profile),stamp(),stamp()))
     row=db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? AND employee_id=?',(tenant,eid)).fetchone()
   active=db.execute('SELECT * FROM employee_accounts WHERE id=?',(row['id'],)).fetchone()
   session_id,login_at=start_login_session(db,active)
@@ -235,8 +236,8 @@ def profile_details():
     if key.startswith(prefix) and key[len(prefix):].isdigit() and int(key[len(prefix):])>count:profile.pop(key,None)
   profile.update(updates)
   workspace['storage'][collection][index]=profile
-  db.execute('''INSERT INTO tenant_workspaces(tenant_email,workspace_json,updated_at) VALUES(?,?,?)
-   ON CONFLICT(tenant_email) DO UPDATE SET workspace_json=excluded.workspace_json,updated_at=excluded.updated_at''',(row['tenant_email'],json.dumps(workspace),stamp()))
+  db.execute('''INSERT INTO tenant_workspaces(tenant_email,company_id,workspace_json,updated_at) VALUES(?,?,?,?)
+   ON CONFLICT(tenant_email) DO UPDATE SET company_id=excluded.company_id,workspace_json=excluded.workspace_json,updated_at=excluded.updated_at''',(row['tenant_email'],row['company_id'],json.dumps(workspace),stamp()))
   db.execute('UPDATE employee_accounts SET name=?,phone=?,profile_json=?,updated_at=? WHERE id=?',(str(profile.get('name') or row['name']),str(profile.get('phone') or row['phone']),json.dumps(profile),stamp(),row['id']))
   audit(db,'EMPLOYEE_PROFILE_UPDATED','employee_account',row['id'],{'fields':sorted(updates)})
  return jsonify({'ok':True,'profile':profile})
@@ -294,10 +295,10 @@ def attendance():
    if expected_action and expected_action!=action:return jsonify({'error':'Attendance status changed before this photo was saved. Refresh and capture a new photo.'}),409
    stored_face=store_photo(face,tenant=row['tenant_email'],employee_id=row['employee_id'],category='attendance',event_type=action,captured_at=event_time)
    if not shift:
-    sid=uuid4().hex;db.execute('INSERT INTO employee_shifts(id,employee_account_id,work_date,check_in_at,status) VALUES(?,?,?,?,?)',(sid,row['id'],date,event_time,'OPEN'))
+    sid=uuid4().hex;db.execute('INSERT INTO employee_shifts(id,employee_account_id,company_id,work_date,check_in_at,status) VALUES(?,?,?,?,?,?)',(sid,row['id'],row['company_id'],date,event_time,'OPEN'))
    else:
     sid=shift['id'];minutes=max(0,int((now()-datetime.fromisoformat(shift['check_in_at'])).total_seconds()//60));db.execute("UPDATE employee_shifts SET check_out_at=?,worked_minutes=?,status='COMPLETED' WHERE id=?",(event_time,minutes,sid))
-   eid=uuid4().hex;db.execute('INSERT INTO employee_attendance_events(id,employee_account_id,shift_id,event_type,server_timestamp,verification_method,idempotency_key,device_identifier,face_capture_data) VALUES(?,?,?,?,?,?,?,?,?)',(eid,row['id'],sid,action,event_time,'FACE_CAPTURE',key,device,stored_face));event=db.execute('SELECT * FROM employee_attendance_events WHERE id=?',(eid,)).fetchone()
+   eid=uuid4().hex;db.execute('INSERT INTO employee_attendance_events(id,employee_account_id,company_id,shift_id,event_type,server_timestamp,verification_method,idempotency_key,device_identifier,face_capture_data) VALUES(?,?,?,?,?,?,?,?,?,?)',(eid,row['id'],row['company_id'],sid,action,event_time,'FACE_CAPTURE',key,device,stored_face));event=db.execute('SELECT * FROM employee_attendance_events WHERE id=?',(eid,)).fetchone()
  except PhotoStorageError as exc:
   current_app.logger.exception('Unable to save attendance photo')
   return jsonify({'error':str(exc)}),503
@@ -346,7 +347,8 @@ def accounts():
    audit(db,'EMPLOYEE_INVITATION_REGENERATED','employee_account',existing['id'],{'employee_id':eid,'role':role})
    return jsonify({'ok':True,'credentials_created':False,'invite_token':raw,'expires_at':expires,'regenerated':True}),200
   try:
-   db.execute('INSERT INTO employee_accounts(tenant_email,employee_id,name,email,workforce_role,phone,password_hash,pin_hash,status,invite_hash,invite_expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(tenant,eid,name,email,role,phone,generate_password_hash(password) if direct else None,generate_password_hash(pin) if direct else None,'ACTIVE' if direct else 'INVITED',None if direct else hashlib.sha256(raw.encode()).hexdigest(),None if direct else expires,stamp(),stamp()))
+   company_id=ensure_company(db,tenant)
+   db.execute('INSERT INTO employee_accounts(tenant_email,company_id,employee_id,name,email,workforce_role,phone,password_hash,pin_hash,status,invite_hash,invite_expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(tenant,company_id,eid,name,email,role,phone,generate_password_hash(password) if direct else None,generate_password_hash(pin) if direct else None,'ACTIVE' if direct else 'INVITED',None if direct else hashlib.sha256(raw.encode()).hexdigest(),None if direct else expires,stamp(),stamp()))
   except Exception:return jsonify({'error':'That employee ID or email already has an account.'}),409
   created=db.execute('SELECT id FROM employee_accounts WHERE tenant_email=? AND employee_id=?',(tenant,eid)).fetchone()
   audit(db,'EMPLOYEE_CREDENTIALS_CREATED' if direct else 'EMPLOYEE_INVITED','employee_account',created['id'],{'employee_id':eid,'role':role})
