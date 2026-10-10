@@ -393,11 +393,6 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
 .metrics.four-role-overview {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
-.metrics.configured-workforce-metrics,
-.attendance-overview-grid.configured-workforce-grid {
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-}
-.sidebar .nav-link[hidden] { display: none !important; }
 
 @media(max-width:1200px) {
   .metrics.four-role-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -658,12 +653,8 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
 .present i { background: #24a148; }.unsure i { background: #f2b701; }.absent i { background: #d93025; }
 .attendance-overview-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-top: 15px; }
 .attendance-overview-card,.overflow-overview-card { padding: 14px; border: 1px solid #dbe5ec; border-radius: 10px; background: #fff; }
-.attendance-overview-card.overview-role-employees { background: linear-gradient(135deg,#2457a7,#477fd0); }
 .attendance-overview-card.overview-role-workers { background: linear-gradient(135deg,#092a5d,#0b4f9a); }
 .attendance-overview-card.overview-role-staff { background: linear-gradient(135deg,#174f78,#267ca8); }
-.attendance-overview-card.overview-role-managers { background: linear-gradient(135deg,#8a4b12,#c87924); }
-.attendance-overview-card.overview-role-hr { background: linear-gradient(135deg,#9b2f58,#d15f88); }
-.attendance-overview-card.overview-role-owners { background: linear-gradient(135deg,#263a78,#586fc2); }
 .attendance-overview-card.overview-role-entrepreneurs { background: linear-gradient(135deg,#4b356e,#76559d); }
 .attendance-overview-card.overview-role-temporary { background: linear-gradient(135deg,#145a54,#23877d); }
 .attendance-overview-card[class*="overview-role-"] { border-color: transparent; box-shadow: 0 8px 20px rgba(9,42,93,.14); }
@@ -704,8 +695,3 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
 @media(max-width:1200px){.attendance-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:900px){.attendance-overview-grid{grid-template-columns:1fr}}
 @media(max-width:650px){.operations-overview-heading,.overview-subsection-head{align-items:flex-start;flex-direction:column}.overflow-overview-grid{grid-template-columns:1fr}.absence-estimate-row{grid-template-columns:1fr}.absence-estimate-row strong{text-align:left}}
-
-.admin-checkout-control{display:flex;align-items:center;gap:10px;margin:14px 0;padding:12px;border-radius:12px;background:#fff7e8}.admin-checkout-control small{color:#8a5b16}.admin-checkout-audit{margin:10px 0;padding:10px 12px;border-radius:10px;background:#eaf7f0;color:#216747;font-size:12px}.admin-checkout-audit b{color:#145038}
-.workforce-row-actions{display:flex;flex-wrap:wrap;gap:7px}.automatic-workforce-table td .admin-checkout-audit{display:block;min-width:190px;margin-top:8px;white-space:normal}
-.admin-missed-checkout{display:grid;grid-template-columns:minmax(220px,1fr) 150px minmax(220px,1fr) auto;align-items:end;gap:12px;margin:16px 0;padding:16px;border-radius:14px;background:#fff7e8;border:1px solid #f1d39d}.admin-missed-checkout>div{display:grid;gap:5px}.admin-missed-checkout span,.admin-missed-checkout small{color:#7b5a25;font-size:11px}.admin-missed-checkout label{display:grid;gap:6px;color:#6b4b18;font-size:10px;font-weight:900}.admin-missed-checkout input{min-height:42px;padding:9px 10px;border:1px solid #dfc28d;border-radius:9px;background:#fff}.admin-missed-checkout>small{grid-column:1/-1}.admin-missed-checkout>small:not(:empty){color:#b3261e;font-weight:800}@media(max-width:900px){.admin-missed-checkout{grid-template-columns:1fr}}
-.attendance-configuration-summary{display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:14px;align-items:center}.attendance-configuration-summary>div{display:grid;gap:4px;padding:14px 16px;border-radius:14px;background:#f4f8fb}.attendance-configuration-summary span{font-size:10px;font-weight:900;letter-spacing:.08em;color:#687d78}.attendance-configuration-summary b{font-size:16px;color:#102b27}.attendance-configuration-summary b.enabled{color:#15845f}.attendance-configuration-summary b.disabled{color:#c43e3e}@media(max-width:800px){.attendance-configuration-summary{grid-template-columns:1fr}}

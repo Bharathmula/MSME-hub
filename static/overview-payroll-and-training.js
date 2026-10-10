@@ -650,10 +650,7 @@ function manualAttendanceRecord(person) {
     id: person.id,
     name: person.name,
     role: person.role,
-    source: 'Admin manual attendance',
-    entered_by: admin.name || admin.email,
-    entered_by_email: admin.email,
-    admin_note: `Entered by administrator while ${typeof configuredAttendanceModeV39 === 'function' ? configuredAttendanceModeV39() : 'the selected'} authentication remained active.`,
+    source: 'Manual attendance',
     status: person.status,
     shift: person.shift || '09:00 AM - 06:00 PM',
     grace: typeof GRACE_TIME !== 'undefined' ? GRACE_TIME : '09:15 AM',
@@ -672,10 +669,6 @@ function manualAttendanceRecord(person) {
 }
 
 window.saveSelectedDay = function saveOnlyManuallyEnteredAttendance() {
-  if (typeof manualAttendanceEnabledV21 !== 'undefined' && !manualAttendanceEnabledV21) {
-    alert('Enable administrator manual override before saving manual attendance while Face Authentication is active.');
-    return;
-  }
   const manuallyEntered = [...people, ...temporaryWorkers]
     .filter(person => person.attendance_entered_date === calendarDay && person.status)
     .map(manualAttendanceRecord);
@@ -1002,14 +995,16 @@ function refreshAdminGreeting() {
 }
 
 function modalWorkforceRecord(form) {
-  if (!form.matches('#full-form, #temp-edit')) return null;
+  const eyebrow = form.querySelector('.eyebrow')?.textContent.trim().toUpperCase() || '';
+  if (!/(WORKER|STAFF|ENTREPRENEUR)/.test(eyebrow)) return null;
   const enteredName = form.elements.namedItem('name')?.value?.trim() || '';
-  const source = [
-    ...(typeof people !== 'undefined' ? people : []),
-    ...(typeof temporaryWorkers !== 'undefined' ? temporaryWorkers : []),
-    ...(typeof exPeople !== 'undefined' ? exPeople : []),
-  ];
-  return source.find(person => person.name === enteredName) || { religion: '' };
+  const isTemporary = eyebrow.includes('TEMPORARY');
+  const source = isTemporary
+    ? (typeof temporaryWorkers !== 'undefined' ? temporaryWorkers : [])
+    : [...(typeof people !== 'undefined' ? people : []), ...(typeof exPeople !== 'undefined' ? exPeople : [])];
+  const expectedRole = eyebrow.includes('ENTREPRENEUR') ? 'Entrepreneur' : eyebrow.includes('STAFF') ? 'Staff' : 'Worker';
+  return source.find(person => person.name === enteredName &&
+    (isTemporary || !person.role || person.role === expectedRole)) || { religion: '' };
 }
 
 function normalizeReligionInOpenWorkforceForm() {
@@ -1411,9 +1406,9 @@ if (document.readyState === 'loading') {
     const now = new Date();
     const monthPrefix = indiaDateKey(now).slice(0, 7);
     const rows = allPayrollPeople().map(person => payrollRow(person, monthPrefix));
-    const configuredPayrollRoles = window.MSMEConfiguredWorkforce?.active?.().map(category => [category.role, category.label])
-      || [['Worker', 'Workers'], ['Staff', 'Staff'], ['Temporary Worker', 'Temporary Workers'], ['Entrepreneur', 'Entrepreneurs']];
-    const payrollSections = configuredPayrollRoles.map(([role, title]) => {
+    const payrollSections = [
+      ['Worker', 'Workers'], ['Staff', 'Staff'], ['Temporary Worker', 'Temporary Workers'], ['Entrepreneur', 'Entrepreneurs']
+    ].map(([role, title]) => {
       const roleRows = rows.filter(row => row.role === role);
       const totalPay = roleRows.reduce((total, row) => total + row.pay, 0);
       return `<section class="panel payroll-panel payroll-role-section"><div class="panel-header"><div><span class="eyebrow">${title.toUpperCase()}</span><h2>${title} monthly salary</h2></div><div class="payroll-role-total"><small>${roleRows.length} people</small><b>₹${totalPay.toFixed(2)}</b></div></div><div class="table-wrap"><table><thead><tr><th>NAME / ID</th><th>TODAY WORKED</th><th>TODAY SALARY</th><th>PRESENT DAYS</th><th>MONTH WORKED</th><th>MONTHLY SALARY</th><th>DAILY RATE (8 HR)</th><th>CALCULATED MONTHLY PAY</th><th>EDIT</th></tr></thead><tbody>${roleRows.map(row => `<tr><td><b>${esc(row.name)}</b><small class="record-id">${esc(row.id)}</small></td><td>${Math.floor(row.todayMinutes / 60)}h ${row.todayMinutes % 60}m</td><td><b>₹${row.todayPay.toFixed(2)}</b></td><td>${row.days}</td><td>${Math.floor(row.minutes / 60)}h ${row.minutes % 60}m</td><td>₹${row.monthlySalary.toFixed(2)}</td><td>₹${row.dailyRate.toFixed(2)}</td><td><b>₹${row.pay.toFixed(2)}</b></td><td><button class="action" data-edit-payroll-salary="${esc(row.id)}">Edit salary</button></td></tr>`).join('') || '<tr><td colspan="9" class="empty">No records in this section.</td></tr>'}</tbody></table></div></section>`;
@@ -1479,13 +1474,13 @@ if (document.readyState === 'loading') {
     const advanced = trainingRecords.filter(record => ['High learning', 'Learned'].includes(record.level)).length;
     const peopleCount = new Set(trainingRecords.map(record => record.person_id)).size;
     root.innerHTML = `<div class="page-heading"><div><div class="eyebrow">SKILL DEVELOPMENT</div><h1>Training.</h1>
-      <p>Track every enabled workforce category, mentors, learning levels and automatic skill progress.</p></div>
+      <p>Track workers, staff, mentors, learning levels and automatic skill progress.</p></div>
       <button class="primary" id="add-training">+ Add training</button></div>
       <div class="work-dashboard training-summary"><section class="panel"><b>${trainingRecords.length}</b><span>Total records</span></section>
       <section class="panel"><b>${active}</b><span>Currently learning</span></section><section class="panel"><b>${advanced}</b><span>Advanced / learned</span></section>
       <section class="panel"><b>${peopleCount}</b><span>People in training</span></section></div>
       <section class="panel training-directory"><div class="panel-header"><div><div class="eyebrow">CONNECTED TRAINING RECORDS</div>
-      <h2>Workforce skill development</h2></div><span class="training-sync-note">High learning and learned skills are automatically added to the profile.</span></div>
+      <h2>Worker and staff development</h2></div><span class="training-sync-note">High learning and learned skills are automatically added to the profile.</span></div>
       <div class="training-card-grid">${trainingRecords.slice().sort((a, b) => String(b.start_date || '').localeCompare(String(a.start_date || ''))).map(trainingCard).join('') || '<p class="empty">No training records yet.</p>'}</div></section>`;
     document.getElementById('add-training').onclick = () => openTrainingEditor();
   }
@@ -1506,12 +1501,12 @@ if (document.readyState === 'loading') {
       person_id: '', mentor_id: '', skill_name: '', level: 'Started',
       start_date: new Date().toISOString().slice(0, 10), target_date: '', notes: ''
     };
-    const trainees = window.MSMEConfiguredWorkforce?.people?.() || (Array.isArray(people) ? people : []);
-    const mentors = trainees;
+    const trainees = (Array.isArray(people) ? people : []).filter(person => ['Worker', 'Staff'].includes(person.role));
+    const mentors = Array.isArray(people) ? people : [];
     document.getElementById('modal-root').innerHTML = `<div class="modal-backdrop"><form class="modal small" id="training-form">
       <div class="modal-head"><div><div class="eyebrow">SKILL DEVELOPMENT</div><h2>${existing ? 'Edit' : 'Add'} training</h2></div>
       <button type="button" class="close" data-close>×</button></div><div class="form-grid">
-      <label>WORKFORCE PROFILE <span class="required">*</span><select name="person_id" required><option value="">Select a workforce profile</option>
+      <label>WORKER / STAFF <span class="required">*</span><select name="person_id" required><option value="">Select worker or staff</option>
       ${trainees.map(person => `<option value="${esc(person.id)}" ${record.person_id === person.id ? 'selected' : ''}>${esc(person.name || person.id)} · ${esc(person.role)}</option>`).join('')}</select></label>
       <label>MENTOR <span class="required">*</span><select name="mentor_id" required><option value="">Select mentor</option>
       ${mentors.map(person => `<option value="${esc(person.id)}" ${record.mentor_id === person.id ? 'selected' : ''}>${esc(person.name || person.id)} · ${esc(person.role)}</option>`).join('')}</select></label>
@@ -1712,7 +1707,7 @@ if (document.readyState === 'loading') {
       root.innerHTML = `${heading(`${rows.length} attendance result${rows.length === 1 ? '' : 's'}`)}<section class="panel"><div class="table-wrap"><table><thead><tr><th>DATE</th><th>NAME</th><th>ROLE</th><th>STATUS</th><th>CHECK-IN</th><th>CHECK-OUT</th><th>TOTAL</th></tr></thead><tbody>${rows.map(row => `<tr><td>${esc(row.date)}</td><td><b>${esc(row.name)}</b></td><td>${esc(row.role)}</td><td>${esc(row.status)}</td><td>${esc(row.login || '-')}</td><td>${esc(row.logout || '-')}</td><td>${esc(row.total || row.work || '-')}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">No attendance matches.</td></tr>'}</tbody></table></div></section>`;
       return;
     }
-    const roleViews = Object.fromEntries((window.MSMEConfiguredWorkforce?.catalog || []).map(category => [category.view, category.role]));
+    const roleViews = { workers: 'Worker', staff: 'Staff', entrepreneurs: 'Entrepreneur' };
     let source = roleViews[view] ? people.filter(person => person.role === roleViews[view])
       : view === 'temporary' ? temporaryWorkers
       : view === 'exemployees' ? exPeople

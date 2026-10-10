@@ -53,16 +53,7 @@
 
   function roleLabel(role) {
     if (role === 'TEMPORARY') return 'Temporary Worker';
-    if (role === 'HR') return 'HR';
     return role.charAt(0) + role.slice(1).toLowerCase();
-  }
-
-  function configuredRolePairs() {
-    const configured = window.MSMEConfiguredWorkforce?.active?.();
-    if (Array.isArray(configured) && configured.length) {
-      return configured.map(item => [item.api, item.singular]);
-    }
-    return [['TEMPORARY', 'Temporary Worker'], ['WORKER', 'Worker'], ['STAFF', 'Staff'], ['ENTREPRENEUR', 'Entrepreneur']];
   }
 
   function employeeApplicationUrl() {
@@ -147,7 +138,7 @@
   function employeeLogin() {
     loginFrame(`<section class="ep-card ep-login-card">
       <p class="ep-eyebrow">WORKFORCE ACCESS</p><h1>Employee login</h1>
-      <p>People from the workforce categories enabled by their company use credentials issued by the administrator.</p>
+      <p>Workers, Staff, Temporary Workers and Entrepreneurs use credentials issued by their administrator.</p>
       <form id="ep-login">
         <label>Email<input class="ep-input" name="email" type="email" required autocomplete="username"></label>
         <label>Password<input class="ep-input" name="password" type="password" required autocomplete="current-password"></label>
@@ -523,7 +514,12 @@
   }
 
   function employeeAccessGroups(employees) {
-    const groups = configuredRolePairs().map(([role, label]) => [role, `${label} Access`]);
+    const groups = [
+      ['TEMPORARY', 'Temporary Worker Access'],
+      ['WORKER', 'Worker Access'],
+      ['STAFF', 'Staff Access'],
+      ['ENTREPRENEUR', 'Entrepreneur Access']
+    ];
     return `<div class="employee-access-groups">${groups.map(([role, title]) => {
       const records = employees.filter(employee => employee.workforce_role === role);
       const rows = records.map(employee => `<div class="ep-row"><div><b>${esc(employee.name)}</b><small>${esc(employee.employee_id)} · ${esc(employee.email)} · ${esc(employee.status)}</small></div><span class="ea-account-actions"><button class="secondary ea-status" data-account-id="${employee.id}" data-next-status="${employee.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'}">${employee.status === 'SUSPENDED' ? 'Restore' : 'Suspend'}</button><button class="secondary ea-remove-access" data-account-id="${employee.id}" data-employee-name="${esc(employee.name)}">Remove access</button></span></div>`).join('');
@@ -532,10 +528,9 @@
   }
 
   function existingWorkforceProfiles() {
-    const roles = new Set(configuredRolePairs().map(([, label]) => label));
     return [
-      ...people.filter(person => roles.has(person.role)),
-      ...(roles.has('Temporary Worker') ? temporaryWorkers.map(person => ({ ...person, role: 'Temporary Worker' })) : []),
+      ...people.filter(person => ['Worker', 'Staff', 'Entrepreneur'].includes(person.role)),
+      ...temporaryWorkers.map(person => ({ ...person, role: 'Temporary Worker' })),
     ];
   }
 
@@ -558,7 +553,7 @@
     if (!results) return;
     const normalized = String(query || '').trim().toLowerCase();
     const profiles = existingWorkforceProfiles().filter(person => !normalized || JSON.stringify(person).toLowerCase().includes(normalized));
-    results.innerHTML = profiles.map(person => `<button type="button" class="ea-profile-result" data-ea-profile-id="${esc(person.id)}"><b>${esc(person.name)}</b><span>${esc(person.id)} · ${esc(person.email || 'No email')} · ${esc(person.role)}</span><i>Use this profile →</i></button>`).join('') || '<p class="empty">No profile from the company’s selected workforce categories matches this search.</p>';
+    results.innerHTML = profiles.map(person => `<button type="button" class="ea-profile-result" data-ea-profile-id="${esc(person.id)}"><b>${esc(person.name)}</b><span>${esc(person.id)} · ${esc(person.email || 'No email')} · ${esc(person.role)}</span><i>Use this profile →</i></button>`).join('') || '<p class="empty">No existing worker, staff, temporary-worker or entrepreneur profile matches this search.</p>';
     results.querySelectorAll('[data-ea-profile-id]').forEach(button => button.onclick = () => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.id === button.dataset.eaProfileId)));
   }
 
@@ -581,12 +576,10 @@
       return;
     }
     const profiles = existingWorkforceProfiles();
-    const roleOptions = configuredRolePairs().map(([role, label]) => `<option value="${esc(role)}">${esc(label)}</option>`).join('');
-    const categoryNames = configuredRolePairs().map(([, label]) => label).join(', ');
     const nameOptions = profiles.map(person => `<option value="${esc(person.name)}">${esc(person.name)} · ${esc(person.id)}</option>`).join('');
     const emailOptions = profiles.map(person => `<option value="${esc(person.email || '')}">${esc(person.email || 'No email')} · ${esc(person.name)}</option>`).join('');
-    page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1><p>Select an existing ${esc(categoryNames)} profile. Their saved details will fill automatically.</p></div></div>
-      <section class="panel"><form id="ea-create" class="form-grid"><label>NAME<select name="name" id="ea-existing-name" required><option value="">Select an existing person ↓</option>${nameOptions}</select></label><label>EMPLOYEE ID<input name="employee_id" required readonly></label><label>EMAIL<select name="email" id="ea-existing-email" required><option value="">Select their saved email ↓</option>${emailOptions}</select></label><label>CATEGORY<select name="workforce_role" required>${roleOptions}</select></label><p class="full" id="ea-selected-profile">No employee selected.</p><button class="primary">Create invitation</button></form><p id="ea-message"></p></section>
+    page.innerHTML = `<div class="page-heading"><div><p class="eyebrow">EMPLOYEE LOGIN SETUP</p><h1>Employee Login Setup</h1><p>Select an existing Worker, Staff, Temporary Worker or Entrepreneur. Their saved details will fill automatically.</p></div></div>
+      <section class="panel"><form id="ea-create" class="form-grid"><label>NAME<select name="name" id="ea-existing-name" required><option value="">Select an existing person ↓</option>${nameOptions}</select></label><label>EMPLOYEE ID<input name="employee_id" required readonly></label><label>EMAIL<select name="email" id="ea-existing-email" required><option value="">Select their saved email ↓</option>${emailOptions}</select></label><label>CATEGORY<select name="workforce_role" required><option value="WORKER">Worker</option><option value="STAFF">Staff</option><option value="TEMPORARY">Temporary Worker</option><option value="ENTREPRENEUR">Entrepreneur</option></select></label><p class="full" id="ea-selected-profile">No employee selected.</p><button class="primary">Create invitation</button></form><p id="ea-message"></p></section>
       <section class="panel"><h2>Employee accounts</h2><div class="employee-access-list" id="ea-list">Loading…</div></section>`;
     page.querySelector('#ea-existing-name').onchange = event => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.name === event.target.value));
     page.querySelector('#ea-existing-email').onchange = event => fillEmployeeInvitationForm(existingWorkforceProfiles().find(person => person.email === event.target.value));

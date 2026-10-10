@@ -94,13 +94,12 @@ class EmployeePortalTests(unittest.TestCase):
   self.assertEqual(renamed_company_id,original_company_id);self.assertEqual(worker_company_id,original_company_id)
  def test_admin_account_is_saved_in_database(self):
   captcha=self.c.get('/api/auth/captcha').json
-  registered=self.c.post('/api/auth/register',json={'email':'owner.persistence@example.com','password':'OwnerTest123!','name':'Database Owner','company':'Persistent Company','business_category':'Manufacturing','workforce_types':['Workers','Staff','HR'],'shift_types':['day','night'],'shifts':[{'type':'day','start':'09:00','end':'18:00'},{'type':'night','start':'21:00','end':'06:00'}],'company_address':'1 Test Road','pincode':'500001','city':'Hyderabad','state':'Telangana','country':'India','role':'Manager','attendance_authentication':'biometric','captcha_id':captcha['captcha_id'],'captcha_answer':captcha['captcha_code']})
+  registered=self.c.post('/api/auth/register',json={'email':'owner.persistence@example.com','password':'OwnerTest123!','name':'Database Owner','company':'Persistent Company','captcha_id':captcha['captcha_id'],'captcha_answer':captcha['captcha_code']})
   self.assertEqual(registered.status_code,200,registered.text)
   login=self.c.post('/api/auth/login',json={'email':'owner.persistence@example.com','password':'OwnerTest123!'})
   self.assertEqual(login.status_code,200,login.text)
   workspace=self.c.get('/api/workspace',headers=self.headers(login.json['access_token']))
   self.assertEqual(workspace.status_code,200,workspace.text);self.assertTrue(workspace.json['exists']);self.assertEqual(workspace.json['account']['company'],'Persistent Company')
-  self.assertEqual(workspace.json['account']['workforce_types'],['Workers','Staff','HR']);self.assertEqual(len(workspace.json['account']['shifts']),2);self.assertEqual(workspace.json['account']['pincode'],'500001');self.assertEqual(workspace.json['account']['role'],'Manager');self.assertEqual(workspace.json['account']['attendance_authentication'],'biometric');self.assertEqual(workspace.json['storage']['attendance-integration-settings'],{'modes':['biometric'],'manual_enabled':True})
   subscription=self.c.get('/api/subscription/current',headers=self.headers(login.json['access_token']))
   self.assertEqual(subscription.status_code,200,subscription.text)
   plan=subscription.json['subscription'];self.assertEqual(plan['plan_code'],'TRIAL');self.assertEqual(plan['days_remaining'],30);self.assertFalse(plan['read_only'])
@@ -165,7 +164,7 @@ class EmployeePortalTests(unittest.TestCase):
   after_checkin=self.c.get('/api/employee/dashboard',headers=self.headers(employee));self.assertEqual(after_checkin.json['today']['status'],'OPEN');self.assertIsNone(after_checkin.json['today']['check_out_at'])
   out=self.c.post('/api/employee/attendance',json={'device_identifier':'test','face_capture':face,'expected_action':'CHECK_OUT'},headers=self.headers(employee,{'Idempotency-Key':'out'}));self.assertEqual(out.json['event']['event_type'],'CHECK_OUT')
   company_workspace=self.c.get('/api/workspace',headers=self.headers(self.admin)).json
-  company_workspace['storage']['attendance-integration-settings']={'modes':['biometric'],'manual_enabled':True}
+  company_workspace['storage']['attendance-integration-settings']={'modes':['manual']}
   company_workspace['expected_updated_at']=company_workspace.get('updated_at')
   self.assertEqual(self.c.put('/api/workspace',json=company_workspace,headers=self.headers(self.admin)).status_code,200)
   manual_dashboard=self.c.get('/api/employee/dashboard',headers=self.headers(employee));self.assertFalse(manual_dashboard.json['biometric_ready'])
@@ -206,24 +205,6 @@ class EmployeePortalTests(unittest.TestCase):
   accounts=self.c.get('/api/admin/employee-accounts',headers=self.headers(self.admin)).json['employees'];account_id=next(item['id'] for item in accounts if item['email']=='direct.staff@gmail.com')
   removed=self.c.delete(f'/api/admin/employee-accounts/{account_id}',headers=self.headers(self.admin));self.assertEqual(removed.status_code,200,removed.text)
   self.assertEqual(self.c.post('/api/employee/login',json={'email':'direct.staff@gmail.com','password':'Direct123!'}).status_code,401)
-
- def test_company_settings_and_admin_checkout_are_persistent(self):
-  tenant='company-settings@example.com';password='CompanySettings123!'
-  captcha=self.c.get('/api/auth/captcha').json
-  registered=self.c.post('/api/auth/register',json={'email':tenant,'password':password,'name':'Original Admin','company':'Original Company','workforce_types':['Workers'],'shift_types':['day'],'shifts':[{'type':'day','start':'09:00','end':'18:00'}],'captcha_id':captcha['captcha_id'],'captcha_answer':captcha['captcha_code']})
-  self.assertEqual(registered.status_code,200,registered.text);admin_token=registered.json['access_token']
-  updated=self.c.post('/api/auth/update-company',json={'company':'Updated Company','business_category':'Manufacturing','name':'Updated Admin','role':'Manager','company_address':'1 Factory Road','pincode':'500001','city':'Hyderabad','state':'Telangana','country':'India','workforce_types':['Workers','Temporary Workers'],'shift_types':['day','night'],'shifts':[{'type':'day','start':'09:00','end':'18:00'},{'type':'night','start':'18:00','end':'06:00'}],'attendance_authentication':'face'},headers=self.headers(admin_token))
-  self.assertEqual(updated.status_code,200,updated.text);self.assertIn('Temporary Workers',updated.json['account']['workforce_types']);self.assertEqual(updated.json['account']['attendance_authentication'],'face')
-  company_workspace=self.c.get('/api/workspace',headers=self.headers(admin_token)).json;self.assertEqual(company_workspace['storage']['attendance-integration-settings']['modes'],['face']);self.assertTrue(company_workspace['storage']['attendance-integration-settings']['manual_enabled'])
-  login=self.c.post('/api/auth/login',json={'email':tenant,'password':password});self.assertEqual(login.status_code,200,login.text);self.assertEqual(login.json['account']['company'],'Updated Company')
-  created=self.c.post('/api/admin/employee-accounts',json={'name':'Forgot Checkout','employee_id':'WR-CHECKOUT','email':'forgot.checkout@example.com','workforce_role':'WORKER','password':'ForgotCheckout123!','pin':'123456'},headers=self.headers(admin_token));self.assertEqual(created.status_code,201,created.text)
-  employee_login=self.c.post('/api/employee/login',json={'email':'forgot.checkout@example.com','password':'ForgotCheckout123!'});self.assertEqual(employee_login.status_code,200,employee_login.text)
-  face='data:image/jpeg;base64,/9j/2Q=='
-  checked_in=self.c.post('/api/employee/attendance',json={'device_identifier':'test-admin-checkout','face_capture':face,'expected_action':'CHECK_IN'},headers=self.headers(employee_login.json['access_token'],{'Idempotency-Key':'admin-checkout-in'}));self.assertEqual(checked_in.status_code,200,checked_in.text)
-  work_date=datetime.now(timezone.utc).date().isoformat()
-  requested_checkout=datetime.now(timezone.utc).isoformat()
-  checkout=self.c.post('/api/admin/employee-attendance/WR-CHECKOUT/checkout',json={'work_date':work_date,'check_out_at':requested_checkout,'note':'Employee informed the supervisor.'},headers=self.headers(admin_token));self.assertEqual(checkout.status_code,200,checkout.text);self.assertEqual(checkout.json['admin_checkout_by'],tenant);self.assertEqual(checkout.json['check_out_at'],requested_checkout)
-  attendance=self.c.get('/api/admin/employee-attendance',query_string={'date':work_date},headers=self.headers(admin_token));record=next(item for item in attendance.json['attendance'] if item['employee_id']=='WR-CHECKOUT');self.assertEqual(record['admin_checkout_by'],tenant);self.assertEqual(record['admin_checkout_note'],'Employee informed the supervisor.');self.assertEqual(record['status'],'COMPLETED')
 
  def test_non_gmail_employee_address_can_activate_and_login(self):
   workspace={'account':{'email':'admin@example.com','company':'Test Company'},'storage':{'people':[{'id':'W-YAHOO','name':'Yahoo Worker','email':'worker@yahoo.co.in','phone':'9000000002','role':'Worker'}],'temporary':[],'attendance':[]}}
@@ -271,18 +252,6 @@ class EmployeePortalTests(unittest.TestCase):
   self.assertEqual(admin_attendance.status_code,200,admin_attendance.text)
   record=next(item for item in admin_attendance.json['attendance'] if item['employee_id']=='EN-100')
   self.assertEqual(record['workforce_role'],'ENTREPRENEUR')
-
- def test_company_selected_employee_manager_hr_and_owner_roles_are_supported(self):
-  tenant='configured-roles@example.com'
-  with app.app_context():configured_admin=token(tenant,'ADMIN',tenant)
-  workspace={'account':{'email':tenant,'company':'Configured Roles','workforce_types':['Employees','Manager','HR','Owner']},'storage':{'people':[],'temporary':[],'attendance':[]}}
-  self.assertEqual(self.c.put('/api/workspace',json=workspace,headers=self.headers(configured_admin)).status_code,200)
-  expected=[]
-  for index,role in enumerate(('EMPLOYEE','MANAGER','HR','OWNER'),1):
-   payload={'name':role.title(),'employee_id':f'{role}-{index}','email':f'{role.lower()}.{index}@configured.example.com','workforce_role':role,'password':'Configured123!','pin':f'12345{index}'}
-   created=self.c.post('/api/admin/employee-accounts',json=payload,headers=self.headers(configured_admin));self.assertEqual(created.status_code,201,created.text);expected.append(role)
-  accounts=self.c.get('/api/admin/employee-accounts',headers=self.headers(configured_admin));self.assertEqual(accounts.status_code,200,accounts.text)
-  self.assertEqual(sorted(item['workforce_role'] for item in accounts.json['employees']),sorted(expected))
 
  def test_employee_password_reset_captcha_is_required(self):
   captcha=self.c.get('/api/employee/password-reset-captcha');self.assertEqual(captcha.status_code,200,captcha.text);self.assertEqual(len(captcha.json['captcha_code']),6)

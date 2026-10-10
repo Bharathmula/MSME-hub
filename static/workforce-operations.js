@@ -115,11 +115,11 @@ async function hydrateMonthlyPresentV35(rolePeople) {
   }));
 }
 
-async function adminAttendanceRequestV33(path, options = {}) {
+async function adminAttendanceRequestV33(path) {
   const base = String(window.MSME_EMPLOYEE_API_URL || '').replace(/\/$/, '');
   const token = sessionStorage.getItem('msme-admin-api-token') || '';
   if (!base || !token) throw Error('The employee attendance service is not connected.');
-  const response = await fetch(`${base}${path}`, { ...options, headers: { Authorization: `Bearer ${token}`, ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) } });
+  const response = await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token}` } });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw Error(payload.error || `Attendance request failed (HTTP ${response.status}).`);
@@ -162,44 +162,8 @@ function adminAttendancePhotoPanelV33(detail, date, person = {}) {
   const grace = Number(String(person.grace_period || person.grace || '15').match(/\d+/)?.[0] || 15);
   const late = attendanceVarianceV38(person.shift, shift?.check_in_at, 'late', grace);
   const early = attendanceVarianceV38(person.shift, shift?.check_out_at, 'early', 0);
-  const shiftEnd = String(person.shift || '09:00 AM - 06:00 PM').split(/\s+-\s+/)[1] || '06:00 PM';
-  const checkoutClock = (() => {const match=shiftEnd.match(/(\d{1,2}):(\d{2})\s*([AP]M)?/i);if(!match)return '18:00';let hour=Number(match[1]);const period=String(match[3]||'').toUpperCase();if(period==='PM'&&hour<12)hour+=12;if(period==='AM'&&hour===12)hour=0;return `${String(hour).padStart(2,'0')}:${match[2]}`})();
-  const missedCheckoutForm = shift && !shift.check_out_at ? `<section class="admin-missed-checkout"><div><b>Checkout was missed</b><span>Add the correct checkout time. This action will be permanently recorded under the administrator account.</span></div><label>CHECKOUT TIME<input type="time" data-admin-checkout-time value="${checkoutClock}" required></label><label>ADMIN NOTE<input data-admin-checkout-note value="Employee forgot to check out." maxlength="500"></label><button class="primary" type="button" data-admin-detail-checkout="${esc(person.id)}" data-work-date="${esc(date)}">Save checkout by admin</button><small data-admin-checkout-status></small></section>` : '';
-  const adminAudit = shift?.admin_checkout_by ? `<p class="admin-checkout-audit"><b>Checked out by administrator:</b> ${esc(shift.admin_checkout_by)}${shift.admin_checkout_note ? ` · ${esc(shift.admin_checkout_note)}` : ''}</p>` : '';
-  return `<div class="admin-person-day-summary"><div><span>Date</span><b>${esc(date)}</b></div><div><span>Status</span><b>${status}</b></div><div><span>Check-in</span><b>${displayTime(shift?.check_in_at)}</b></div><div><span>Check-out</span><b>${displayTime(shift?.check_out_at)}</b></div><div><span>Working hours</span><b>${total}</b></div><div class="attendance-variance-box ${late.active?'warning':'ok'}"><span>Late join</span><b>${esc(late.display)}</b></div><div class="attendance-variance-box ${early.active?'warning':'ok'}"><span>Early left</span><b>${esc(early.display)}</b></div></div>${missedCheckoutForm}${adminAudit}<div class="admin-attendance-photos">${photo('Check-in photo',detail?.check_in_photo)}${photo('Check-out photo',detail?.check_out_photo)}</div>`;
+  return `<div class="admin-person-day-summary"><div><span>Date</span><b>${esc(date)}</b></div><div><span>Status</span><b>${status}</b></div><div><span>Check-in</span><b>${displayTime(shift?.check_in_at)}</b></div><div><span>Check-out</span><b>${displayTime(shift?.check_out_at)}</b></div><div><span>Working hours</span><b>${total}</b></div><div class="attendance-variance-box ${late.active?'warning':'ok'}"><span>Late join</span><b>${esc(late.display)}</b></div><div class="attendance-variance-box ${early.active?'warning':'ok'}"><span>Early left</span><b>${esc(early.display)}</b></div></div><div class="admin-attendance-photos">${photo('Check-in photo',detail?.check_in_photo)}${photo('Check-out photo',detail?.check_out_photo)}</div>`;
 }
-
-document.addEventListener('click', async event => {
-  const button = event.target.closest('[data-admin-detail-checkout]');
-  if (!button) return;
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  const form = button.closest('.admin-missed-checkout');
-  const status = form?.querySelector('[data-admin-checkout-status]');
-  const time = form?.querySelector('[data-admin-checkout-time]')?.value;
-  const note = form?.querySelector('[data-admin-checkout-note]')?.value.trim() || 'Employee forgot to check out.';
-  if (!time) { if (status) status.textContent = 'Enter the correct checkout time.'; return; }
-  const localCheckout = new Date(`${button.dataset.workDate}T${time}:00`);
-  if (Number.isNaN(localCheckout.getTime())) { if (status) status.textContent = 'Enter a valid checkout time.'; return; }
-  button.disabled = true;
-  button.textContent = 'Saving checkout…';
-  if (status) status.textContent = '';
-  try {
-    await adminAttendanceRequestV33(`/api/admin/employee-attendance/${encodeURIComponent(button.dataset.adminDetailCheckout)}/checkout`, { method: 'POST', body: JSON.stringify({ work_date: button.dataset.workDate, check_out_at: localCheckout.toISOString(), note }) });
-    automaticAttendanceLoadedV21.delete(button.dataset.workDate);
-    await syncAutomaticAttendanceV21(button.dataset.workDate, true);
-    const detail = await adminAttendanceRequestV33(`/api/admin/employee-attendance-detail?employee_id=${encodeURIComponent(button.dataset.adminDetailCheckout)}&date=${encodeURIComponent(button.dataset.workDate)}`);
-    const person = [...people, ...temporaryWorkers].find(item => item.id === button.dataset.adminDetailCheckout) || {};
-    const selected = document.querySelector('#admin-person-selected-day');
-    if (selected) selected.innerHTML = adminAttendancePhotoPanelV33(detail, button.dataset.workDate, person);
-    const calendarButton = document.querySelector(`[data-admin-attendance-date="${button.dataset.workDate}"] small`);
-    if (calendarButton) calendarButton.textContent = 'Present';
-  } catch (error) {
-    button.disabled = false;
-    button.textContent = 'Save checkout by admin';
-    if (status) status.textContent = error.message;
-  }
-}, true);
 
 function localIndividualAttendanceV34(person, monthValue) {
   const days = new Map(attendanceLog
@@ -212,7 +176,7 @@ function localIndividualAttendanceV34(person, monthValue) {
       records.forEach(record => {
         const index = combined.findIndex(item => item.id === record.id);
         if (index < 0) combined.push(record);
-        else if (!['Manual attendance', 'Admin manual override', 'Admin manual attendance'].includes(combined[index].source)) combined[index] = { ...combined[index], ...record };
+        else if (combined[index].source !== 'Manual attendance') combined[index] = { ...combined[index], ...record };
       });
       days.set(date, combined);
     });
@@ -282,9 +246,7 @@ async function openIndividualAttendanceCalendarV33(person, monthValue = new Date
 }
 
 function roleOverflowV22(roleName) {
-  const rolePeople = roleName === 'Temporary Worker'
-    ? [...temporaryWorkers].sort(compareWorkforceIds)
-    : group(roleName);
+  const rolePeople = group(roleName);
   const present = rolePeople.filter(person => person.status === 'Present').length;
   const absent = rolePeople.filter(person => person.status === 'Absent').length;
   const leave = rolePeople.filter(person => person.status === 'On leave').length;
@@ -307,9 +269,6 @@ function roleOverflowV22(roleName) {
       <div class="overflow-person-grid">${rolePeople.map(person => {
         const stats = individualMonthStatsV22(person);
         const calculation = attendanceCalculationV21(person);
-        const todayKey = typeof indiaAttendanceDateV37 === 'function' ? indiaAttendanceDateV37() : new Date().toISOString().slice(0, 10);
-        const todayAttendance = attendanceLog.find(day => day.date === todayKey)?.records?.find(record => record.id === person.id) || {};
-        const forgotCheckout = Boolean((todayAttendance.login || person.login_time) && !(todayAttendance.logout || person.logout_time));
         const currentWorkTotal = person.login_time && !person.logout_time
           ? 'In progress'
           : durationTextV21(calculation.total);
@@ -328,8 +287,6 @@ function roleOverflowV22(roleName) {
           </div>
           <div class="overflow-skills"><span>Skills</span><div class="skills">${(person.skills || []).slice(0, 5)
             .map(skill => `<span class="skill">${esc(skill)}</span>`).join('') || '<small>No skills entered</small>'}</div></div>
-          ${forgotCheckout ? `<div class="admin-checkout-control"><button class="secondary" type="button" data-admin-checkout="${esc(person.id)}" data-work-date="${todayKey}">Admin check-out</button><small>Use only when the employee forgot to check out.</small></div>` : ''}
-          ${todayAttendance.admin_checkout_by ? `<p class="admin-checkout-audit"><b>Checked out by administrator:</b> ${esc(todayAttendance.admin_checkout_by)}${todayAttendance.admin_checkout_note ? ` · ${esc(todayAttendance.admin_checkout_note)}` : ''}</p>` : ''}
           <button class="primary overflow-open-profile" type="button">View complete details →</button>
         </article>`;
       }).join('') || `<p class="empty">No ${singular} profiles are stored.</p>`}</div>
@@ -338,54 +295,24 @@ function roleOverflowV22(roleName) {
 }
 
 document.addEventListener('click', event => {
-  const roleCard = event.target.closest('#view-root [data-overflow-role]');
+  const roleCard = event.target.closest('#view-root .metric-group[data-overflow-role]');
   const profileCard = event.target.closest('[data-overflow-profile]');
   const attendanceButton = event.target.closest('[data-person-attendance]');
   const backButton = event.target.closest('#back-to-overview');
-  const checkoutButton = event.target.closest('[data-admin-checkout]');
-  if (!roleCard && !profileCard && !attendanceButton && !backButton && !checkoutButton) return;
+  if (!roleCard && !profileCard && !attendanceButton && !backButton) return;
 
   /* Bulk-selection controls inside a profile card must not open its editor. */
   if (profileCard && event.target.closest('input, label, [data-bulk-action]')) return;
 
   event.preventDefault();
   event.stopImmediatePropagation();
-  if (checkoutButton) {
-    const note = window.prompt('Add an administrator check-out note:', 'Employee forgot to check out.');
-    if (note === null) return;
-    checkoutButton.disabled = true;
-    checkoutButton.textContent = 'Checking out…';
-    adminAttendanceRequestV33(`/api/admin/employee-attendance/${encodeURIComponent(checkoutButton.dataset.adminCheckout)}/checkout`, {
-      method: 'POST',
-      body: JSON.stringify({ work_date: checkoutButton.dataset.workDate, note }),
-    }).then(result => {
-      automaticAttendanceLoadedV21.delete(checkoutButton.dataset.workDate);
-      return syncAutomaticAttendanceV21(checkoutButton.dataset.workDate, true).then(() => result);
-    }).then(result => {
-      const person = [...people, ...temporaryWorkers].find(item => item.id === checkoutButton.dataset.adminCheckout);
-      if (person) {
-        person.logout_time = automaticTimeV21(result.check_out_at);
-        const roleName = person.role === 'Temporary Worker' ? 'Temporary Worker' : person.role;
-        roleOverflowV22(roleName);
-      }
-    }).catch(error => {
-      checkoutButton.disabled = false;
-      checkoutButton.textContent = 'Admin check-out';
-      alert(error.message);
-    });
-    return;
-  }
   if (attendanceButton) {
     const person = [...people, ...temporaryWorkers].find(item => item.id === attendanceButton.dataset.personAttendance);
     if (person) openIndividualAttendanceCalendarV33(person);
     return;
   }
   if (roleCard) roleOverflowV22(roleCard.dataset.overflowRole);
-  if (profileCard) {
-    const profileId = profileCard.dataset.overflowProfile;
-    if (temporaryWorkers.some(item => item.id === profileId) && typeof tempEditor === 'function') tempEditor(profileId);
-    else editor(profileId);
-  }
+  if (profileCard) editor(profileCard.dataset.overflowProfile);
   if (backButton) {
     view = 'dashboard';
     render();
@@ -588,10 +515,6 @@ document.addEventListener('change', event => {
     const person = people.find(item => item.id === half.dataset.halfDuration);
     if (!person) return;
     person.half_break_minutes = Number(half.value);
-    if (typeof view !== 'undefined' && view === 'attendance') {
-      person.attendance_entered_date = calendarDay;
-      return;
-    }
     logToday();
     render();
     return;
@@ -614,10 +537,6 @@ document.addEventListener('change', event => {
   if (tempHalf) person.half_break_minutes = Number(tempHalf.value);
   if (overtime) person.overtime_hours = Number(overtime.value);
   if (overtimePeriod) person.overtime_period = overtimePeriod.value;
-  if (typeof view !== 'undefined' && view === 'attendance') {
-    person.attendance_entered_date = calendarDay;
-    return;
-  }
   save();
   render();
 }, true);
@@ -633,18 +552,15 @@ document.addEventListener('focusout', event => {
     if (!person) return;
     const clock = fixed.value.trim().replace(/\s*(AM|PM)$/i, '');
     person[fixed.dataset.fixedTimeField] = clock ? `${clock} ${fixed.dataset.fixedPeriod}` : '';
-    if (typeof view !== 'undefined' && view === 'attendance') person.attendance_entered_date = calendarDay;
-    else logToday();
+    logToday();
   }
   if (tempFixed) {
     const person = temporaryWorkers.find(item => item.id === tempFixed.dataset.tempFixedId);
     if (!person) return;
     const clock = tempFixed.value.trim().replace(/\s*(AM|PM)$/i, '');
     person[tempFixed.dataset.tempFixedField] = clock ? `${clock} ${tempFixed.dataset.tempFixedPeriod}` : '';
-    if (typeof view !== 'undefined' && view === 'attendance') person.attendance_entered_date = calendarDay;
-    else save();
+    save();
   }
-  if (typeof view !== 'undefined' && view === 'attendance') return;
   render();
 }, true);
 
@@ -657,8 +573,7 @@ document.addEventListener('click', event => {
   event.stopImmediatePropagation();
   if (addOverflow) {
     const roleName = addOverflow.dataset.overflowAdd;
-    if (roleName === 'Temporary Worker' && typeof tempEditor === 'function') tempEditor();
-    else add(roleName);
+    add(roleName);
   }
   if (saveTemp) {
     save();
@@ -760,9 +675,8 @@ function calendarYearOptionsV25(selectedYear) {
 }
 
 window.attendanceCalendar = function advancedAttendanceCalendarV25() {
-  manualAttendanceEnabledV21 = typeof manualAttendancePermissionV42 === 'function'
-    ? manualAttendancePermissionV42()
-    : true;
+  manualAttendanceEnabledV21 = typeof configuredAttendanceModeV39 === 'function'
+    && configuredAttendanceModeV39() === 'manual';
   const date = new Date(`${calendarDay}T00:00:00`);
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -816,8 +730,8 @@ window.attendanceCalendar = function advancedAttendanceCalendarV25() {
       <div class="calendar-legend"><span><i class="legend-today">✓</i> Today</span>
         <span><i class="legend-selected"></i> Selected date</span>
         <b>${savedRecord ? `Attendance saved for ${calendarDay}` : `No saved attendance for ${calendarDay}`}</b></div>
-      <div class="manual-attendance-switch ${manualAttendanceEnabledV21 ? 'manual-mode-on' : 'manual-mode-off'}"><span><b>Manual administrator attendance: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b><small>This permission is available with every authentication integration. Only the signed-in administrator can turn it on or off.</small></span>
-        <label class="enter-manually-button" title="Administrator-only manual attendance permission"><input type="checkbox" id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? 'checked' : ''}><i></i><b>Enter manually: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b></label></div>
+      <div class="manual-attendance-switch ${manualAttendanceEnabledV21 ? 'manual-mode-on' : 'manual-mode-off'}"><span><b>Manual attendance: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b><small>This switch follows Settings → Attendance Integration. Turn off the current method there before selecting another method.</small></span>
+        <label class="enter-manually-button" title="Change this from Settings → Attendance Integration"><input type="checkbox" id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? 'checked' : ''} disabled aria-disabled="true"><i></i><b>Enter manually: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b></label></div>
     </section>
     <div class="calendar-role-sections">
       ${calendarTemporarySectionV21(record)}

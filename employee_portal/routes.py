@@ -10,8 +10,6 @@ from .photo_storage import PhotoStorageError,photo_url,store_photo
 from .security import require,token
 
 employee_api=Blueprint('employee_api',__name__)
-WORKFORCE_ROLES={'EMPLOYEE','WORKER','STAFF','MANAGER','HR','OWNER','ENTREPRENEUR','TEMPORARY'}
-WORKFORCE_ROLE_LABELS={'EMPLOYEE':'Employee','WORKER':'Worker','STAFF':'Staff','MANAGER':'Manager','HR':'HR','OWNER':'Owner','ENTREPRENEUR':'Entrepreneur','TEMPORARY':'Temporary Worker'}
 def now():return datetime.now(timezone.utc)
 def stamp():return now().isoformat()
 def data():return request.get_json(silent=True) or {}
@@ -45,9 +43,7 @@ def configured_attendance_mode(db,tenant):
  storage=workspace.get('storage',{}) if isinstance(workspace,dict) else {}
  settings=storage.get('attendance-integration-settings',{}) if isinstance(storage,dict) else {}
  modes=settings.get('modes',['face']) if isinstance(settings,dict) else ['face']
- if isinstance(modes,list) and not modes:return ''
- mode=str(modes[-1]) if isinstance(modes,list) else 'face'
- return mode if mode in {'face','biometric','spreadsheet'} else 'face'
+ return str(modes[-1]) if isinstance(modes,list) and modes else ''
 
 EMPLOYEE_EDITABLE_PROFILE_FIELDS={
  'name','phone','dob','gender','marital_status','aadhaar','qualification','hobbies','passion',
@@ -125,7 +121,7 @@ def activate():
    except (BadSignature,SignatureExpired):return jsonify({'error':'Invitation is invalid or expired.'}),400
    if not isinstance(category,dict):return jsonify({'error':'Invitation is invalid or expired.'}),400
    tenant=str(category.get('tenant','')).strip().lower();role=str(category.get('role','')).upper()
-   if category.get('kind')!='employee-category' or role not in WORKFORCE_ROLES:
+   if category.get('kind')!='employee-category' or role not in {'WORKER','STAFF','TEMPORARY','ENTREPRENEUR'}:
     return jsonify({'error':'Invitation is invalid or expired.'}),400
    company_id=ensure_company(db,tenant)
    if company_status_for_id(company_id)=='SUSPENDED':return jsonify({'error':'This company workspace is suspended. Contact the platform owner.'}),403
@@ -134,7 +130,7 @@ def activate():
    except (TypeError,json.JSONDecodeError):workspace={}
    storage=workspace.get('storage',{}) if isinstance(workspace,dict) else {}
    records=storage.get('temporary' if role=='TEMPORARY' else 'people',[])
-   expected_role=WORKFORCE_ROLE_LABELS[role]
+   expected_role='Temporary Worker' if role=='TEMPORARY' else role.title()
    profile=next((item for item in records if isinstance(item,dict) and str(item.get('email','')).strip().lower()==contact and (role=='TEMPORARY' or item.get('role')==expected_role)),None)
    if not valid_email(contact) or not profile:
     return jsonify({'error':f'This email address is not registered in the {expected_role} category.'}),400
@@ -341,7 +337,7 @@ def accounts():
  with transaction() as db:
   if request.method=='GET':return jsonify({'employees':[public(x) for x in db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? ORDER BY workforce_role,name',(tenant,)).fetchall()]})
   p=data();role=str(p.get('workforce_role','')).upper();email=str(p.get('email','')).strip().lower();eid=str(p.get('employee_id','')).strip();name=str(p.get('name','')).strip();phone=str(p.get('phone','')).strip();password=str(p.get('password',''));pin=str(p.get('pin',''))
-  if role not in WORKFORCE_ROLES or not name or not eid or not valid_email(email):return jsonify({'error':'Name, employee ID, a valid email address, and workforce role are required.'}),400
+  if role not in {'WORKER','STAFF','TEMPORARY','ENTREPRENEUR'} or not name or not eid or not valid_email(email):return jsonify({'error':'Name, employee ID, a valid email address, and workforce role are required.'}),400
   direct=bool(password or pin)
   if direct and len(password)<8:return jsonify({'error':'Employee password must contain at least 8 characters.'}),400
   if direct and not(pin.isdigit() and len(pin)==6):return jsonify({'error':'Attendance PIN must contain exactly 6 digits.'}),400
@@ -365,7 +361,7 @@ def accounts():
 @require('ADMIN','HR')
 def category_employee_invitation():
  p=data();role=str(p.get('workforce_role','')).upper();application_url=str(p.get('application_url','')).strip()
- if role not in WORKFORCE_ROLES:return jsonify({'error':'Choose a workforce category enabled for this company.'}),400
+ if role not in {'WORKER','STAFF','TEMPORARY','ENTREPRENEUR'}:return jsonify({'error':'Choose Workers, Staff, Temporary Workers or Entrepreneurs.'}),400
  if not application_url.startswith(('https://','http://localhost:')):return jsonify({'error':'A valid application URL is required.'}),400
  tenant=g.employee_identity['tenant'];db=connect()
  try:
@@ -374,7 +370,7 @@ def category_employee_invitation():
  finally:db.close()
  storage=workspace.get('storage',{}) if isinstance(workspace,dict) else {}
  collection='temporary' if role=='TEMPORARY' else 'people'
- expected_role=WORKFORCE_ROLE_LABELS[role]
+ expected_role='Temporary Worker' if role=='TEMPORARY' else role.title()
  profiles=[item for item in storage.get(collection,[]) if isinstance(item,dict) and (role=='TEMPORARY' or item.get('role')==expected_role)]
  eligible=[item for item in profiles if valid_email(item.get('email')) and str(item.get('id','')).strip() and str(item.get('name','')).strip()]
  if not eligible:return jsonify({'error':'No complete profiles with valid email addresses are available in this category.'}),400
@@ -427,44 +423,13 @@ def remove_employee_access(account_id):
  })
 
 
-@employee_api.post('/api/admin/employee-attendance/<employee_id>/checkout')
-@require('ADMIN','HR')
-def admin_checkout_employee(employee_id):
- """Close an employee's open shift and retain the administrator audit note."""
- tenant=g.employee_identity['tenant'];p=data();work_date=str(p.get('work_date') or now().date().isoformat()).strip();note=str(p.get('note') or 'Employee forgot to check out.').strip()[:500];requested_checkout=str(p.get('check_out_at') or '').strip()
- if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',work_date):return jsonify({'error':'A valid attendance date is required.'}),400
- actor=str(g.employee_identity.get('email') or '').strip().lower()
- with transaction() as db:
-  account=db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? AND employee_id=?',(tenant,str(employee_id).strip())).fetchone()
-  if not account:return jsonify({'error':'Employee attendance account was not found.'}),404
-  shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(account['id'],work_date)).fetchone()
-  if not shift:return jsonify({'error':'This employee has no check-in for the selected date.'}),404
-  if shift['check_out_at'] or shift['status']=='COMPLETED':return jsonify({'error':'This attendance shift is already checked out.'}),409
-  check_in_moment=datetime.fromisoformat(shift['check_in_at'])
-  if check_in_moment.tzinfo is None:check_in_moment=check_in_moment.replace(tzinfo=timezone.utc)
-  if requested_checkout:
-   try:checkout_moment=datetime.fromisoformat(requested_checkout.replace('Z','+00:00'))
-   except ValueError:return jsonify({'error':'Enter a valid administrator checkout date and time.'}),400
-   if checkout_moment.tzinfo is None:checkout_moment=checkout_moment.replace(tzinfo=timezone.utc)
-   checkout_moment=checkout_moment.astimezone(timezone.utc)
-  else:checkout_moment=now()
-  if checkout_moment<=check_in_moment:return jsonify({'error':'Checkout time must be after the saved check-in time.'}),400
-  if checkout_moment>now()+timedelta(minutes=5):return jsonify({'error':'Checkout time cannot be in the future.'}),400
-  checkout_at=checkout_moment.isoformat();minutes=max(0,int((checkout_moment-check_in_moment).total_seconds()//60))
-  db.execute("UPDATE employee_shifts SET check_out_at=?,worked_minutes=?,status='COMPLETED',admin_checkout_by=?,admin_checkout_note=? WHERE id=?",(checkout_at,minutes,actor,note,shift['id']))
-  event_id=uuid4().hex
-  db.execute('INSERT INTO employee_attendance_events(id,employee_account_id,company_id,shift_id,event_type,server_timestamp,verification_method,idempotency_key,device_identifier,face_capture_data) VALUES(?,?,?,?,?,?,?,?,?,?)',(event_id,account['id'],account['company_id'],shift['id'],'CHECK_OUT',checkout_at,'ADMIN_OVERRIDE',f'admin-checkout-{event_id}',f'ADMIN:{actor}',None))
-  audit(db,'ADMIN_ATTENDANCE_CHECKOUT','employee_shift',shift['id'],{'employee_id':account['employee_id'],'work_date':work_date,'note':note,'checked_out_by':actor})
- return jsonify({'ok':True,'employee_id':account['employee_id'],'work_date':work_date,'check_out_at':checkout_at,'worked_minutes':minutes,'admin_checkout_by':actor,'admin_checkout_note':note})
-
-
 @employee_api.get('/api/admin/employee-attendance')
 @require('ADMIN','HR')
 def employee_attendance():
  tenant=g.employee_identity['tenant']
  work_date=str(request.args.get('date','')).strip()
  query='''
-  SELECT s.work_date,s.check_in_at,s.check_out_at,s.worked_minutes,s.status,s.admin_checkout_by,s.admin_checkout_note,
+  SELECT s.work_date,s.check_in_at,s.check_out_at,s.worked_minutes,s.status,
           EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND COALESCE(e.face_capture_data,'') <> '') AS checkin_face_captured,
           EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND COALESCE(e.face_capture_data,'') <> '') AS checkout_face_captured,
          (SELECT ls.login_at FROM employee_login_sessions ls WHERE ls.employee_account_id=a.id ORDER BY ls.login_at DESC LIMIT 1) AS portal_login_at,

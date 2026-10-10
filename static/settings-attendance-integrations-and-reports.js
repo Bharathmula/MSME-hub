@@ -30,16 +30,10 @@
 
   function integrationSettings() {
     const stored = readJson(settingsKey(), {});
-    const accountMode = ['face', 'biometric', 'spreadsheet'].includes(admin?.attendance_authentication)
-      ? admin.attendance_authentication
-      : 'face';
-    const hasStoredModes = Array.isArray(stored.modes);
-    const storedModes = hasStoredModes ? stored.modes.filter(Boolean) : [accountMode];
-    const selectedMode = [...storedModes].reverse().find(mode => ['face', 'biometric', 'spreadsheet'].includes(mode))
-      || (storedModes.includes('manual') || !hasStoredModes ? accountMode : null);
+    const storedModes = Array.isArray(stored.modes) ? stored.modes.filter(Boolean) : ['face'];
+    const selectedMode = storedModes.length ? storedModes[storedModes.length - 1] : null;
     return {
       modes: selectedMode ? [selectedMode] : [],
-      manual_enabled: stored.manual_enabled !== false,
       provider: '',
       softwareUrl: '',
       endpoint: '',
@@ -50,7 +44,6 @@
       syncInterval: '15',
       ...stored,
       modes: selectedMode ? [selectedMode] : [],
-      manual_enabled: stored.manual_enabled !== false,
     };
   }
 
@@ -180,10 +173,6 @@
         <div class="settings-mode-actions">${selected && ['biometric','spreadsheet'].includes(mode) ? `<button type="button" class="settings-mode-open" data-open-integration-detail="${mode}">Open setup</button>` : ''}<button type="button" class="settings-mode-select ${selected ? 'selected' : ''}" data-attendance-mode="${mode}" aria-pressed="${selected}">${selected ? 'Turn off' : 'Select'}</button></div>
       </article>`;
     };
-    const manualCard = `<article class="settings-mode-card ${current.manual_enabled ? 'selected' : ''}" data-mode-card="manual">
-      <span><b>Manual Admin Attendance</b><small>Available with Face, Biometric or CSV authentication. Only the company administrator can turn this permission on or off.</small></span>
-      <div class="settings-mode-actions"><button type="button" class="settings-mode-select ${current.manual_enabled ? 'selected' : ''}" data-manual-attendance-permission aria-pressed="${current.manual_enabled}">${current.manual_enabled ? 'Turn off' : 'Turn on'}</button></div>
-    </article>`;
     const biometricPage = `<section class="settings-detail-page" data-integration-detail="biometric">
       <div class="settings-detail-heading"><button type="button" class="settings-back-button" data-close-integration-detail>← Attendance options</button><div><h2>Biometric Software Connection</h2><p>Enter the connection information supplied by the biometric software provider.</p></div></div>
       <div class="settings-form-grid">
@@ -210,17 +199,16 @@
       ? biometricPage
       : integrationDetailPage === 'spreadsheet' && current.modes.includes('spreadsheet') ? spreadsheetPage : '';
     return `<section class="panel settings-integration-panel">
-      <div class="panel-header"><div><h2>Attendance Integration</h2><p>Choose one primary authentication. Manual administrator attendance remains a separate permission.</p></div><span class="tag complete">Company settings</span></div>
-      <div class="attendance-configuration-summary"><div><span>PRIMARY AUTHENTICATION</span><b>${current.modes[0] === 'biometric' ? 'Biometric Authentication' : current.modes[0] === 'spreadsheet' ? 'CSV File Authentication' : current.modes[0] === 'face' ? 'Face Authentication' : 'Not selected'}</b></div><div><span>MANUAL ADMIN ATTENDANCE</span><b class="${current.manual_enabled ? 'enabled' : 'disabled'}">${current.manual_enabled ? 'ON' : 'OFF'}</b></div></div>
+      <div class="panel-header"><div><h2>Attendance Integration</h2><p>Choose one or more attendance sources for this company.</p></div><span class="tag complete">Company settings</span></div>
       <div class="settings-mode-grid">
         ${modeCard('biometric', 'Biometric', 'Connect a fingerprint, card or device provider through its API or scheduled export.')}
         ${modeCard('face', 'Face Authentication', 'Use the existing face check-in and check-out workflow in this application.')}
+        ${modeCard('manual', 'Manual', 'Allow authorised admins to enter or correct attendance in Attendance Calendar.')}
         ${modeCard('spreadsheet', 'CSV Report / Excel Sheet', 'Import past attendance exported from Excel or another attendance system.')}
-        ${manualCard}
       </div>
       <p class="settings-import-status" id="attendance-mode-status">${esc(modeSelectionMessage)}</p>
       ${detail}
-      ${!detail ? '<p class="settings-selection-help">Select Biometric or CSV Report / Excel Sheet to open its setup page. Face Authentication controls Employee Login Setup. Manual administrator attendance is available alongside whichever primary authentication is selected.</p>' : ''}
+      ${!detail ? '<p class="settings-selection-help">Select Biometric or CSV Report / Excel Sheet to open its setup page. Face Authentication opens Employee Login Setup and controls its sidebar visibility.</p>' : ''}
     </section>`;
   }
 
@@ -328,49 +316,10 @@
     </section>`;
   }
 
-  function companyDetailsPanel() {
-    const workforceChoices = ['Workers','Employees','Staff','Manager','HR','Owner','Entrepreneur','Temporary Workers'];
-    const selectedWorkforce = new Set(Array.isArray(admin.workforce_types) && admin.workforce_types.length
-      ? admin.workforce_types
-      : ['Workers','Staff','Entrepreneur','Temporary Workers']);
-    const selectedShiftTypes = new Set(Array.isArray(admin.shift_types) && admin.shift_types.length ? admin.shift_types : ['day']);
-    const existingShifts = new Map((Array.isArray(admin.shifts) ? admin.shifts : []).map(item => [item.type, item]));
-    const shiftChoices = [['day','Day shift'],['night','Night shift'],['rotational','Rotational shift']];
-    const selectedAuthentication = integrationSettings().modes[0] || admin.attendance_authentication || 'face';
-    const authenticationChoices = [
-      ['face', 'Face Authentication'],
-      ['biometric', 'Biometric Authentication'],
-      ['spreadsheet', 'CSV File Authentication'],
-    ];
-    const shiftRows = shiftChoices.map(([type,label]) => {
-      const shift = existingShifts.get(type) || { start: type === 'night' ? '18:00' : '09:00', end: type === 'night' ? '06:00' : '18:00' };
-      return `<div class="company-shift-settings-row ${selectedShiftTypes.has(type) ? '' : 'hidden'}" data-company-shift-row="${type}"><b>${label}</b><label>START<input type="time" data-company-shift-start="${type}" value="${esc(shift.start)}"></label><label>END<input type="time" data-company-shift-end="${type}" value="${esc(shift.end)}"></label></div>`;
-    }).join('');
-    return `<section class="panel settings-company-details-panel">
-      <div class="panel-header"><div><h2>Company Details</h2><p>Edit the company structure used by Overview, Attendance Calendar and workforce dashboards.</p></div><span class="tag complete">Permanent settings</span></div>
-      <div class="settings-form-grid">
-        <label>COMPANY NAME<input id="settings-company-name" value="${esc(admin.company || '')}" required></label>
-        <label>BUSINESS CATEGORY<input id="settings-business-category" value="${esc(admin.business_category || '')}" required></label>
-        <label>ADMINISTRATOR NAME<input id="settings-admin-name" value="${esc(admin.name || '')}" required></label>
-        <label>ADMINISTRATOR ROLE<select id="settings-admin-role">${['Owner','Manager','HR / Admin','Entrepreneur'].map(role => `<option ${admin.role === role ? 'selected' : ''}>${role}</option>`).join('')}</select></label>
-        <label class="full">COMPANY ADDRESS<textarea id="settings-company-address" rows="3">${esc(admin.company_address || admin.address || '')}</textarea></label>
-        <label>PINCODE<input id="settings-company-pincode" value="${esc(admin.pincode || '')}"></label>
-        <label>CITY<input id="settings-company-city" value="${esc(admin.city || '')}"></label>
-        <label>STATE<input id="settings-company-state" value="${esc(admin.state || '')}"></label>
-        <label>COUNTRY<input id="settings-company-country" value="${esc(admin.country || 'India')}"></label>
-      </div>
-      <div class="onboarding-field-group"><b>WHO WORKS IN YOUR COMPANY?</b><small>Select only the categories the company needs. Temporary Workers can be enabled independently.</small><div class="settings-choice-grid">${workforceChoices.map(choice => `<label><input type="checkbox" data-company-workforce value="${choice}" ${selectedWorkforce.has(choice) ? 'checked' : ''}><span>${choice}</span></label>`).join('')}</div></div>
-      <div class="onboarding-field-group"><b>SELECT AUTHENTICATION</b><small>Select one primary attendance integration. Manual administrator attendance is allotted by default and can be switched on or off in Attendance Calendar.</small><div class="settings-choice-grid settings-authentication-grid">${authenticationChoices.map(([value,label]) => `<label><input type="radio" name="settings-attendance-authentication" data-company-authentication value="${value}" ${selectedAuthentication === value ? 'checked' : ''}><span>${label}</span></label>`).join('')}</div></div>
-      <div class="onboarding-field-group"><b>COMPANY SHIFTS</b><small>Select one or more shifts and enter each timing.</small><div class="settings-choice-grid">${shiftChoices.map(([value,label]) => `<label><input type="checkbox" data-company-shift-type value="${value}" ${selectedShiftTypes.has(value) ? 'checked' : ''}><span>${label}</span></label>`).join('')}</div></div>
-      <div class="company-shift-settings-list">${shiftRows}</div>
-      <div class="settings-actions"><button class="primary" id="save-company-details">Save company details</button><span id="company-details-save-status"></span></div>
-    </section>`;
-  }
-
   function settingsPage() {
     root.innerHTML = `<div class="settings-page"><div class="page-heading"><div><div class="eyebrow">COMPANY CONFIGURATION</div><h1>Settings.</h1><p>Manage attendance sources, historical imports and operational reports.</p></div></div>
-      <div class="settings-tabs"><button data-settings-tab="company" class="${settingsTab === 'company' ? 'active' : ''}">Company Details</button><button data-settings-tab="subscription" class="${settingsTab === 'subscription' ? 'active' : ''}">Subscription & Billing</button><button data-settings-tab="integration" class="${settingsTab === 'integration' ? 'active' : ''}">Attendance Integration</button><button data-settings-tab="reports" class="${settingsTab === 'reports' ? 'active' : ''}">Reports</button><button data-settings-tab="shift" class="${settingsTab === 'shift' ? 'active' : ''}">Shift Timings</button></div>
-      ${settingsTab === 'company' ? companyDetailsPanel() : settingsTab === 'subscription' ? subscriptionPanel() : settingsTab === 'integration' ? integrationPanel() : settingsTab === 'reports' ? reportsPanel() : settingsTab === 'shift' ? companyShiftPanel() : ''}</div>`;
+      <div class="settings-tabs"><button data-settings-tab="subscription" class="${settingsTab === 'subscription' ? 'active' : ''}">Subscription & Billing</button><button data-settings-tab="integration" class="${settingsTab === 'integration' ? 'active' : ''}">Attendance Integration</button><button data-settings-tab="reports" class="${settingsTab === 'reports' ? 'active' : ''}">Reports</button><button data-settings-tab="shift" class="${settingsTab === 'shift' ? 'active' : ''}">Shift Timings</button></div>
+      ${settingsTab === 'subscription' ? subscriptionPanel() : settingsTab === 'integration' ? integrationPanel() : settingsTab === 'reports' ? reportsPanel() : settingsTab === 'shift' ? companyShiftPanel() : ''}</div>`;
     if (settingsTab === 'subscription' && !subscriptionState && !subscriptionLoading) loadSubscription();
   }
 
@@ -495,7 +444,7 @@
       const mode = modeButton.dataset.attendanceMode;
       const selected = !current.modes.includes(mode);
       if (selected && current.modes.length) {
-        const labels = { biometric: 'Biometric', face: 'Face Authentication', spreadsheet: 'CSV Report / Excel Sheet' };
+        const labels = { biometric: 'Biometric', face: 'Face Authentication', manual: 'Manual', spreadsheet: 'CSV Report / Excel Sheet' };
         modeSelectionMessage = `Turn off ${labels[current.modes[0]] || 'the selected attendance method'} before selecting ${labels[mode] || mode}.`;
         settingsPage();
         return;
@@ -508,17 +457,12 @@
         document.querySelector('.nav-link[data-view="employeeaccess"]')?.click();
         return;
       }
+      if (selected && mode === 'manual') {
+        document.querySelector('.nav-link[data-view="attendance"]')?.click();
+        return;
+      }
       if (selected && (mode === 'biometric' || mode === 'spreadsheet')) integrationDetailPage = mode;
       if (!selected && integrationDetailPage === mode) integrationDetailPage = null;
-      settingsPage();
-      return;
-    }
-    const manualPermissionButton = event.target.closest('[data-manual-attendance-permission]');
-    if (manualPermissionButton) {
-      const current = integrationSettings();
-      const manualEnabled = !current.manual_enabled;
-      saveIntegrationSettings({ ...current, manual_enabled: manualEnabled });
-      modeSelectionMessage = `Manual administrator attendance turned ${manualEnabled ? 'on' : 'off'}.`;
       settingsPage();
       return;
     }
@@ -531,54 +475,6 @@
     if (tab) {
       settingsTab = tab.dataset.settingsTab;
       settingsPage();
-      return;
-    }
-    if (event.target.closest('#save-company-details')) {
-      const status = document.querySelector('#company-details-save-status');
-      const workforceTypes = [...document.querySelectorAll('[data-company-workforce]:checked')].map(input => input.value);
-      const shiftTypes = [...document.querySelectorAll('[data-company-shift-type]:checked')].map(input => input.value);
-      const attendanceAuthentication = document.querySelector('[data-company-authentication]:checked')?.value;
-      if (!workforceTypes.length || !shiftTypes.length || !attendanceAuthentication) {
-        if (status) status.textContent = 'Select at least one workforce category, one shift and one authentication.';
-        return;
-      }
-      const shifts = shiftTypes.map(type => ({
-        type,
-        start: document.querySelector(`[data-company-shift-start="${type}"]`)?.value || '',
-        end: document.querySelector(`[data-company-shift-end="${type}"]`)?.value || '',
-      }));
-      const payload = {
-        company: document.querySelector('#settings-company-name')?.value.trim(),
-        business_category: document.querySelector('#settings-business-category')?.value.trim(),
-        name: document.querySelector('#settings-admin-name')?.value.trim(),
-        role: document.querySelector('#settings-admin-role')?.value,
-        company_address: document.querySelector('#settings-company-address')?.value.trim(),
-        pincode: document.querySelector('#settings-company-pincode')?.value.trim(),
-        city: document.querySelector('#settings-company-city')?.value.trim(),
-        state: document.querySelector('#settings-company-state')?.value.trim(),
-        country: document.querySelector('#settings-company-country')?.value.trim(),
-        attendance_authentication: attendanceAuthentication,
-        workforce_types: workforceTypes,
-        shift_types: shiftTypes,
-        shifts,
-      };
-      try {
-        if (status) status.textContent = 'Saving…';
-        const token = sessionStorage.getItem('msme-admin-api-token') || '';
-        const response = await fetch('/api/auth/update-company', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Company details could not be saved.');
-        Object.assign(admin, result.account || payload);
-        const accountIndex = tenantAccounts.findIndex(item => String(item.email || '').toLowerCase() === String(admin.email || '').toLowerCase());
-        if (accountIndex >= 0) tenantAccounts[accountIndex] = { ...tenantAccounts[accountIndex], ...admin };
-        else tenantAccounts.push({ ...admin });
-        localStorage.setItem('msme-accounts', JSON.stringify(tenantAccounts));
-        await window.MSMEWorkspaceDatabase?.load(admin.email);
-        if (status) status.textContent = 'Company details saved permanently.';
-        render();
-      } catch (error) {
-        if (status) status.textContent = error.message;
-      }
       return;
     }
     if (event.target.closest('#save-attendance-settings')) {
@@ -660,10 +556,6 @@
   });
 
   document.addEventListener('change', event => {
-    if (event.target.matches('[data-company-shift-type]')) {
-      const row = document.querySelector(`[data-company-shift-row="${event.target.value}"]`);
-      if (row) row.classList.toggle('hidden', !event.target.checked);
-    }
     if (event.target.matches('#settings-report-type')) {
       reportType = event.target.value;
       settingsPage();

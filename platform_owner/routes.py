@@ -182,10 +182,7 @@ def _workspace_workforce(value) -> dict:
     temporary = (
         storage.get("temporary") if isinstance(storage.get("temporary"), list) else []
     )
-    roles = {
-        "employees": 0, "workers": 0, "staff": 0, "managers": 0,
-        "hr": 0, "owners": 0, "temporary": 0, "entrepreneurs": 0,
-    }
+    roles = {"workers": 0, "staff": 0, "temporary": 0, "entrepreneurs": 0}
     seen: set[str] = set()
     for source, records in (("people", people), ("temporary", temporary)):
         for index, record in enumerate(records):
@@ -203,16 +200,8 @@ def _workspace_workforce(value) -> dict:
             role = str(record.get("role") or record.get("workforce_role") or "").upper()
             if source == "temporary" or "TEMPORARY" in role:
                 roles["temporary"] += 1
-            elif role == "EMPLOYEE":
-                roles["employees"] += 1
             elif "ENTREPRENEUR" in role:
                 roles["entrepreneurs"] += 1
-            elif role == "MANAGER":
-                roles["managers"] += 1
-            elif role == "HR":
-                roles["hr"] += 1
-            elif role == "OWNER":
-                roles["owners"] += 1
             elif "STAFF" in role:
                 roles["staff"] += 1
             else:
@@ -283,12 +272,8 @@ def _company_summaries(db, warnings: list[str] | None = None) -> list[dict]:
         _optional_rows(
             db,
             """SELECT company_id,COUNT(*) AS employee_count,
-            SUM(CASE WHEN workforce_role='EMPLOYEE' THEN 1 ELSE 0 END) AS employee_category_count,
             SUM(CASE WHEN workforce_role='WORKER' THEN 1 ELSE 0 END) AS worker_count,
             SUM(CASE WHEN workforce_role='STAFF' THEN 1 ELSE 0 END) AS staff_count,
-            SUM(CASE WHEN workforce_role='MANAGER' THEN 1 ELSE 0 END) AS manager_count,
-            SUM(CASE WHEN workforce_role='HR' THEN 1 ELSE 0 END) AS hr_count,
-            SUM(CASE WHEN workforce_role='OWNER' THEN 1 ELSE 0 END) AS owner_count,
             SUM(CASE WHEN workforce_role='TEMPORARY' THEN 1 ELSE 0 END) AS temporary_count,
             SUM(CASE WHEN workforce_role='ENTREPRENEUR' THEN 1 ELSE 0 END) AS entrepreneur_count,
             SUM(CASE WHEN status='ACTIVE' THEN 1 ELSE 0 END) AS active_employee_count,
@@ -381,12 +366,8 @@ def _company_summaries(db, warnings: list[str] | None = None) -> list[dict]:
             employee_count = saved_workforce["employee_count"]
         else:
             roles = {
-                "employees": int(employee.get("employee_category_count") or 0),
                 "workers": int(employee.get("worker_count") or 0),
                 "staff": int(employee.get("staff_count") or 0),
-                "managers": int(employee.get("manager_count") or 0),
-                "hr": int(employee.get("hr_count") or 0),
-                "owners": int(employee.get("owner_count") or 0),
                 "temporary": int(employee.get("temporary_count") or 0),
                 "entrepreneurs": int(employee.get("entrepreneur_count") or 0),
             }

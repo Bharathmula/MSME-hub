@@ -73,14 +73,7 @@ def save_auth_accounts(accounts: list[dict]) -> None:
 
 
 def public_account(account: dict) -> dict:
-    fields = (
-        "name", "company", "phone", "email", "country", "email_updates",
-        "provider", "staff_count", "business_category", "workforce_types",
-        "shift_types", "shifts", "shift_count", "shift_start", "shift_end",
-        "address", "company_address", "pincode", "city", "state",
-        "latitude", "longitude", "role", "attendance_authentication",
-    )
-    return {key: account.get(key) for key in fields}
+    return {key: account.get(key) for key in ("name", "company", "phone", "email", "country", "email_updates", "provider", "shift_start", "shift_end")}
 
 
 def otp_key(email: str, purpose: str) -> str:
@@ -223,10 +216,11 @@ def reconcile_employee_accounts(tenant: str, workspace: dict) -> bool:
             saved_profile = json.loads(row["profile_json"] or "{}")
         except (TypeError, json.JSONDecodeError):
             saved_profile = {}
-        role = {
-            "TEMPORARY": "Temporary Worker",
-            "HR": "HR",
-        }.get(row["workforce_role"], str(row["workforce_role"]).title())
+        role = (
+            "Temporary Worker"
+            if row["workforce_role"] == "TEMPORARY"
+            else str(row["workforce_role"]).title()
+        )
         target.append({
             "id": employee_id,
             "name": row["name"],
@@ -351,58 +345,15 @@ def register_account():
     accounts = load_auth_accounts()
     if any(item.get("email") == email for item in accounts):
         return jsonify({"error": "An account with this email already exists."}), 409
-    workforce_types = payload.get("workforce_types")
-    if not isinstance(workforce_types, list):
-        workforce_types = []
-    workforce_types = [str(item).strip() for item in workforce_types if str(item).strip()]
-    shift_types = payload.get("shift_types")
-    if not isinstance(shift_types, list):
-        shift_types = []
-    shift_types = [str(item).strip() for item in shift_types if str(item).strip()]
-    shifts = payload.get("shifts")
-    if not isinstance(shifts, list):
-        shifts = []
-    shifts = [
-        {
-            "type": str(item.get("type") or "").strip(),
-            "start": str(item.get("start") or "").strip(),
-            "end": str(item.get("end") or "").strip(),
-        }
-        for item in shifts
-        if isinstance(item, dict) and str(item.get("type") or "").strip()
-    ]
-    if not shifts:
-        shifts = [{
-            "type": shift_types[0] if shift_types else "day",
-            "start": str(payload.get("shift_start") or "09:00").strip(),
-            "end": str(payload.get("shift_end") or "18:00").strip(),
-        }]
-    if not shift_types:
-        shift_types = [item["type"] for item in shifts]
-    company_address = str(payload.get("company_address") or payload.get("address") or "").strip()
-    attendance_authentication = str(payload.get("attendance_authentication") or "face").strip().lower()
-    if attendance_authentication not in {"face", "biometric", "spreadsheet"}:
-        return jsonify({"error": "Select Face, Biometric or CSV File Authentication."}), 400
     account = {
         "name": str(payload.get("name") or email.split("@")[0]).strip(),
         "company": str(payload.get("company") or "").strip(),
         "staff_count": str(payload.get("staff_count") or "").strip(),
         "business_category": str(payload.get("business_category") or "").strip(),
-        "workforce_types": workforce_types,
-        "shift_types": shift_types,
-        "shifts": shifts,
-        "shift_count": len(shifts),
-        "shift_start": shifts[0]["start"],
-        "shift_end": shifts[0]["end"],
-        "address": company_address,
-        "company_address": company_address,
-        "pincode": str(payload.get("pincode") or "").strip(),
-        "city": str(payload.get("city") or "").strip(),
-        "state": str(payload.get("state") or "").strip(),
-        "latitude": payload.get("latitude") if payload.get("latitude") is not None else "",
-        "longitude": payload.get("longitude") if payload.get("longitude") is not None else "",
+        "shift_start": str(payload.get("shift_start") or "09:00").strip(),
+        "shift_end": str(payload.get("shift_end") or "18:00").strip(),
+        "address": str(payload.get("address") or "").strip(),
         "role": str(payload.get("role") or "Owner").strip(),
-        "attendance_authentication": attendance_authentication,
         "email": email,
         "password_hash": generate_password_hash(password),
         "country": str(payload.get("country") or "India"),
@@ -414,12 +365,7 @@ def register_account():
     save_auth_accounts(accounts)
     WorkspaceDatabase().save(email, {
         "account": public_account(account),
-        "storage": {
-            "attendance-integration-settings": {
-                "modes": [attendance_authentication],
-                "manual_enabled": True,
-            },
-        },
+        "storage": {},
         "schema_version": 1,
     })
     ensure_subscription(email)
@@ -537,101 +483,6 @@ def update_admin_account():
         "account": public_account(account),
         "access_token": access_token(new_email, "ADMIN", new_email),
     })
-
-
-@app.post("/api/auth/update-company")
-@require("ADMIN", "HR")
-def update_company_account():
-    """Persist editable company settings without changing the login identity."""
-    payload = request.get_json(silent=True) or {}
-    tenant = normalize_email(g.employee_identity["tenant"])
-    accounts = load_auth_accounts()
-    account = next(
-        (item for item in accounts if normalize_email(item.get("email")) == tenant),
-        None,
-    )
-    if not account:
-        return jsonify({"error": "The administrator account was not found."}), 404
-
-    workforce_types = payload.get("workforce_types")
-    if not isinstance(workforce_types, list) or not workforce_types:
-        return jsonify({"error": "Select at least one workforce category."}), 400
-    workforce_types = [str(item).strip() for item in workforce_types if str(item).strip()]
-    shift_types = payload.get("shift_types")
-    if not isinstance(shift_types, list) or not shift_types:
-        return jsonify({"error": "Select at least one company shift."}), 400
-    shift_types = [str(item).strip() for item in shift_types if str(item).strip()]
-    shifts = payload.get("shifts")
-    if not isinstance(shifts, list):
-        shifts = []
-    shifts = [
-        {
-            "type": str(item.get("type") or "").strip(),
-            "start": str(item.get("start") or "").strip(),
-            "end": str(item.get("end") or "").strip(),
-        }
-        for item in shifts
-        if isinstance(item, dict) and str(item.get("type") or "").strip()
-    ]
-    if not shifts or any(not item["start"] or not item["end"] for item in shifts):
-        return jsonify({"error": "Enter start and end timings for every selected shift."}), 400
-
-    attendance_authentication = str(
-        payload.get("attendance_authentication")
-        or account.get("attendance_authentication")
-        or "face"
-    ).strip().lower()
-    if attendance_authentication not in {"face", "biometric", "spreadsheet"}:
-        return jsonify({"error": "Select Face, Biometric or CSV File Authentication."}), 400
-
-    company_address = str(payload.get("company_address") or payload.get("address") or "").strip()
-    account.update({
-        "company": str(payload.get("company") or "").strip(),
-        "business_category": str(payload.get("business_category") or "").strip(),
-        "workforce_types": workforce_types,
-        "shift_types": shift_types,
-        "shifts": shifts,
-        "shift_count": len(shifts),
-        "shift_start": shifts[0]["start"],
-        "shift_end": shifts[0]["end"],
-        "address": company_address,
-        "company_address": company_address,
-        "pincode": str(payload.get("pincode") or "").strip(),
-        "city": str(payload.get("city") or "").strip(),
-        "state": str(payload.get("state") or "").strip(),
-        "country": str(payload.get("country") or "India").strip(),
-        "role": str(payload.get("role") or account.get("role") or "Owner").strip(),
-        "name": str(payload.get("name") or account.get("name") or "MSME Manager").strip(),
-        "attendance_authentication": attendance_authentication,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-    })
-    save_auth_accounts(accounts)
-
-    database = WorkspaceDatabase()
-    workspace = database.load(tenant) or {
-        "account": {"email": tenant},
-        "storage": {},
-        "schema_version": 1,
-    }
-    workspace["account"] = {**workspace.get("account", {}), **public_account(account)}
-    integration_settings = workspace.setdefault("storage", {}).get(
-        "attendance-integration-settings", {}
-    )
-    if not isinstance(integration_settings, dict):
-        integration_settings = {}
-    workspace["storage"]["attendance-integration-settings"] = {
-        **integration_settings,
-        "modes": [attendance_authentication],
-        "manual_enabled": integration_settings.get("manual_enabled", True) is not False,
-    }
-    try:
-        database.save(tenant, workspace, expected_updated_at=workspace.get("updated_at"))
-    except WorkspaceConflictError as error:
-        return jsonify({
-            "error": "The company workspace changed in another session. Reload Settings and try again.",
-            "current_updated_at": error.current_updated_at,
-        }), 409
-    return jsonify({"ok": True, "account": public_account(account)})
 
 
 @app.post("/api/auth/google")
