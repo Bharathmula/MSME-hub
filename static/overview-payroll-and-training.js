@@ -646,11 +646,10 @@ function manualAttendanceRecord(person) {
   const calculation = typeof attendanceCalculationV21 === 'function'
     ? attendanceCalculationV21(person)
     : null;
-  return {
+  const record = {
     id: person.id,
     name: person.name,
     role: person.role,
-    source: 'Admin manual attendance',
     entered_by: admin.name || admin.email,
     entered_by_email: admin.email,
     admin_note: `Entered by administrator while ${typeof configuredAttendanceModeV39 === 'function' ? configuredAttendanceModeV39() : 'the selected'} authentication remained active.`,
@@ -669,6 +668,12 @@ function manualAttendanceRecord(person) {
     total: calculation ? durationTextV21(calculation.total) : '',
     late: calculation ? calculation.late : '-'
   };
+  record.checkin_face_captured = Boolean(person.checkin_face_captured);
+  record.checkout_face_captured = Boolean(person.checkout_face_captured);
+  record.source = typeof attendanceSourceLabelV44 === 'function'
+    ? attendanceSourceLabelV44(record)
+    : (record.login && record.logout ? 'Admin manual check-in + Admin manual checkout' : record.login ? 'Admin manual check-in' : record.logout ? 'Admin manual checkout' : 'Admin manual status');
+  return record;
 }
 
 window.saveSelectedDay = function saveOnlyManuallyEnteredAttendance() {
@@ -685,15 +690,24 @@ window.saveSelectedDay = function saveOnlyManuallyEnteredAttendance() {
   const records = [...automatic];
   manuallyEntered.forEach(record => {
     const index = records.findIndex(item => item.id === record.id);
-    if (index < 0) records.push(record); else records[index] = record;
+    if (index < 0) records.push(record);
+    else records[index] = typeof mergeFacePriorityAttendanceV44 === 'function'
+      ? mergeFacePriorityAttendanceV44(records[index], record)
+      : record;
   });
   if (!records.length) {
     alert(`No automatic or manual attendance is available for ${calendarDay}.`);
     return;
   }
   const index = attendanceLog.findIndex(day => day.date === calendarDay);
-  if (index < 0) attendanceLog.push({ date: calendarDay, records });
-  else attendanceLog[index] = { date: calendarDay, records };
+  const existing = index < 0 ? null : attendanceLog[index];
+  const pendingNotes = window.attendanceDayNotesV44 || {};
+  const hasPendingNote = Object.prototype.hasOwnProperty.call(pendingNotes, calendarDay);
+  const note = hasPendingNote ? pendingNotes[calendarDay] : (existing?.note || '');
+  const savedDay = { date: calendarDay, records, note };
+  if (index < 0) attendanceLog.push(savedDay);
+  else attendanceLog[index] = savedDay;
+  if (hasPendingNote) delete pendingNotes[calendarDay];
   save();
   render();
   const saveType = manuallyEntered.length && automatic.length

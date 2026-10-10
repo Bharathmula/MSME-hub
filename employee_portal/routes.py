@@ -37,6 +37,10 @@ def shift_photos(db,shift_id):
  events=db.execute('SELECT event_type,face_capture_data FROM employee_attendance_events WHERE shift_id=? ORDER BY server_timestamp',(shift_id,)).fetchall()
  photos={item['event_type']:photo_url(item['face_capture_data']) for item in events}
  return photos.get('CHECK_IN',''),photos.get('CHECK_OUT','')
+def face_checkout_can_replace_admin(db,shift):
+ if not shift or shift['status']!='COMPLETED' or not str(shift['admin_checkout_by'] or '').strip():return False
+ face_checkout=db.execute("SELECT 1 FROM employee_attendance_events WHERE shift_id=? AND event_type='CHECK_OUT' AND verification_method='FACE_CAPTURE' AND COALESCE(face_capture_data,'')<>'' LIMIT 1",(shift['id'],)).fetchone()
+ return face_checkout is None
 def configured_attendance_mode(db,tenant):
  stored=db.execute('SELECT workspace_json FROM tenant_workspaces WHERE tenant_email=?',(tenant,)).fetchone()
  if not stored:return 'face'
@@ -203,7 +207,7 @@ def dashboard():
    'profile':profile,
    'server_time':stamp(),
    'today':dict(shift) if shift else None,
-   'next_action':'CHECK_OUT' if shift and shift['status']=='OPEN' else 'CHECK_IN',
+   'next_action':'CHECK_OUT' if shift and (shift['status']=='OPEN' or face_checkout_can_replace_admin(db,shift)) else 'CHECK_IN',
    'history':[dict(x) for x in history],
    'session':dict(current_session) if current_session else None,
    'last_logout_at':previous_logout,
@@ -297,15 +301,17 @@ def attendance():
    duplicate=db.execute('SELECT * FROM employee_attendance_events WHERE employee_account_id=? AND idempotency_key=?',(row['id'],key)).fetchone()
    if duplicate:return jsonify({'ok':True,'duplicate':True,'event':{**dict(duplicate),'face_capture_data':photo_url(duplicate['face_capture_data'])}})
    date=now().date().isoformat();shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(row['id'],date)).fetchone();event_time=stamp()
-   if shift and shift['status']=='COMPLETED':return jsonify({'error':'Today’s attendance is already completed.'}),409
+   replace_admin_checkout=face_checkout_can_replace_admin(db,shift)
+   if shift and shift['status']=='COMPLETED' and not replace_admin_checkout:return jsonify({'error':'Today’s attendance is already completed.'}),409
    action='CHECK_IN' if not shift else 'CHECK_OUT'
    if expected_action and expected_action!=action:return jsonify({'error':'Attendance status changed before this photo was saved. Refresh and capture a new photo.'}),409
    stored_face=store_photo(face,tenant=row['tenant_email'],employee_id=row['employee_id'],category='attendance',event_type=action,captured_at=event_time)
    if not shift:
     sid=uuid4().hex;db.execute('INSERT INTO employee_shifts(id,employee_account_id,company_id,work_date,check_in_at,status) VALUES(?,?,?,?,?,?)',(sid,row['id'],row['company_id'],date,event_time,'OPEN'))
    else:
-    sid=shift['id'];minutes=max(0,int((now()-datetime.fromisoformat(shift['check_in_at'])).total_seconds()//60));db.execute("UPDATE employee_shifts SET check_out_at=?,worked_minutes=?,status='COMPLETED' WHERE id=?",(event_time,minutes,sid))
+    sid=shift['id'];minutes=max(0,int((now()-datetime.fromisoformat(shift['check_in_at'])).total_seconds()//60));db.execute("UPDATE employee_shifts SET check_out_at=?,worked_minutes=?,status='COMPLETED',admin_checkout_by='',admin_checkout_note='' WHERE id=?",(event_time,minutes,sid))
    eid=uuid4().hex;db.execute('INSERT INTO employee_attendance_events(id,employee_account_id,company_id,shift_id,event_type,server_timestamp,verification_method,idempotency_key,device_identifier,face_capture_data) VALUES(?,?,?,?,?,?,?,?,?,?)',(eid,row['id'],row['company_id'],sid,action,event_time,'FACE_CAPTURE',key,device,stored_face));event=db.execute('SELECT * FROM employee_attendance_events WHERE id=?',(eid,)).fetchone()
+   if replace_admin_checkout:audit(db,'EMPLOYEE_FACE_CHECKOUT_REPLACED_ADMIN','employee_shift',sid,{'employee_id':row['employee_id'],'work_date':date,'previous_admin_checkout_by':shift['admin_checkout_by'],'previous_admin_checkout_note':shift['admin_checkout_note']})
  except PhotoStorageError as exc:
   current_app.logger.exception('Unable to save attendance photo')
   return jsonify({'error':str(exc)}),503

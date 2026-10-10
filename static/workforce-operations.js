@@ -212,7 +212,8 @@ function localIndividualAttendanceV34(person, monthValue) {
       records.forEach(record => {
         const index = combined.findIndex(item => item.id === record.id);
         if (index < 0) combined.push(record);
-        else if (!['Manual attendance', 'Admin manual override', 'Admin manual attendance'].includes(combined[index].source)) combined[index] = { ...combined[index], ...record };
+        else if (typeof isAdminManualAttendanceSourceV44 === 'function' && isAdminManualAttendanceSourceV44(combined[index].source)) combined[index] = mergeFacePriorityAttendanceV44(record, combined[index]);
+        else combined[index] = { ...combined[index], ...record };
       });
       days.set(date, combined);
     });

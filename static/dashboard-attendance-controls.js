@@ -529,10 +529,43 @@ window.roleDashboard = function roleDashboardWithUnifiedTiming(roleName) {
 };
 
 let manualAttendanceEnabledV21 = false;
-const standardManualAttendanceSourceV42 = { source: 'Admin manual attendance' };
+const standardManualAttendanceSourceV42 = { source: 'Admin manual status' };
 const automaticAttendanceDraftsV21 = new Map();
 const automaticAttendanceLoadedV21 = new Set();
 const automaticAttendanceSignaturesV21 = new Map();
+
+function isAdminManualAttendanceSourceV44(source) {
+  const value = String(source || '');
+  return value === 'Manual attendance' || value === 'Admin manual override' || value.includes('Admin manual');
+}
+
+function attendanceSourceLabelV44(record = {}) {
+  const parts = [];
+  if (record.login) parts.push(record.checkin_face_captured ? 'Face check-in' : 'Admin manual check-in');
+  if (record.logout) parts.push(record.checkout_face_captured ? 'Face checkout' : 'Admin manual checkout');
+  return parts.join(' + ') || 'Admin manual status';
+}
+
+function mergeFacePriorityAttendanceV44(automaticRecord = {}, savedRecord = {}) {
+  if (!isAdminManualAttendanceSourceV44(savedRecord.source)) return automaticRecord;
+  const merged = { ...automaticRecord, ...savedRecord };
+  if (automaticRecord.checkin_face_captured) {
+    merged.login = automaticRecord.login;
+    merged.status = automaticRecord.status;
+    merged.checkin_face_captured = true;
+  }
+  if (automaticRecord.checkout_face_captured) {
+    merged.logout = automaticRecord.logout;
+    merged.work = automaticRecord.work;
+    merged.total = automaticRecord.total;
+    merged.status = automaticRecord.status;
+    merged.checkout_face_captured = true;
+    merged.admin_checkout_by = '';
+    merged.admin_checkout_note = '';
+  }
+  merged.source = attendanceSourceLabelV44(merged);
+  return merged;
+}
 
 function configuredAttendanceModeV39() {
   try {
@@ -628,7 +661,7 @@ function combinedAttendanceRecordV21(date, savedRecord) {
   (savedRecord?.records || []).forEach(record => {
     const index = records.findIndex(item => item.id === record.id);
     if (index < 0) records.push(record);
-    else if (['Manual attendance', 'Admin manual override', 'Admin manual attendance'].includes(record.source)) records[index] = { ...records[index], ...record };
+    else if (isAdminManualAttendanceSourceV44(record.source)) records[index] = mergeFacePriorityAttendanceV44(records[index], record);
   });
   return { date, records, automaticDraft: true };
 }
@@ -638,14 +671,15 @@ function saveAutomaticAttendanceV35(date, mappedAttendance) {
   const index = attendanceLog.findIndex(day => day.date === date);
   const existing = index >= 0 ? attendanceLog[index] : { date, records: [] };
   const automaticIds = new Set(mappedAttendance.map(record => record.id));
-  const manualIds = new Set((existing.records || [])
-    .filter(record => ['Manual attendance', 'Admin manual override', 'Admin manual attendance'].includes(record.source))
-    .map(record => record.id));
-  const retained = (existing.records || []).filter(record =>
-    !automaticIds.has(record.id) || manualIds.has(record.id)
-  );
-  const automatic = mappedAttendance.filter(record => !manualIds.has(record.id));
-  const saved = { date, records: [...retained, ...automatic] };
+  const existingById = new Map((existing.records || []).map(record => [record.id, record]));
+  const retained = (existing.records || []).filter(record => !automaticIds.has(record.id));
+  const automatic = mappedAttendance.map(record => {
+    const savedRecord = existingById.get(record.id);
+    return savedRecord && isAdminManualAttendanceSourceV44(savedRecord.source)
+      ? mergeFacePriorityAttendanceV44(record, savedRecord)
+      : record;
+  });
+  const saved = { ...existing, date, records: [...retained, ...automatic] };
   if (index < 0) attendanceLog.push(saved);
   else attendanceLog[index] = saved;
   save();
@@ -694,7 +728,12 @@ async function syncAutomaticAttendanceV21(date, force = false) {
       profile_details: item.profile_details || {},
       admin_checkout_by: item.admin_checkout_by || '',
       admin_checkout_note: item.admin_checkout_note || '',
-      source: 'Face check-in / check-out'
+      source: attendanceSourceLabelV44({
+        login: item.check_in_at,
+        logout: item.check_out_at,
+        checkin_face_captured: Boolean(item.checkin_face_captured),
+        checkout_face_captured: Boolean(item.checkout_face_captured),
+      })
       };
     });
     const mappedIds = new Set(mappedFromApi.map(record => record.id));
@@ -708,19 +747,8 @@ async function syncAutomaticAttendanceV21(date, force = false) {
     const changed = automaticAttendanceSignaturesV21.get(date) !== signature;
     automaticAttendanceSignaturesV21.set(date, signature);
     automaticAttendanceDraftsV21.set(date, mappedAttendance);
-    const manualToday = new Map((attendanceLog.find(day => day.date === date)?.records || [])
-      .filter(record => ['Manual attendance', 'Admin manual override', 'Admin manual attendance'].includes(record.source))
-      .map(record => [record.id, record]));
-    const automaticToday = new Map(mappedAttendance.map(record => [record.id, record]));
-    workforce.forEach(person => {
-      const current = manualToday.get(person.id) || automaticToday.get(person.id);
-      person.status = current?.status || 'Absent';
-      person.login_time = current?.login || '';
-      person.logout_time = current?.logout || '';
-      person.checkin_face_captured = Boolean(current?.checkin_face_captured);
-      person.checkout_face_captured = Boolean(current?.checkout_face_captured);
-    });
-    mappedAttendance.forEach(record => {
+    const effectiveRecords = combinedAttendanceRecordV21(date, attendanceLog.find(day => day.date === date))?.records || mappedAttendance;
+    effectiveRecords.forEach(record => {
       const person = [...people, ...temporaryWorkers].find(item => item.id === record.id);
       if (!person) return;
       if (record.profile_details && typeof record.profile_details === 'object') {
@@ -863,7 +891,7 @@ function saveAttendanceDateV21(date) {
 window.logToday = function logTodayV21() {
   const today = indiaAttendanceDateV37();
   const trustedRecords = (attendanceLog.find(day => day.date === today)?.records || [])
-    .filter(record => ['Manual attendance', 'Admin manual override', 'Admin manual attendance', 'Face check-in / check-out'].includes(record.source));
+    .filter(record => isAdminManualAttendanceSourceV44(record.source) || /Face check-in|Face checkout/.test(String(record.source || '')));
   const byId = new Map(trustedRecords.map(record => [record.id, record]));
   [...people, ...temporaryWorkers].forEach(person => {
     const record = byId.get(person.id);
@@ -952,7 +980,7 @@ document.addEventListener('click', event => {
     ? manualAttendanceRecord(person)
     : attendanceRecordsForTodayV21().find(item => item.id === person.id);
   if (!calculatedRecord) return;
-  const newRecord = { ...calculatedRecord, source: 'Admin manual attendance', entered_by: admin.name || admin.email, entered_by_email: admin.email, admin_note: `Entered by administrator while ${configuredAttendanceModeV39()} authentication remained active.` };
+  const newRecord = { ...calculatedRecord, source: attendanceSourceLabelV44(calculatedRecord), entered_by: admin.name || admin.email, entered_by_email: admin.email, admin_note: `Entered by administrator while ${configuredAttendanceModeV39()} authentication remained active.` };
   let day = attendanceLog.find(item => item.date === selectedDate);
   if (!day) {
     day = { date: selectedDate, records: [] };
@@ -960,7 +988,7 @@ document.addEventListener('click', event => {
   }
   const recordIndex = day.records.findIndex(item => item.id === person.id);
   if (recordIndex < 0) day.records.push(newRecord);
-  else day.records[recordIndex] = newRecord;
+  else day.records[recordIndex] = mergeFacePriorityAttendanceV44(day.records[recordIndex], newRecord);
   save();
 
   const originalText = saveButton.textContent;
