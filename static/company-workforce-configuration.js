@@ -71,17 +71,62 @@
 
   function healthSector(category) {
     const records = recordsFor(category);
-    const present = records.filter(person => person.status === 'Present').length;
-    const leave = records.filter(person => person.status === 'On leave').length;
-    const absent = records.filter(person => person.status === 'Absent').length;
-    const percentage = records.length ? Math.round(present / records.length * 100) : 0;
-    return `<article class="role-attendance-sector ${category.view}-attendance" data-overflow-role="${esc(category.role)}" tabindex="0" role="button" aria-label="Open individual ${esc(category.label)} accounts">
+    const counts = typeof attendanceStatusCounts === 'function'
+      ? attendanceStatusCounts(records)
+      : { total: records.length, present: 0, approved_leave: 0, no_checkin: 0, missed_checkout: 0, absent: 0, not_due: 0 };
+    const percentage = counts.total ? Math.round(counts.present / counts.total * 100) : 0;
+    const attention = counts.no_checkin + counts.missed_checkout + counts.absent;
+    const chips = (typeof attendanceOperationalStatusesV43 !== 'undefined' ? attendanceOperationalStatusesV43 : [])
+      .map(status => `<button type="button" class="attendance-health-chip ${status.code}" data-attendance-insights-role="${esc(category.view)}" data-attendance-insights-status="${status.code}"><b>${counts[status.code] || 0}</b>${esc(status.label)}</button>`).join('');
+    return `<article class="role-attendance-sector ${category.view}-attendance" data-attendance-insights-role="${esc(category.view)}" tabindex="0" role="button" aria-label="Open ${esc(category.label)} attendance insights">
       <div class="role-attendance-head"><div><span>${esc(category.singular)}</span><b>${percentage}% present today</b></div>
-        <button type="button" data-overflow-role="${esc(category.role)}">Open individual accounts →</button></div>
+        <button type="button" data-attendance-insights-role="${esc(category.view)}">Open attendance insights →</button></div>
       <div class="role-attendance-progress-row"><div class="role-attendance-progress" role="progressbar" aria-label="${esc(category.label)} total present" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percentage}"><i style="width:${percentage}%"></i></div>
-        <div class="role-attendance-progress-counts"><span><b>${present}</b> Present</span><span><b>${leave}</b> On leave</span><span><b>${absent}</b> Absent</span></div></div>
-      <div class="role-attendance-values"><div><b>${records.length}</b><span>Total people</span></div><div><b>${present}</b><span>Total present</span></div><div><b>${leave}</b><span>On leave:</span></div><div><b>${absent}</b><span>Absent:</span></div></div>
+        <div class="role-attendance-progress-counts"><span><b>${counts.present}</b> Present</span><span><b>${counts.approved_leave}</b> Approved leave</span><span><b>${attention}</b> Needs attention</span></div></div>
+      <div class="attendance-health-statuses">${chips}</div>
     </article>`;
+  }
+
+  let attendanceInsightsState = {
+    role: 'all',
+    status: 'all',
+    date: typeof indiaAttendanceDateV37 === 'function' ? indiaAttendanceDateV37() : new Date().toISOString().slice(0, 10),
+  };
+
+  function attendanceInsightsPage() {
+    const categories = activeCategories();
+    const scopedCategories = categories.filter(category => attendanceInsightsState.role === 'all' || category.view === attendanceInsightsState.role);
+    const allRows = scopedCategories.flatMap(category => recordsFor(category).map(person => ({
+      category,
+      person,
+      state: attendanceOperationalStateV43(person, attendanceInsightsState.date),
+    })));
+    const rows = allRows.filter(item => attendanceInsightsState.status === 'all' || item.state.code === attendanceInsightsState.status);
+    const roleLabel = attendanceInsightsState.role === 'all'
+      ? 'All workforce categories'
+      : categories.find(category => category.view === attendanceInsightsState.role)?.label || 'Selected workforce';
+    const selectedStatus = attendanceOperationalStatusesV43.find(status => status.code === attendanceInsightsState.status);
+    const statusLabel = selectedStatus?.label || 'Every attendance status';
+    const counts = { total: allRows.length };
+    attendanceOperationalStatusesV43.forEach(status => { counts[status.code] = allRows.filter(item => item.state.code === status.code).length; });
+    const summary = attendanceOperationalStatusesV43.map(status => `<button type="button" class="attendance-insight-metric ${status.code} ${attendanceInsightsState.status === status.code ? 'active' : ''}" data-attendance-insight-filter-status="${status.code}"><span>${esc(status.label)}</span><b>${counts[status.code]}</b><small>View matching records</small></button>`).join('');
+    const roleOptions = [`<option value="all">All workforce categories</option>`, ...categories.map(category => `<option value="${esc(category.view)}" ${attendanceInsightsState.role === category.view ? 'selected' : ''}>${esc(category.label)}</option>`)].join('');
+    const statusOptions = [`<option value="all">Every attendance status</option>`, ...attendanceOperationalStatusesV43.map(status => `<option value="${status.code}" ${attendanceInsightsState.status === status.code ? 'selected' : ''}>${esc(status.label)}</option>`)].join('');
+    const body = rows.map(({ category, person, state }) => `<tr>
+      <td><div class="cell-person"><span class="avatar">${ini(person.name)}</span><div><b>${esc(person.name)}</b><small>${esc(person.id)}</small></div></div></td>
+      <td>${esc(category.label)}</td><td><span class="attendance-insight-status ${state.code}">${esc(state.label)}</span></td>
+      <td>${esc(person.shift || `${admin.shift_start || '09:00'} - ${admin.shift_end || '18:00'}`)}</td>
+      <td>${esc(state.login ? (typeof show12 === 'function' ? show12(state.login) : state.login) : '—')}</td>
+      <td>${esc(state.logout ? (typeof show12 === 'function' ? show12(state.logout) : state.logout) : '—')}</td>
+      <td>${esc(state.source)}</td><td><button class="action" type="button" data-attendance-insights-profile="${esc(person.id)}">Open profile</button></td>
+    </tr>`).join('') || '<tr><td colspan="8" class="empty">No attendance records match these filters.</td></tr>';
+
+    root.innerHTML = `<div class="page-heading attendance-insights-heading"><div><div class="eyebrow">ATTENDANCE CONTROL CENTRE</div><h1>${esc(roleLabel)}</h1><p>${esc(statusLabel)} for ${esc(attendanceInsightsState.date)}. Statuses use each person’s shift and grace period.</p></div><div class="attendance-insights-actions"><button class="secondary" type="button" data-attendance-insights-back>← Overview</button><button class="primary" type="button" data-attendance-insights-calendar>Attendance calendar →</button></div></div>
+      <section class="attendance-insight-metrics">${summary}</section>
+      <section class="panel attendance-insights-panel"><div class="panel-header"><div><h2>Attendance records</h2><p>Open a profile only when personal details are required.</p></div><div class="attendance-insight-filters"><label>DATE<input type="date" data-attendance-insights-date value="${esc(attendanceInsightsState.date)}"></label><label>CATEGORY<select data-attendance-insights-category>${roleOptions}</select></label><label>STATUS<select data-attendance-insights-status>${statusOptions}</select></label></div></div>
+      <div class="attendance-insight-guidance"><span><b>Not yet due</b> Shift grace period has not ended.</span><span><b>No check-in after grace</b> No attendance was received after the allowed grace period.</span><span><b>Missed check-out</b> A check-in exists but checkout is missing after shift end.</span></div>
+      <div class="table-wrap"><table class="attendance-insights-table"><thead><tr><th>PERSON</th><th>CATEGORY</th><th>STATUS</th><th>SHIFT</th><th>CHECK-IN</th><th>CHECK-OUT</th><th>SOURCE</th><th></th></tr></thead><tbody>${body}</tbody></table></div></section>`;
+    document.querySelectorAll('.nav-link').forEach(button => button.classList.toggle('active', button.dataset.view === 'attendance'));
   }
 
   function applyOverviewCategories() {
@@ -100,10 +145,11 @@
       [...overviewGrid.children].forEach((card, index) => {
         const category = active[index];
         if (!category) return;
-        card.dataset.overflowRole = category.role;
+        delete card.dataset.overflowRole;
+        card.dataset.attendanceInsightsRole = category.view;
         card.tabIndex = 0;
         card.setAttribute('role', 'button');
-        card.setAttribute('aria-label', `Open individual ${category.label} accounts`);
+        card.setAttribute('aria-label', `Open ${category.label} attendance insights`);
       });
     }
     const healthGrid = document.querySelector('#view-root .attendance-health-role-dashboard');
@@ -188,6 +234,11 @@
   const renderBase = render;
   render = function configuredRender(...args) {
     updateNavigation();
+    if (view === 'attendance-insights') {
+      attendanceInsightsPage();
+      updateCounts();
+      return;
+    }
     const category = categoryForView(view);
     if (category && !activeCategories().some(item => item.view === category.view)) view = 'dashboard';
     const activeCategory = categoryForView(view);
@@ -204,6 +255,57 @@
     applyOverviewCategories();
     return result;
   };
+
+  document.addEventListener('click', event => {
+    const insightTarget = event.target.closest('[data-attendance-insights-role]');
+    const statusMetric = event.target.closest('[data-attendance-insight-filter-status]');
+    const profileButton = event.target.closest('[data-attendance-insights-profile]');
+    const backButton = event.target.closest('[data-attendance-insights-back]');
+    const calendarButton = event.target.closest('[data-attendance-insights-calendar]');
+    if (!insightTarget && !statusMetric && !profileButton && !backButton && !calendarButton) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (insightTarget) {
+      attendanceInsightsState.role = insightTarget.dataset.attendanceInsightsRole || 'all';
+      attendanceInsightsState.status = insightTarget.dataset.attendanceInsightsStatus || 'all';
+      attendanceInsightsState.date = typeof indiaAttendanceDateV37 === 'function' ? indiaAttendanceDateV37() : new Date().toISOString().slice(0, 10);
+      view = 'attendance-insights';
+      render();
+      return;
+    }
+    if (statusMetric) {
+      attendanceInsightsState.status = attendanceInsightsState.status === statusMetric.dataset.attendanceInsightFilterStatus
+        ? 'all'
+        : statusMetric.dataset.attendanceInsightFilterStatus;
+      attendanceInsightsPage();
+      return;
+    }
+    if (profileButton) {
+      const id = profileButton.dataset.attendanceInsightsProfile;
+      if (temporaryWorkers.some(person => person.id === id) && typeof tempEditor === 'function') tempEditor(id);
+      else editor(id);
+      return;
+    }
+    if (backButton) { view = 'dashboard'; render(); return; }
+    if (calendarButton) { view = 'attendance'; render(); }
+  }, true);
+
+  document.addEventListener('change', event => {
+    if (view !== 'attendance-insights') return;
+    if (event.target.matches('[data-attendance-insights-date]')) attendanceInsightsState.date = event.target.value;
+    else if (event.target.matches('[data-attendance-insights-category]')) attendanceInsightsState.role = event.target.value;
+    else if (event.target.matches('[data-attendance-insights-status]')) attendanceInsightsState.status = event.target.value;
+    else return;
+    attendanceInsightsPage();
+  });
+
+  document.addEventListener('keydown', event => {
+    if (!['Enter', ' '].includes(event.key)) return;
+    const target = event.target.closest('[data-attendance-insights-role]');
+    if (!target || event.target.closest('button')) return;
+    event.preventDefault();
+    target.click();
+  });
 
   updateNavigation();
   updateCounts();

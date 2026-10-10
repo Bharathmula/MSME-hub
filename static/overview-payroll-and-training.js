@@ -1138,20 +1138,72 @@ function enhanceContractorForm() {
   else form.querySelector('.form-grid')?.insertAdjacentHTML('beforeend', markup);
 }
 
-function attendanceStatusCounts(records) {
-  const list = Array.isArray(records) ? records : [];
-  const uncertain = new Set(['On leave', 'Not checked in', 'Not sure', 'Not sure absent', 'Pending']);
-  return {
-    total: list.length,
-    present: list.filter(item => item.status === 'Present').length,
-    unsure: list.filter(item => uncertain.has(item.status)).length,
-    absent: list.filter(item => item.status === 'Absent').length
-  };
+const attendanceOperationalStatusesV43 = [
+  { code: 'present', label: 'Present' },
+  { code: 'not_due', label: 'Not yet due' },
+  { code: 'approved_leave', label: 'Approved leave' },
+  { code: 'no_checkin', label: 'No check-in after grace' },
+  { code: 'missed_checkout', label: 'Missed check-out' },
+  { code: 'absent', label: 'Absent' },
+];
+
+function attendanceRecordForDateV43(person, date) {
+  const saved = (Array.isArray(attendanceLog) ? attendanceLog : []).find(day => day.date === date);
+  const combined = typeof combinedAttendanceRecordV21 === 'function'
+    ? combinedAttendanceRecordV21(date, saved)
+    : saved;
+  return (combined?.records || []).find(record => record.id === person.id) || null;
+}
+
+function attendanceShiftFinishedV43(person, date, now = new Date()) {
+  const today = typeof indiaAttendanceDateV37 === 'function' ? indiaAttendanceDateV37(now) : now.toISOString().slice(0, 10);
+  if (date < today) return true;
+  if (date > today) return false;
+  const shift = String(person.shift || `${admin?.shift_start || '09:00'} - ${admin?.shift_end || '18:00'}`).split(/\s+(?:-|–|—)\s+/);
+  const start = typeof minutes === 'function' ? minutes(shift[0]) : 540;
+  const end = typeof minutes === 'function' ? minutes(shift[1]) : 1080;
+  const current = typeof indiaClockMinutesV40 === 'function'
+    ? indiaClockMinutesV40(now)
+    : now.getHours() * 60 + now.getMinutes();
+  if (!Number.isFinite(end)) return false;
+  if (Number.isFinite(start) && end <= start) return current >= end && current < start;
+  return current > end;
+}
+
+function attendanceOperationalStateV43(person, date = (typeof indiaAttendanceDateV37 === 'function' ? indiaAttendanceDateV37() : new Date().toISOString().slice(0, 10))) {
+  const record = attendanceRecordForDateV43(person, date);
+  const status = String(record?.status || person.status || 'Not checked in');
+  const source = String(record?.source || 'Live workforce status');
+  const login = record?.login || record?.check_in_at || person.login_time || '';
+  const logout = record?.logout || record?.check_out_at || person.logout_time || '';
+  let code = 'not_due';
+
+  if (status === 'On leave') code = 'approved_leave';
+  else if (login && !logout && attendanceShiftFinishedV43(person, date)) code = 'missed_checkout';
+  else if (login || status === 'Present') code = 'present';
+  else if (status === 'Absent' && record && !/automatic no check-in/i.test(source)) code = 'absent';
+  else {
+    const automaticStatus = typeof automaticNoCheckinStatusV40 === 'function'
+      ? automaticNoCheckinStatusV40(person, date)
+      : (date < new Date().toISOString().slice(0, 10) ? 'Absent' : 'Not checked in');
+    code = automaticStatus === 'Absent' ? 'no_checkin' : 'not_due';
+  }
+
+  const definition = attendanceOperationalStatusesV43.find(item => item.code === code) || attendanceOperationalStatusesV43[0];
+  return { ...definition, person, record, login, logout, source };
+}
+
+function attendanceStatusCounts(records, date) {
+  const states = (Array.isArray(records) ? records : []).map(person => attendanceOperationalStateV43(person, date));
+  const counts = { total: states.length, states };
+  attendanceOperationalStatusesV43.forEach(status => { counts[status.code] = states.filter(state => state.code === status.code).length; });
+  return counts;
 }
 
 function attendanceOverviewCard(title, records, viewName) {
   const counts = attendanceStatusCounts(records);
-  return `<article class="attendance-overview-card overview-role-${esc(viewName)}"><div class="attendance-overview-head"><h3>${esc(title)}</h3></div><p>${counts.total} total record${counts.total === 1 ? '' : 's'}</p><div class="attendance-color-counts"><span class="attendance-color present"><i></i><b>${counts.present}</b> Present</span><span class="attendance-color unsure"><i></i><b>${counts.unsure}</b> Not sure / on leave</span><span class="attendance-color absent"><i></i><b>${counts.absent}</b> Sure absent</span></div></article>`;
+  const statusRows = attendanceOperationalStatusesV43.map(status => `<button type="button" class="attendance-color ${status.code}" data-attendance-insights-role="${esc(viewName)}" data-attendance-insights-status="${status.code}"><i></i><b>${counts[status.code]}</b> ${esc(status.label)}</button>`).join('');
+  return `<article class="attendance-overview-card overview-role-${esc(viewName)}" data-attendance-insights-role="${esc(viewName)}" tabindex="0" role="button" aria-label="Open ${esc(title)} attendance insights"><div class="attendance-overview-head"><h3>${esc(title)}</h3><span>Open insights →</span></div><p>${counts.total} total record${counts.total === 1 ? '' : 's'}</p><div class="attendance-color-counts">${statusRows}</div></article>`;
 }
 
 function overviewDeadlineRow(name, detail, className) {
@@ -1268,7 +1320,7 @@ function enhanceOverviewDashboard() {
   }
   if (document.getElementById('operations-overview')) return;
   const section = `<section class="operations-overview" id="operations-overview">
-    <div class="operations-overview-heading"><div><span>OVERVIEW</span><h2>Attendance status and deadline overflow</h2></div><div class="attendance-overview-legend"><span class="present"><i></i>Present</span><span class="unsure"><i></i>Not sure</span><span class="absent"><i></i>Sure absent</span></div></div>
+    <div class="operations-overview-heading"><div><span>OVERVIEW</span><h2>Attendance status and deadline overflow</h2></div><div class="attendance-overview-legend"><span class="present"><i></i>Present</span><span class="not_due"><i></i>Not yet due</span><span class="approved_leave"><i></i>Approved leave</span><span class="no_checkin"><i></i>No check-in</span><span class="missed_checkout"><i></i>Missed check-out</span><span class="absent"><i></i>Absent</span></div></div>
     <div class="attendance-overview-grid">${attendanceOverviewCard('Employees / Workers', workerRecords, 'workers')}${attendanceOverviewCard('Staff', staffRecords, 'staff')}${attendanceOverviewCard('Entrepreneurs', entrepreneurRecords, 'entrepreneurs')}${attendanceOverviewCard('Temporary workers', temporary, 'temporary')}</div>
     <div class="overflow-overview-grid">
       <article class="overflow-overview-card temporary-overflow"><div class="overflow-card-head"><h3>Temporary worker overflow</h3><strong>${temporaryOverflow.length}</strong></div>${temporaryOverflow.length ? temporaryOverflow.map(person => { const extra = Math.max(0, elapsed(person) - 180); return overviewDeadlineRow(person.name, `${extra} day${extra === 1 ? '' : 's'} beyond 180-day limit`, 'temporary'); }).join('') : '<p class="overflow-empty">No temporary worker has crossed the 180-day limit.</p>'}</article>

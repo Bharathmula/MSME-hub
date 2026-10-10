@@ -397,7 +397,8 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("categoryForView(view)", configuration)
         self.assertIn('data-overflow-role="${esc(category.role)}"', configuration)
         self.assertIn("Open individual accounts", configuration)
-        self.assertIn("card.dataset.overflowRole = category.role", configuration)
+        self.assertIn("card.dataset.attendanceInsightsRole = category.view", configuration)
+        self.assertIn("Open attendance insights", configuration)
         self.assertNotIn('class="overview-overflow-button" type="button" data-view="${category.view}"', configuration)
         operations = (ROOT / "static" / "workforce-operations.js").read_text(encoding="utf-8")
         self.assertIn("roleName === 'Temporary Worker'", operations)
@@ -405,6 +406,22 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("configuredRolePairs", portal)
         for role in ("EMPLOYEE", "MANAGER", "HR", "OWNER"):
             self.assertIn(role, routes)
+
+    def test_attendance_cards_open_control_centre_with_separate_operational_statuses(self):
+        overview = (ROOT / "static" / "overview-payroll-and-training.js").read_text(encoding="utf-8")
+        configuration = (ROOT / "static" / "company-workforce-configuration.js").read_text(encoding="utf-8")
+        styles = (ROOT / "static" / "dashboard-feature-extensions.css").read_text(encoding="utf-8")
+        self.assertIn("attendanceOperationalStateV43", overview)
+        self.assertIn("Not yet due", overview)
+        self.assertIn("Approved leave", overview)
+        self.assertIn("No check-in after grace", overview)
+        self.assertIn("Missed check-out", overview)
+        self.assertNotIn("Not sure / on leave", overview)
+        self.assertIn("data-attendance-insights-role", configuration)
+        self.assertIn("ATTENDANCE CONTROL CENTRE", configuration)
+        self.assertIn("Open attendance insights", configuration)
+        self.assertIn("data-attendance-insights-date", configuration)
+        self.assertIn(".attendance-insight-metrics", styles)
 
     def test_streamlit_inlines_css_background_images_for_srcdoc(self):
         streamlit = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
