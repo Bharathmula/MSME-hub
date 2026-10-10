@@ -700,3 +700,6 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
 @media(max-width:1200px){.attendance-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:900px){.attendance-overview-grid{grid-template-columns:1fr}}
 @media(max-width:650px){.operations-overview-heading,.overview-subsection-head{align-items:flex-start;flex-direction:column}.overflow-overview-grid{grid-template-columns:1fr}.absence-estimate-row{grid-template-columns:1fr}.absence-estimate-row strong{text-align:left}}
+
+.admin-checkout-control{display:flex;align-items:center;gap:10px;margin:14px 0;padding:12px;border-radius:12px;background:#fff7e8}.admin-checkout-control small{color:#8a5b16}.admin-checkout-audit{margin:10px 0;padding:10px 12px;border-radius:10px;background:#eaf7f0;color:#216747;font-size:12px}.admin-checkout-audit b{color:#145038}
+.workforce-row-actions{display:flex;flex-wrap:wrap;gap:7px}.automatic-workforce-table td .admin-checkout-audit{display:block;min-width:190px;margin-top:8px;white-space:normal}

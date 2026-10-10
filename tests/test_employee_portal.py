@@ -207,6 +207,22 @@ class EmployeePortalTests(unittest.TestCase):
   removed=self.c.delete(f'/api/admin/employee-accounts/{account_id}',headers=self.headers(self.admin));self.assertEqual(removed.status_code,200,removed.text)
   self.assertEqual(self.c.post('/api/employee/login',json={'email':'direct.staff@gmail.com','password':'Direct123!'}).status_code,401)
 
+ def test_company_settings_and_admin_checkout_are_persistent(self):
+  tenant='company-settings@example.com';password='CompanySettings123!'
+  captcha=self.c.get('/api/auth/captcha').json
+  registered=self.c.post('/api/auth/register',json={'email':tenant,'password':password,'name':'Original Admin','company':'Original Company','workforce_types':['Workers'],'shift_types':['day'],'shifts':[{'type':'day','start':'09:00','end':'18:00'}],'captcha_id':captcha['captcha_id'],'captcha_answer':captcha['captcha_code']})
+  self.assertEqual(registered.status_code,200,registered.text);admin_token=registered.json['access_token']
+  updated=self.c.post('/api/auth/update-company',json={'company':'Updated Company','business_category':'Manufacturing','name':'Updated Admin','role':'Manager','company_address':'1 Factory Road','pincode':'500001','city':'Hyderabad','state':'Telangana','country':'India','workforce_types':['Workers','Temporary Workers'],'shift_types':['day','night'],'shifts':[{'type':'day','start':'09:00','end':'18:00'},{'type':'night','start':'18:00','end':'06:00'}]},headers=self.headers(admin_token))
+  self.assertEqual(updated.status_code,200,updated.text);self.assertIn('Temporary Workers',updated.json['account']['workforce_types'])
+  login=self.c.post('/api/auth/login',json={'email':tenant,'password':password});self.assertEqual(login.status_code,200,login.text);self.assertEqual(login.json['account']['company'],'Updated Company')
+  created=self.c.post('/api/admin/employee-accounts',json={'name':'Forgot Checkout','employee_id':'WR-CHECKOUT','email':'forgot.checkout@example.com','workforce_role':'WORKER','password':'ForgotCheckout123!','pin':'123456'},headers=self.headers(admin_token));self.assertEqual(created.status_code,201,created.text)
+  employee_login=self.c.post('/api/employee/login',json={'email':'forgot.checkout@example.com','password':'ForgotCheckout123!'});self.assertEqual(employee_login.status_code,200,employee_login.text)
+  face='data:image/jpeg;base64,/9j/2Q=='
+  checked_in=self.c.post('/api/employee/attendance',json={'device_identifier':'test-admin-checkout','face_capture':face,'expected_action':'CHECK_IN'},headers=self.headers(employee_login.json['access_token'],{'Idempotency-Key':'admin-checkout-in'}));self.assertEqual(checked_in.status_code,200,checked_in.text)
+  work_date=datetime.now(timezone.utc).date().isoformat()
+  checkout=self.c.post('/api/admin/employee-attendance/WR-CHECKOUT/checkout',json={'work_date':work_date,'note':'Employee informed the supervisor.'},headers=self.headers(admin_token));self.assertEqual(checkout.status_code,200,checkout.text);self.assertEqual(checkout.json['admin_checkout_by'],tenant)
+  attendance=self.c.get('/api/admin/employee-attendance',query_string={'date':work_date},headers=self.headers(admin_token));record=next(item for item in attendance.json['attendance'] if item['employee_id']=='WR-CHECKOUT');self.assertEqual(record['admin_checkout_by'],tenant);self.assertEqual(record['admin_checkout_note'],'Employee informed the supervisor.');self.assertEqual(record['status'],'COMPLETED')
+
  def test_non_gmail_employee_address_can_activate_and_login(self):
   workspace={'account':{'email':'admin@example.com','company':'Test Company'},'storage':{'people':[{'id':'W-YAHOO','name':'Yahoo Worker','email':'worker@yahoo.co.in','phone':'9000000002','role':'Worker'}],'temporary':[],'attendance':[]}}
   self.assertEqual(self.c.put('/api/workspace',json=workspace,headers=self.headers(self.admin)).status_code,200)

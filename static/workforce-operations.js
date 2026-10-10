@@ -115,11 +115,11 @@ async function hydrateMonthlyPresentV35(rolePeople) {
   }));
 }
 
-async function adminAttendanceRequestV33(path) {
+async function adminAttendanceRequestV33(path, options = {}) {
   const base = String(window.MSME_EMPLOYEE_API_URL || '').replace(/\/$/, '');
   const token = sessionStorage.getItem('msme-admin-api-token') || '';
   if (!base || !token) throw Error('The employee attendance service is not connected.');
-  const response = await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  const response = await fetch(`${base}${path}`, { ...options, headers: { Authorization: `Bearer ${token}`, ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) } });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw Error(payload.error || `Attendance request failed (HTTP ${response.status}).`);
@@ -269,6 +269,9 @@ function roleOverflowV22(roleName) {
       <div class="overflow-person-grid">${rolePeople.map(person => {
         const stats = individualMonthStatsV22(person);
         const calculation = attendanceCalculationV21(person);
+        const todayKey = typeof indiaAttendanceDateV37 === 'function' ? indiaAttendanceDateV37() : new Date().toISOString().slice(0, 10);
+        const todayAttendance = attendanceLog.find(day => day.date === todayKey)?.records?.find(record => record.id === person.id) || {};
+        const forgotCheckout = Boolean((todayAttendance.login || person.login_time) && !(todayAttendance.logout || person.logout_time));
         const currentWorkTotal = person.login_time && !person.logout_time
           ? 'In progress'
           : durationTextV21(calculation.total);
@@ -287,6 +290,8 @@ function roleOverflowV22(roleName) {
           </div>
           <div class="overflow-skills"><span>Skills</span><div class="skills">${(person.skills || []).slice(0, 5)
             .map(skill => `<span class="skill">${esc(skill)}</span>`).join('') || '<small>No skills entered</small>'}</div></div>
+          ${forgotCheckout ? `<div class="admin-checkout-control"><button class="secondary" type="button" data-admin-checkout="${esc(person.id)}" data-work-date="${todayKey}">Admin check-out</button><small>Use only when the employee forgot to check out.</small></div>` : ''}
+          ${todayAttendance.admin_checkout_by ? `<p class="admin-checkout-audit"><b>Checked out by administrator:</b> ${esc(todayAttendance.admin_checkout_by)}${todayAttendance.admin_checkout_note ? ` · ${esc(todayAttendance.admin_checkout_note)}` : ''}</p>` : ''}
           <button class="primary overflow-open-profile" type="button">View complete details →</button>
         </article>`;
       }).join('') || `<p class="empty">No ${singular} profiles are stored.</p>`}</div>
@@ -299,13 +304,39 @@ document.addEventListener('click', event => {
   const profileCard = event.target.closest('[data-overflow-profile]');
   const attendanceButton = event.target.closest('[data-person-attendance]');
   const backButton = event.target.closest('#back-to-overview');
-  if (!roleCard && !profileCard && !attendanceButton && !backButton) return;
+  const checkoutButton = event.target.closest('[data-admin-checkout]');
+  if (!roleCard && !profileCard && !attendanceButton && !backButton && !checkoutButton) return;
 
   /* Bulk-selection controls inside a profile card must not open its editor. */
   if (profileCard && event.target.closest('input, label, [data-bulk-action]')) return;
 
   event.preventDefault();
   event.stopImmediatePropagation();
+  if (checkoutButton) {
+    const note = window.prompt('Add an administrator check-out note:', 'Employee forgot to check out.');
+    if (note === null) return;
+    checkoutButton.disabled = true;
+    checkoutButton.textContent = 'Checking out…';
+    adminAttendanceRequestV33(`/api/admin/employee-attendance/${encodeURIComponent(checkoutButton.dataset.adminCheckout)}/checkout`, {
+      method: 'POST',
+      body: JSON.stringify({ work_date: checkoutButton.dataset.workDate, note }),
+    }).then(result => {
+      automaticAttendanceLoadedV21.delete(checkoutButton.dataset.workDate);
+      return syncAutomaticAttendanceV21(checkoutButton.dataset.workDate, true).then(() => result);
+    }).then(result => {
+      const person = [...people, ...temporaryWorkers].find(item => item.id === checkoutButton.dataset.adminCheckout);
+      if (person) {
+        person.logout_time = automaticTimeV21(result.check_out_at);
+        const roleName = person.role === 'Temporary Worker' ? 'Temporary Worker' : person.role;
+        roleOverflowV22(roleName);
+      }
+    }).catch(error => {
+      checkoutButton.disabled = false;
+      checkoutButton.textContent = 'Admin check-out';
+      alert(error.message);
+    });
+    return;
+  }
   if (attendanceButton) {
     const person = [...people, ...temporaryWorkers].find(item => item.id === attendanceButton.dataset.personAttendance);
     if (person) openIndividualAttendanceCalendarV33(person);

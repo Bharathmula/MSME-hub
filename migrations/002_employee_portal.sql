@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS employee_accounts(
 CREATE TABLE IF NOT EXISTS employee_shifts(
  id TEXT PRIMARY KEY, employee_account_id INTEGER NOT NULL REFERENCES employee_accounts(id), work_date TEXT NOT NULL,
  check_in_at TEXT NOT NULL, check_out_at TEXT, worked_minutes INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'OPEN',
+ admin_checkout_by TEXT NOT NULL DEFAULT '', admin_checkout_note TEXT NOT NULL DEFAULT '',
  UNIQUE(employee_account_id,work_date));
 CREATE TABLE IF NOT EXISTS employee_attendance_events(
  id TEXT PRIMARY KEY, employee_account_id INTEGER NOT NULL REFERENCES employee_accounts(id), shift_id TEXT NOT NULL REFERENCES employee_shifts(id),

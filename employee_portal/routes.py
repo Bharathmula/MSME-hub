@@ -425,13 +425,34 @@ def remove_employee_access(account_id):
  })
 
 
+@employee_api.post('/api/admin/employee-attendance/<employee_id>/checkout')
+@require('ADMIN','HR')
+def admin_checkout_employee(employee_id):
+ """Close an employee's open shift and retain the administrator audit note."""
+ tenant=g.employee_identity['tenant'];p=data();work_date=str(p.get('work_date') or now().date().isoformat()).strip();note=str(p.get('note') or 'Employee forgot to check out.').strip()[:500]
+ if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',work_date):return jsonify({'error':'A valid attendance date is required.'}),400
+ actor=str(g.employee_identity.get('email') or '').strip().lower()
+ with transaction() as db:
+  account=db.execute('SELECT * FROM employee_accounts WHERE tenant_email=? AND employee_id=?',(tenant,str(employee_id).strip())).fetchone()
+  if not account:return jsonify({'error':'Employee attendance account was not found.'}),404
+  shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(account['id'],work_date)).fetchone()
+  if not shift:return jsonify({'error':'This employee has no check-in for the selected date.'}),404
+  if shift['check_out_at'] or shift['status']=='COMPLETED':return jsonify({'error':'This attendance shift is already checked out.'}),409
+  checkout_at=stamp();minutes=max(0,int((now()-datetime.fromisoformat(shift['check_in_at'])).total_seconds()//60))
+  db.execute("UPDATE employee_shifts SET check_out_at=?,worked_minutes=?,status='COMPLETED',admin_checkout_by=?,admin_checkout_note=? WHERE id=?",(checkout_at,minutes,actor,note,shift['id']))
+  event_id=uuid4().hex
+  db.execute('INSERT INTO employee_attendance_events(id,employee_account_id,company_id,shift_id,event_type,server_timestamp,verification_method,idempotency_key,device_identifier,face_capture_data) VALUES(?,?,?,?,?,?,?,?,?,?)',(event_id,account['id'],account['company_id'],shift['id'],'CHECK_OUT',checkout_at,'ADMIN_OVERRIDE',f'admin-checkout-{event_id}',f'ADMIN:{actor}',None))
+  audit(db,'ADMIN_ATTENDANCE_CHECKOUT','employee_shift',shift['id'],{'employee_id':account['employee_id'],'work_date':work_date,'note':note,'checked_out_by':actor})
+ return jsonify({'ok':True,'employee_id':account['employee_id'],'work_date':work_date,'check_out_at':checkout_at,'worked_minutes':minutes,'admin_checkout_by':actor,'admin_checkout_note':note})
+
+
 @employee_api.get('/api/admin/employee-attendance')
 @require('ADMIN','HR')
 def employee_attendance():
  tenant=g.employee_identity['tenant']
  work_date=str(request.args.get('date','')).strip()
  query='''
-  SELECT s.work_date,s.check_in_at,s.check_out_at,s.worked_minutes,s.status,
+  SELECT s.work_date,s.check_in_at,s.check_out_at,s.worked_minutes,s.status,s.admin_checkout_by,s.admin_checkout_note,
           EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND COALESCE(e.face_capture_data,'') <> '') AS checkin_face_captured,
           EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND COALESCE(e.face_capture_data,'') <> '') AS checkout_face_captured,
          (SELECT ls.login_at FROM employee_login_sessions ls WHERE ls.employee_account_id=a.id ORDER BY ls.login_at DESC LIMIT 1) AS portal_login_at,

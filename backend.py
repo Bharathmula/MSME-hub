@@ -530,6 +530,82 @@ def update_admin_account():
     })
 
 
+@app.post("/api/auth/update-company")
+@require("ADMIN", "HR")
+def update_company_account():
+    """Persist editable company settings without changing the login identity."""
+    payload = request.get_json(silent=True) or {}
+    tenant = normalize_email(g.employee_identity["tenant"])
+    accounts = load_auth_accounts()
+    account = next(
+        (item for item in accounts if normalize_email(item.get("email")) == tenant),
+        None,
+    )
+    if not account:
+        return jsonify({"error": "The administrator account was not found."}), 404
+
+    workforce_types = payload.get("workforce_types")
+    if not isinstance(workforce_types, list) or not workforce_types:
+        return jsonify({"error": "Select at least one workforce category."}), 400
+    workforce_types = [str(item).strip() for item in workforce_types if str(item).strip()]
+    shift_types = payload.get("shift_types")
+    if not isinstance(shift_types, list) or not shift_types:
+        return jsonify({"error": "Select at least one company shift."}), 400
+    shift_types = [str(item).strip() for item in shift_types if str(item).strip()]
+    shifts = payload.get("shifts")
+    if not isinstance(shifts, list):
+        shifts = []
+    shifts = [
+        {
+            "type": str(item.get("type") or "").strip(),
+            "start": str(item.get("start") or "").strip(),
+            "end": str(item.get("end") or "").strip(),
+        }
+        for item in shifts
+        if isinstance(item, dict) and str(item.get("type") or "").strip()
+    ]
+    if not shifts or any(not item["start"] or not item["end"] for item in shifts):
+        return jsonify({"error": "Enter start and end timings for every selected shift."}), 400
+
+    company_address = str(payload.get("company_address") or payload.get("address") or "").strip()
+    account.update({
+        "company": str(payload.get("company") or "").strip(),
+        "business_category": str(payload.get("business_category") or "").strip(),
+        "workforce_types": workforce_types,
+        "shift_types": shift_types,
+        "shifts": shifts,
+        "shift_count": len(shifts),
+        "shift_start": shifts[0]["start"],
+        "shift_end": shifts[0]["end"],
+        "address": company_address,
+        "company_address": company_address,
+        "pincode": str(payload.get("pincode") or "").strip(),
+        "city": str(payload.get("city") or "").strip(),
+        "state": str(payload.get("state") or "").strip(),
+        "country": str(payload.get("country") or "India").strip(),
+        "role": str(payload.get("role") or account.get("role") or "Owner").strip(),
+        "name": str(payload.get("name") or account.get("name") or "MSME Manager").strip(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    })
+    save_auth_accounts(accounts)
+
+    database = WorkspaceDatabase()
+    workspace = database.load(tenant) or {
+        "account": {"email": tenant},
+        "storage": {},
+        "schema_version": 1,
+    }
+    workspace["account"] = {**workspace.get("account", {}), **public_account(account)}
+    try:
+        database.save(tenant, workspace, expected_updated_at=workspace.get("updated_at"))
+    except WorkspaceConflictError as error:
+        return jsonify({
+            "error": "The company workspace changed in another session. Reload Settings and try again.",
+            "current_updated_at": error.current_updated_at,
+        }), 409
+    return jsonify({"ok": True, "account": public_account(account)})
+
+
 @app.post("/api/auth/google")
 def google_account():
     client_id = os.environ.get("MSME_GOOGLE_CLIENT_ID", "")

@@ -158,6 +158,8 @@ CREATE TABLE IF NOT EXISTS employee_shifts (
     check_out_at TEXT,
     worked_minutes INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'OPEN',
+    admin_checkout_by TEXT NOT NULL DEFAULT '',
+    admin_checkout_note TEXT NOT NULL DEFAULT '',
     UNIQUE(employee_account_id, work_date)
 );
 CREATE TABLE IF NOT EXISTS employee_attendance_events (
@@ -527,6 +529,14 @@ def initialize() -> None:
                 "ALTER TABLE employee_accounts "
                 "ADD COLUMN IF NOT EXISTS profile_json TEXT NOT NULL DEFAULT '{}'"
             )
+            db.execute(
+                "ALTER TABLE employee_shifts "
+                "ADD COLUMN IF NOT EXISTS admin_checkout_by TEXT NOT NULL DEFAULT ''"
+            )
+            db.execute(
+                "ALTER TABLE employee_shifts "
+                "ADD COLUMN IF NOT EXISTS admin_checkout_note TEXT NOT NULL DEFAULT ''"
+            )
             # Earlier Neon deployments restricted accounts to Worker, Staff and
             # Temporary Worker. Recreate the named check so existing databases
             # can also issue Entrepreneur invitations and record attendance.
@@ -595,6 +605,18 @@ def initialize() -> None:
         if "profile_json" not in account_columns:
             db.execute(
                 "ALTER TABLE employee_accounts ADD COLUMN profile_json TEXT NOT NULL DEFAULT '{}'"
+            )
+        shift_columns = {
+            row["name"]
+            for row in db.execute("PRAGMA table_info(employee_shifts)").fetchall()
+        }
+        if "admin_checkout_by" not in shift_columns:
+            db.execute(
+                "ALTER TABLE employee_shifts ADD COLUMN admin_checkout_by TEXT NOT NULL DEFAULT ''"
+            )
+        if "admin_checkout_note" not in shift_columns:
+            db.execute(
+                "ALTER TABLE employee_shifts ADD COLUMN admin_checkout_note TEXT NOT NULL DEFAULT ''"
             )
         account_schema = db.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='employee_accounts'"

@@ -324,6 +324,23 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("COMPANY ADDRESS", modern)
         self.assertNotIn("HOW DID YOU HEAR ABOUT US?", modern)
 
+    def test_company_settings_face_admin_override_and_admin_checkout_are_available(self):
+        settings = (ROOT / "static" / "settings-attendance-integrations-and-reports.js").read_text(encoding="utf-8")
+        controls = (ROOT / "static" / "dashboard-attendance-controls.js").read_text(encoding="utf-8")
+        operations = (ROOT / "static" / "workforce-operations.js").read_text(encoding="utf-8")
+        workforce_dashboard = (ROOT / "static" / "sections" / "workforce-dashboard-shared.js").read_text(encoding="utf-8")
+        routes = (ROOT / "employee_portal" / "routes.py").read_text(encoding="utf-8")
+        self.assertIn("Temporary Workers", settings)
+        self.assertIn("save-company-details", settings)
+        self.assertIn("/api/auth/update-company", settings)
+        self.assertIn("Enable admin manual override", controls)
+        self.assertIn("Admin manual override", controls)
+        self.assertIn("data-admin-checkout", operations)
+        self.assertIn("Checked out by administrator", operations)
+        self.assertIn("workforce-admin-checkout", workforce_dashboard)
+        self.assertIn("Checked out by:", workforce_dashboard)
+        self.assertIn("ADMIN_ATTENDANCE_CHECKOUT", routes)
+
     def test_selected_company_categories_control_every_workforce_view(self):
         index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
         configuration = (ROOT / "static" / "company-workforce-configuration.js").read_text(

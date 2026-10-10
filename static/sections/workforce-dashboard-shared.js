@@ -179,7 +179,7 @@
             <small>${salary.presentDays} present day(s)</small>
           </td>
           <td>${money(salary.monthlySalary)}</td>
-          <td><button class="secondary workforce-shift-edit" data-workforce-id="${esc(person.id)}">Edit shift</button></td>
+          <td><div class="workforce-row-actions"><button class="secondary workforce-shift-edit" data-workforce-id="${esc(person.id)}">Edit shift</button>${(today.login || today.login_time) && !(today.logout || today.logout_time) ? `<button class="secondary workforce-admin-checkout" data-workforce-checkout="${esc(person.id)}" data-work-date="${todayDateKey()}">Admin check-out</button>` : ''}</div>${today.admin_checkout_by ? `<small class="admin-checkout-audit"><b>Checked out by:</b> ${esc(today.admin_checkout_by)}${today.admin_checkout_note ? ` · ${esc(today.admin_checkout_note)}` : ''}</small>` : ''}</td>
         </tr>
       `;
     }).join("");
@@ -290,6 +290,27 @@
         const person = records.find(item => item.id === button.dataset.workforceId);
         if (!person) return;
         openShiftEditor(person, configuration);
+      };
+    });
+    root.querySelectorAll('.workforce-admin-checkout').forEach(button => {
+      button.onclick = async () => {
+        const note = window.prompt('Add an administrator check-out note:', 'Employee forgot to check out.');
+        if (note === null) return;
+        button.disabled = true;
+        button.textContent = 'Checking out…';
+        try {
+          await adminAttendanceRequestV33(`/api/admin/employee-attendance/${encodeURIComponent(button.dataset.workforceCheckout)}/checkout`, {
+            method: 'POST',
+            body: JSON.stringify({ work_date: button.dataset.workDate, note }),
+          });
+          automaticAttendanceLoadedV21.delete(button.dataset.workDate);
+          await syncAutomaticAttendanceV21(button.dataset.workDate, true);
+          renderDashboard(configuration);
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = 'Admin check-out';
+          alert(error.message);
+        }
       };
     });
     root.querySelector('#save-workforce-dashboard').onclick = () => {

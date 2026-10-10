@@ -498,6 +498,8 @@ window.roleDashboard = function roleDashboardWithUnifiedTiming(roleName) {
 };
 
 let manualAttendanceEnabledV21 = false;
+let adminManualOverrideV42 = false;
+const standardManualAttendanceSourceV42 = { source: 'Manual attendance' };
 const automaticAttendanceDraftsV21 = new Map();
 const automaticAttendanceLoadedV21 = new Set();
 const automaticAttendanceSignaturesV21 = new Map();
@@ -580,7 +582,7 @@ function combinedAttendanceRecordV21(date, savedRecord) {
   (savedRecord?.records || []).forEach(record => {
     const index = records.findIndex(item => item.id === record.id);
     if (index < 0) records.push(record);
-    else if (record.source === 'Manual attendance') records[index] = { ...records[index], ...record };
+    else if (record.source === 'Manual attendance' || record.source === 'Admin manual override') records[index] = { ...records[index], ...record };
   });
   return { date, records, automaticDraft: true };
 }
@@ -591,7 +593,7 @@ function saveAutomaticAttendanceV35(date, mappedAttendance) {
   const existing = index >= 0 ? attendanceLog[index] : { date, records: [] };
   const automaticIds = new Set(mappedAttendance.map(record => record.id));
   const manualIds = new Set((existing.records || [])
-    .filter(record => record.source === 'Manual attendance')
+    .filter(record => record.source === 'Manual attendance' || record.source === 'Admin manual override')
     .map(record => record.id));
   const retained = (existing.records || []).filter(record =>
     !automaticIds.has(record.id) || manualIds.has(record.id)
@@ -644,6 +646,8 @@ async function syncAutomaticAttendanceV21(date, force = false) {
       portal_login_at: automaticTimeV21(item.portal_login_at),
       portal_logout_at: automaticTimeV21(item.portal_logout_at),
       profile_details: item.profile_details || {},
+      admin_checkout_by: item.admin_checkout_by || '',
+      admin_checkout_note: item.admin_checkout_note || '',
       source: 'Face check-in / check-out'
       };
     });
@@ -659,7 +663,7 @@ async function syncAutomaticAttendanceV21(date, force = false) {
     automaticAttendanceSignaturesV21.set(date, signature);
     automaticAttendanceDraftsV21.set(date, mappedAttendance);
     const manualToday = new Map((attendanceLog.find(day => day.date === date)?.records || [])
-      .filter(record => record.source === 'Manual attendance')
+      .filter(record => record.source === 'Manual attendance' || record.source === 'Admin manual override')
       .map(record => [record.id, record]));
     const automaticToday = new Map(mappedAttendance.map(record => [record.id, record]));
     workforce.forEach(person => {
@@ -733,7 +737,8 @@ function calendarTemporarySectionV21(record) {
 }
 
 window.attendanceCalendar = function attendanceCalendarWithRoleSections() {
-  manualAttendanceEnabledV21 = configuredAttendanceModeV39() === 'manual';
+  const selectedAttendanceMode = configuredAttendanceModeV39();
+  manualAttendanceEnabledV21 = selectedAttendanceMode === 'manual' || (selectedAttendanceMode === 'face' && adminManualOverrideV42);
   const date = new Date(`${calendarDay}T00:00:00`);
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -760,7 +765,7 @@ window.attendanceCalendar = function attendanceCalendarWithRoleSections() {
         return `<button class="attendance-day ${key === calendarDay ? 'selected' : ''}" data-attendance-date="${key}">
           <b>${index + 1}</b><small>${entry ? `${present} present` : 'Not saved'}</small></button>`;
       }).join('')}</div>
-      <div class="manual-attendance-switch ${manualAttendanceEnabledV21 ? 'manual-mode-on' : 'manual-mode-off'}"><span><b>Enter manually</b><small>Controlled by the attendance method selected in Settings.</small></span><button type="button" id="refresh-automatic-attendance" class="secondary">Refresh automatic attendance</button><label title="Change this from Settings → Attendance Integration"><input type="checkbox" id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? 'checked' : ''} disabled aria-disabled="true"><i></i><b>${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b></label></div></section>
+      <div class="manual-attendance-switch ${manualAttendanceEnabledV21 ? 'manual-mode-on' : 'manual-mode-off'}"><span><b>${selectedAttendanceMode === 'face' ? 'Administrator manual attendance override' : 'Enter manually'}</b><small>${selectedAttendanceMode === 'face' ? 'Face Authentication remains active. Enable this only to enter or correct attendance as an administrator; the administrator identity is saved with the record.' : 'Controlled by the attendance method selected in Settings.'}</small></span><button type="button" id="refresh-automatic-attendance" class="secondary">Refresh automatic attendance</button>${selectedAttendanceMode === 'face' ? `<button type="button" id="admin-manual-attendance-override" class="secondary">${adminManualOverrideV42 ? 'Turn off admin override' : 'Enable admin manual override'}</button>` : ''}<label title="${selectedAttendanceMode === 'face' ? 'Administrator override status' : 'Change this from Settings → Attendance Integration'}"><input type="checkbox" id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? 'checked' : ''} disabled aria-disabled="true"><i></i><b>${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b></label></div></section>
     <div class="calendar-role-sections">
       ${calendarTemporarySectionV21(record)}
       ${calendarRoleSectionV21('Workers', 'Worker', record)}
@@ -806,7 +811,7 @@ function saveAttendanceDateV21(date) {
 window.logToday = function logTodayV21() {
   const today = indiaAttendanceDateV37();
   const trustedRecords = (attendanceLog.find(day => day.date === today)?.records || [])
-    .filter(record => record.source === 'Manual attendance' || record.source === 'Face check-in / check-out');
+    .filter(record => record.source === 'Manual attendance' || record.source === 'Admin manual override' || record.source === 'Face check-in / check-out');
   const byId = new Map(trustedRecords.map(record => [record.id, record]));
   [...people, ...temporaryWorkers].forEach(person => {
     const record = byId.get(person.id);
@@ -864,9 +869,15 @@ document.addEventListener('change', event => {
 
 document.addEventListener('click', event => {
   const manualToggle = event.target.closest('#manual-attendance-toggle');
+  const adminOverride = event.target.closest('#admin-manual-attendance-override');
   const refreshAutomatic = event.target.closest('#refresh-automatic-attendance');
+  if (adminOverride) {
+    adminManualOverrideV42 = !adminManualOverrideV42;
+    attendanceCalendar();
+    return;
+  }
   if (manualToggle) {
-    manualAttendanceEnabledV21 = configuredAttendanceModeV39() === 'manual';
+    manualAttendanceEnabledV21 = configuredAttendanceModeV39() === 'manual' || (configuredAttendanceModeV39() === 'face' && adminManualOverrideV42);
     attendanceCalendar();
     return;
   }
@@ -887,7 +898,8 @@ document.addEventListener('click', event => {
   const selectedDate = calendarDay;
   const calculatedRecord = attendanceRecordsForTodayV21().find(item => item.id === person.id);
   if (!calculatedRecord) return;
-  const newRecord = { ...calculatedRecord, source: 'Manual attendance' };
+  const isAdminOverride = configuredAttendanceModeV39() === 'face';
+  const newRecord = { ...calculatedRecord, source: isAdminOverride ? 'Admin manual override' : 'Manual attendance', entered_by: admin.name || admin.email, entered_by_email: admin.email, admin_note: isAdminOverride ? 'Entered by administrator while Face Authentication remained active.' : '' };
   let day = attendanceLog.find(item => item.date === selectedDate);
   if (!day) {
     day = { date: selectedDate, records: [] };

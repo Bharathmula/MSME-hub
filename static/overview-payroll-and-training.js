@@ -650,7 +650,10 @@ function manualAttendanceRecord(person) {
     id: person.id,
     name: person.name,
     role: person.role,
-    source: 'Manual attendance',
+    source: typeof configuredAttendanceModeV39 === 'function' && configuredAttendanceModeV39() === 'face' ? 'Admin manual override' : 'Manual attendance',
+    entered_by: admin.name || admin.email,
+    entered_by_email: admin.email,
+    admin_note: typeof configuredAttendanceModeV39 === 'function' && configuredAttendanceModeV39() === 'face' ? 'Entered by administrator while Face Authentication remained active.' : '',
     status: person.status,
     shift: person.shift || '09:00 AM - 06:00 PM',
     grace: typeof GRACE_TIME !== 'undefined' ? GRACE_TIME : '09:15 AM',
@@ -669,6 +672,10 @@ function manualAttendanceRecord(person) {
 }
 
 window.saveSelectedDay = function saveOnlyManuallyEnteredAttendance() {
+  if (typeof manualAttendanceEnabledV21 !== 'undefined' && !manualAttendanceEnabledV21) {
+    alert('Enable administrator manual override before saving manual attendance while Face Authentication is active.');
+    return;
+  }
   const manuallyEntered = [...people, ...temporaryWorkers]
     .filter(person => person.attendance_entered_date === calendarDay && person.status)
     .map(manualAttendanceRecord);
