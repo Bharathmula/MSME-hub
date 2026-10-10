@@ -413,6 +413,7 @@ class StaticRegressionTests(unittest.TestCase):
             self.assertIn(role, routes)
 
     def test_attendance_cards_open_control_centre_with_separate_operational_statuses(self):
+        index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
         overview = (ROOT / "static" / "overview-payroll-and-training.js").read_text(encoding="utf-8")
         configuration = (ROOT / "static" / "company-workforce-configuration.js").read_text(encoding="utf-8")
         styles = (ROOT / "static" / "dashboard-feature-extensions.css").read_text(encoding="utf-8")
@@ -427,6 +428,11 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("Open attendance insights", configuration)
         self.assertIn("data-attendance-insights-date", configuration)
         self.assertIn(".attendance-insight-metrics", styles)
+        self.assertIn('data-view="attendance"', index)
+        self.assertNotIn("data-attendance-insights-calendar", configuration)
+        self.assertNotIn("data-attendance-insights-status", overview)
+        self.assertIn('class="attendance-color ${status.code}"', overview)
+        self.assertIn("cursor:default", styles)
 
     def test_streamlit_inlines_css_background_images_for_srcdoc(self):
         streamlit = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")

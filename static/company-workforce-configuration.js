@@ -77,7 +77,7 @@
     const percentage = counts.total ? Math.round(counts.present / counts.total * 100) : 0;
     const attention = counts.no_checkin + counts.missed_checkout + counts.absent;
     const chips = (typeof attendanceOperationalStatusesV43 !== 'undefined' ? attendanceOperationalStatusesV43 : [])
-      .map(status => `<button type="button" class="attendance-health-chip ${status.code}" data-attendance-insights-role="${esc(category.view)}" data-attendance-insights-status="${status.code}"><b>${counts[status.code] || 0}</b>${esc(status.label)}</button>`).join('');
+      .map(status => `<span class="attendance-health-chip ${status.code}"><b>${counts[status.code] || 0}</b>${esc(status.label)}</span>`).join('');
     return `<article class="role-attendance-sector ${category.view}-attendance" data-attendance-insights-role="${esc(category.view)}" tabindex="0" role="button" aria-label="Open ${esc(category.label)} attendance insights">
       <div class="role-attendance-head"><div><span>${esc(category.singular)}</span><b>${percentage}% present today</b></div>
         <button type="button" data-attendance-insights-role="${esc(category.view)}">Open attendance insights →</button></div>
@@ -121,7 +121,7 @@
       <td>${esc(state.source)}</td><td><button class="action" type="button" data-attendance-insights-profile="${esc(person.id)}">Open profile</button></td>
     </tr>`).join('') || '<tr><td colspan="8" class="empty">No attendance records match these filters.</td></tr>';
 
-    root.innerHTML = `<div class="page-heading attendance-insights-heading"><div><div class="eyebrow">ATTENDANCE CONTROL CENTRE</div><h1>${esc(roleLabel)}</h1><p>${esc(statusLabel)} for ${esc(attendanceInsightsState.date)}. Statuses use each person’s shift and grace period.</p></div><div class="attendance-insights-actions"><button class="secondary" type="button" data-attendance-insights-back>← Overview</button><button class="primary" type="button" data-attendance-insights-calendar>Attendance calendar →</button></div></div>
+    root.innerHTML = `<div class="page-heading attendance-insights-heading"><div><div class="eyebrow">ATTENDANCE CONTROL CENTRE</div><h1>${esc(roleLabel)}</h1><p>${esc(statusLabel)} for ${esc(attendanceInsightsState.date)}. Statuses use each person’s shift and grace period.</p></div><div class="attendance-insights-actions"><button class="secondary" type="button" data-attendance-insights-back>← Overview</button></div></div>
       <section class="attendance-insight-metrics">${summary}</section>
       <section class="panel attendance-insights-panel"><div class="panel-header"><div><h2>Attendance records</h2><p>Open a profile only when personal details are required.</p></div><div class="attendance-insight-filters"><label>DATE<input type="date" data-attendance-insights-date value="${esc(attendanceInsightsState.date)}"></label><label>CATEGORY<select data-attendance-insights-category>${roleOptions}</select></label><label>STATUS<select data-attendance-insights-status>${statusOptions}</select></label></div></div>
       <div class="attendance-insight-guidance"><span><b>Not yet due</b> Shift grace period has not ended.</span><span><b>No check-in after grace</b> No attendance was received after the allowed grace period.</span><span><b>Missed check-out</b> A check-in exists but checkout is missing after shift end.</span></div>
@@ -260,8 +260,7 @@
     const statusMetric = event.target.closest('[data-attendance-insight-filter-status]');
     const profileButton = event.target.closest('[data-attendance-insights-profile]');
     const backButton = event.target.closest('[data-attendance-insights-back]');
-    const calendarButton = event.target.closest('[data-attendance-insights-calendar]');
-    if (!insightTarget && !statusMetric && !profileButton && !backButton && !calendarButton) return;
+    if (!insightTarget && !statusMetric && !profileButton && !backButton) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     if (insightTarget) {
@@ -285,8 +284,7 @@
       else editor(id);
       return;
     }
-    if (backButton) { view = 'dashboard'; render(); return; }
-    if (calendarButton) { view = 'attendance'; render(); }
+    if (backButton) { view = 'dashboard'; render(); }
   }, true);
 
   document.addEventListener('change', event => {

@@ -1202,7 +1202,7 @@ function attendanceStatusCounts(records, date) {
 
 function attendanceOverviewCard(title, records, viewName) {
   const counts = attendanceStatusCounts(records);
-  const statusRows = attendanceOperationalStatusesV43.map(status => `<button type="button" class="attendance-color ${status.code}" data-attendance-insights-role="${esc(viewName)}" data-attendance-insights-status="${status.code}"><i></i><b>${counts[status.code]}</b> ${esc(status.label)}</button>`).join('');
+  const statusRows = attendanceOperationalStatusesV43.map(status => `<span class="attendance-color ${status.code}"><i></i><b>${counts[status.code]}</b> ${esc(status.label)}</span>`).join('');
   return `<article class="attendance-overview-card overview-role-${esc(viewName)}" data-attendance-insights-role="${esc(viewName)}" tabindex="0" role="button" aria-label="Open ${esc(title)} attendance insights"><div class="attendance-overview-head"><h3>${esc(title)}</h3><span>Open insights →</span></div><p>${counts.total} total record${counts.total === 1 ? '' : 's'}</p><div class="attendance-color-counts">${statusRows}</div></article>`;
 }
 

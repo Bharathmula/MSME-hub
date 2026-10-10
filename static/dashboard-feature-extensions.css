@@ -673,14 +673,13 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
 .attendance-overview-card[class*="overview-role-"]>p { color: rgba(255,255,255,.76); }
 .attendance-overview-card>p { margin: 4px 0 11px; color: #6b7f8f; font-size: 10px; }
 .attendance-color-counts { display: grid; gap: 7px; }
-.attendance-color { width:100%; padding: 7px 9px; border:0; border-radius: 6px; font:600 10px 'DM Sans',sans-serif; text-align:left; cursor:pointer; }
-.attendance-color:hover{filter:brightness(.96);transform:translateX(2px)}
+.attendance-color { width:100%; padding: 7px 9px; border:0; border-radius: 6px; font:600 10px 'DM Sans',sans-serif; text-align:left; cursor:default; }
 .attendance-color.present { color: #176b31; background: #e6f6ea; }.attendance-color.not_due{color:#455a64;background:#edf2f4}.attendance-color.approved_leave{color:#765b00;background:#fff6cc}.attendance-color.no_checkin{color:#954300;background:#fff0df}.attendance-color.missed_checkout{color:#583a98;background:#f0eaff}.attendance-color.absent { color: #9f241d; background: #fde9e7; }
 .attendance-color b { min-width: 18px; font-size: 13px; }
 .attendance-overview-head>span{color:rgba(255,255,255,.82);font-size:9px;font-weight:800}
 .attendance-health-statuses{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:0 14px 14px}
-.attendance-health-chip{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:5px;min-width:0;padding:7px 8px;border:1px solid rgba(255,255,255,.2);border-radius:7px;background:rgba(255,255,255,.09);color:#fff;font:600 8px 'DM Sans',sans-serif;text-align:left;cursor:pointer}
-.attendance-health-chip b{font-size:12px}.attendance-health-chip:hover{background:rgba(255,255,255,.17)}
+.attendance-health-chip{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:5px;min-width:0;padding:7px 8px;border:1px solid rgba(255,255,255,.2);border-radius:7px;background:rgba(255,255,255,.09);color:#fff;font:600 8px 'DM Sans',sans-serif;text-align:left;cursor:default}
+.attendance-health-chip b{font-size:12px}
 .attendance-insights-heading{align-items:flex-start}.attendance-insights-actions{display:flex;gap:9px;flex-wrap:wrap}
 .attendance-insight-metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:18px}
 .attendance-insight-metric{display:grid;gap:5px;min-height:116px;padding:16px;border:1px solid #dbe5ec;border-top:5px solid #78909c;border-radius:12px;background:#fff;color:#102a43;text-align:left;cursor:pointer;box-shadow:0 5px 15px rgba(16,42,67,.05)}
