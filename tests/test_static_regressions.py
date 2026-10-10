@@ -311,6 +311,19 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn(".landing-global{display:none!important}", styles)
         self.assertTrue((ROOT / "static" / "assets" / "msme-welcome-hero.png").is_file())
 
+    def test_company_onboarding_supports_roles_shifts_and_location(self):
+        authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(
+            encoding="utf-8"
+        )
+        modern = authentication.split("function onboardingV41", 1)[1]
+        self.assertIn("workforceChoicesV41", authentication)
+        self.assertIn("shiftChoicesV41", authentication)
+        self.assertIn("navigator.geolocation", authentication)
+        self.assertIn("nominatim.openstreetmap.org/reverse", authentication)
+        self.assertIn("ADMIN EMAIL", modern)
+        self.assertIn("COMPANY ADDRESS", modern)
+        self.assertNotIn("HOW DID YOU HEAR ABOUT US?", modern)
+
     def test_streamlit_inlines_css_background_images_for_srcdoc(self):
         streamlit = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
         self.assertIn("def inline_local_asset", streamlit)

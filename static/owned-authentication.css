@@ -360,3 +360,44 @@ body:has(#login-screen:not(.hidden):not(.entry-hidden)){
   content:none!important;
   display:none!important;
 }
+
+/* Structured, single-column company onboarding. */
+.onboarding-form{gap:18px!important}
+.onboarding-grid{grid-template-columns:1fr!important;gap:16px}
+.onboarding-grid .full{grid-column:auto}
+#owned-auth-panel textarea{
+  width:100%;padding:11px;border:1px solid #c6d2e2;border-radius:8px;
+  box-sizing:border-box;background:#fbfdff;resize:vertical;font:inherit;
+}
+.onboarding-field-group{display:grid;gap:8px}
+.onboarding-field-group>b{font-size:11px;color:#2d3745}
+.onboarding-field-group>small,.onboarding-location small{color:#68798d;line-height:1.5}
+.onboarding-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.onboarding-choice{position:relative;display:block!important}
+.onboarding-choice input{position:absolute;opacity:0;pointer-events:none}
+.onboarding-choice span{
+  display:flex;min-height:44px;align-items:center;justify-content:center;padding:9px;
+  border:1px solid #cbd8e6;border-radius:9px;background:#f7faff;color:#526177;
+  text-align:center;box-sizing:border-box;cursor:pointer;transition:.18s ease;
+}
+.onboarding-choice input:focus-visible+span{outline:3px solid rgba(23,111,231,.25);outline-offset:2px}
+.onboarding-choice input:checked+span{
+  border-color:#176fe7;background:#e7f2ff;color:#073e78;
+  box-shadow:0 0 0 2px rgba(23,111,231,.1);font-weight:800;
+}
+.onboarding-shift-list{display:grid;gap:10px}
+.onboarding-shift-card{border:1px solid #d9e4f0;border-radius:12px;padding:13px;background:#f8fbff}
+.onboarding-shift-card[hidden]{display:none!important}
+.onboarding-shift-card h3{margin:0 0 10px;font-size:13px;color:#14263d}
+.onboarding-clock-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.onboarding-clock{
+  display:grid;grid-template-columns:1fr auto 1fr 1fr;align-items:center;gap:5px;
+  margin:0;padding:9px;border:1px solid #dbe4ef;border-radius:9px;background:#fff;
+}
+.onboarding-clock legend{padding:0 5px;font-size:9px;font-weight:800;color:#68798d}
+.onboarding-clock select{min-height:38px!important;padding:6px!important}
+.onboarding-location{display:grid;gap:7px}
+
+@media(max-width:600px){
+  .onboarding-choice-grid,.onboarding-clock-row{grid-template-columns:1fr}
+}

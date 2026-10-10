@@ -94,12 +94,13 @@ class EmployeePortalTests(unittest.TestCase):
   self.assertEqual(renamed_company_id,original_company_id);self.assertEqual(worker_company_id,original_company_id)
  def test_admin_account_is_saved_in_database(self):
   captcha=self.c.get('/api/auth/captcha').json
-  registered=self.c.post('/api/auth/register',json={'email':'owner.persistence@example.com','password':'OwnerTest123!','name':'Database Owner','company':'Persistent Company','captcha_id':captcha['captcha_id'],'captcha_answer':captcha['captcha_code']})
+  registered=self.c.post('/api/auth/register',json={'email':'owner.persistence@example.com','password':'OwnerTest123!','name':'Database Owner','company':'Persistent Company','business_category':'Manufacturing','workforce_types':['Workers','Staff','HR'],'shift_types':['day','night'],'shifts':[{'type':'day','start':'09:00','end':'18:00'},{'type':'night','start':'21:00','end':'06:00'}],'company_address':'1 Test Road','pincode':'500001','city':'Hyderabad','state':'Telangana','country':'India','role':'Manager','captcha_id':captcha['captcha_id'],'captcha_answer':captcha['captcha_code']})
   self.assertEqual(registered.status_code,200,registered.text)
   login=self.c.post('/api/auth/login',json={'email':'owner.persistence@example.com','password':'OwnerTest123!'})
   self.assertEqual(login.status_code,200,login.text)
   workspace=self.c.get('/api/workspace',headers=self.headers(login.json['access_token']))
   self.assertEqual(workspace.status_code,200,workspace.text);self.assertTrue(workspace.json['exists']);self.assertEqual(workspace.json['account']['company'],'Persistent Company')
+  self.assertEqual(workspace.json['account']['workforce_types'],['Workers','Staff','HR']);self.assertEqual(len(workspace.json['account']['shifts']),2);self.assertEqual(workspace.json['account']['pincode'],'500001');self.assertEqual(workspace.json['account']['role'],'Manager')
   subscription=self.c.get('/api/subscription/current',headers=self.headers(login.json['access_token']))
   self.assertEqual(subscription.status_code,200,subscription.text)
   plan=subscription.json['subscription'];self.assertEqual(plan['plan_code'],'TRIAL');self.assertEqual(plan['days_remaining'],30);self.assertFalse(plan['read_only'])

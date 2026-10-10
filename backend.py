@@ -73,7 +73,14 @@ def save_auth_accounts(accounts: list[dict]) -> None:
 
 
 def public_account(account: dict) -> dict:
-    return {key: account.get(key) for key in ("name", "company", "phone", "email", "country", "email_updates", "provider", "shift_start", "shift_end")}
+    fields = (
+        "name", "company", "phone", "email", "country", "email_updates",
+        "provider", "staff_count", "business_category", "workforce_types",
+        "shift_types", "shifts", "shift_count", "shift_start", "shift_end",
+        "address", "company_address", "pincode", "city", "state",
+        "latitude", "longitude", "role",
+    )
+    return {key: account.get(key) for key in fields}
 
 
 def otp_key(email: str, purpose: str) -> str:
@@ -345,14 +352,53 @@ def register_account():
     accounts = load_auth_accounts()
     if any(item.get("email") == email for item in accounts):
         return jsonify({"error": "An account with this email already exists."}), 409
+    workforce_types = payload.get("workforce_types")
+    if not isinstance(workforce_types, list):
+        workforce_types = []
+    workforce_types = [str(item).strip() for item in workforce_types if str(item).strip()]
+    shift_types = payload.get("shift_types")
+    if not isinstance(shift_types, list):
+        shift_types = []
+    shift_types = [str(item).strip() for item in shift_types if str(item).strip()]
+    shifts = payload.get("shifts")
+    if not isinstance(shifts, list):
+        shifts = []
+    shifts = [
+        {
+            "type": str(item.get("type") or "").strip(),
+            "start": str(item.get("start") or "").strip(),
+            "end": str(item.get("end") or "").strip(),
+        }
+        for item in shifts
+        if isinstance(item, dict) and str(item.get("type") or "").strip()
+    ]
+    if not shifts:
+        shifts = [{
+            "type": shift_types[0] if shift_types else "day",
+            "start": str(payload.get("shift_start") or "09:00").strip(),
+            "end": str(payload.get("shift_end") or "18:00").strip(),
+        }]
+    if not shift_types:
+        shift_types = [item["type"] for item in shifts]
+    company_address = str(payload.get("company_address") or payload.get("address") or "").strip()
     account = {
         "name": str(payload.get("name") or email.split("@")[0]).strip(),
         "company": str(payload.get("company") or "").strip(),
         "staff_count": str(payload.get("staff_count") or "").strip(),
         "business_category": str(payload.get("business_category") or "").strip(),
-        "shift_start": str(payload.get("shift_start") or "09:00").strip(),
-        "shift_end": str(payload.get("shift_end") or "18:00").strip(),
-        "address": str(payload.get("address") or "").strip(),
+        "workforce_types": workforce_types,
+        "shift_types": shift_types,
+        "shifts": shifts,
+        "shift_count": len(shifts),
+        "shift_start": shifts[0]["start"],
+        "shift_end": shifts[0]["end"],
+        "address": company_address,
+        "company_address": company_address,
+        "pincode": str(payload.get("pincode") or "").strip(),
+        "city": str(payload.get("city") or "").strip(),
+        "state": str(payload.get("state") or "").strip(),
+        "latitude": payload.get("latitude") if payload.get("latitude") is not None else "",
+        "longitude": payload.get("longitude") if payload.get("longitude") is not None else "",
         "role": str(payload.get("role") or "Owner").strip(),
         "email": email,
         "password_hash": generate_password_hash(password),
