@@ -588,6 +588,10 @@ document.addEventListener('change', event => {
     const person = people.find(item => item.id === half.dataset.halfDuration);
     if (!person) return;
     person.half_break_minutes = Number(half.value);
+    if (typeof view !== 'undefined' && view === 'attendance') {
+      person.attendance_entered_date = calendarDay;
+      return;
+    }
     logToday();
     render();
     return;
@@ -610,6 +614,10 @@ document.addEventListener('change', event => {
   if (tempHalf) person.half_break_minutes = Number(tempHalf.value);
   if (overtime) person.overtime_hours = Number(overtime.value);
   if (overtimePeriod) person.overtime_period = overtimePeriod.value;
+  if (typeof view !== 'undefined' && view === 'attendance') {
+    person.attendance_entered_date = calendarDay;
+    return;
+  }
   save();
   render();
 }, true);
@@ -625,15 +633,18 @@ document.addEventListener('focusout', event => {
     if (!person) return;
     const clock = fixed.value.trim().replace(/\s*(AM|PM)$/i, '');
     person[fixed.dataset.fixedTimeField] = clock ? `${clock} ${fixed.dataset.fixedPeriod}` : '';
-    logToday();
+    if (typeof view !== 'undefined' && view === 'attendance') person.attendance_entered_date = calendarDay;
+    else logToday();
   }
   if (tempFixed) {
     const person = temporaryWorkers.find(item => item.id === tempFixed.dataset.tempFixedId);
     if (!person) return;
     const clock = tempFixed.value.trim().replace(/\s*(AM|PM)$/i, '');
     person[tempFixed.dataset.tempFixedField] = clock ? `${clock} ${tempFixed.dataset.tempFixedPeriod}` : '';
-    save();
+    if (typeof view !== 'undefined' && view === 'attendance') person.attendance_entered_date = calendarDay;
+    else save();
   }
+  if (typeof view !== 'undefined' && view === 'attendance') return;
   render();
 }, true);
 

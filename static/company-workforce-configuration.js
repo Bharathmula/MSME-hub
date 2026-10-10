@@ -56,35 +56,6 @@
     });
   }
 
-  function attendanceConfiguration() {
-    let settings = {};
-    try { settings = JSON.parse(localStorage.getItem(tenantKey('attendance-integration-settings')) || '{}'); }
-    catch (_) { settings = {}; }
-    const hasStoredModes = Array.isArray(settings.modes);
-    const storedModes = hasStoredModes ? settings.modes : [];
-    const mode = [...storedModes].reverse().find(value => ['face', 'biometric', 'spreadsheet'].includes(value))
-      || (!hasStoredModes ? admin.attendance_authentication || 'face' : '');
-    const labels = {
-      face: 'Face Authentication',
-      biometric: 'Biometric Authentication',
-      spreadsheet: 'CSV File Authentication',
-    };
-    return { mode, label: labels[mode] || 'Not selected', manualEnabled: settings.manual_enabled !== false };
-  }
-
-  function applyAttendanceConfigurationSummary() {
-    const viewRoot = document.querySelector('#view-root');
-    if (!viewRoot || viewRoot.querySelector('[data-attendance-configuration-summary]')) return;
-    const heading = viewRoot.querySelector('.page-heading');
-    if (!heading) return;
-    const configuration = attendanceConfiguration();
-    heading.insertAdjacentHTML('afterend', `<section class="panel overview-authentication-summary" data-attendance-configuration-summary>
-      <div><span>SELECTED AUTHENTICATION</span><b>${esc(configuration.label)}</b><small>Primary attendance integration</small></div>
-      <div><span>MANUAL ADMIN ATTENDANCE</span><b class="${configuration.manualEnabled ? 'enabled' : 'disabled'}">${configuration.manualEnabled ? 'ON' : 'OFF'}</b><small>Administrator-only permission</small></div>
-      <button type="button" class="secondary" data-view="settings">Open attendance settings →</button>
-    </section>`);
-  }
-
   function overviewCard(category) {
     const records = recordsFor(category);
     const total = records.length;
@@ -116,7 +87,6 @@
   function applyOverviewCategories() {
     if (typeof view !== 'undefined' && view !== 'dashboard') return;
     const active = activeCategories();
-    applyAttendanceConfigurationSummary();
     const metrics = document.querySelector('#view-root .metrics');
     if (metrics) {
       metrics.classList.remove('four-role-overview');

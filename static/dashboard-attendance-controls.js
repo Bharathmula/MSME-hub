@@ -196,7 +196,7 @@ function finalHoursWithSlider(person) {
 
 function fixedPeriodInput(person, field, period, fallback) {
   return `<label class="fixed-time-control">
-    <input class="time-entry" value="${esc(clockOnly(person[field], fallback))}"
+    <input class="time-entry" value="${esc(clockOnly(person[field], ''))}"
       placeholder="${esc(clockOnly(fallback, fallback))}"
       data-fixed-time-id="${esc(person.id)}" data-fixed-time-field="${field}"
       data-fixed-period="${period}">
@@ -316,12 +316,28 @@ document.addEventListener('change', event => {
   const fixedTime = event.target.closest('[data-fixed-time-id]');
   const hoursSlider = event.target.closest('[data-overtime-hours]');
   const periodSelect = event.target.closest('[data-overtime-period]');
-  if (!fixedTime && !hoursSlider && !periodSelect) return;
+  const attendanceSelect = event.target.closest('[data-attendance]');
+  const temporaryAttendanceSelect = event.target.closest('[data-temp-attendance]');
+  if (!fixedTime && !hoursSlider && !periodSelect && !attendanceSelect && !temporaryAttendanceSelect) return;
 
   const personId = fixedTime?.dataset.fixedTimeId ||
-    hoursSlider?.dataset.overtimeHours || periodSelect?.dataset.overtimePeriod;
+    hoursSlider?.dataset.overtimeHours || periodSelect?.dataset.overtimePeriod ||
+    attendanceSelect?.dataset.attendance || temporaryAttendanceSelect?.dataset.tempAttendance;
   const person = [...people, ...temporaryWorkers].find(item => item.id === personId);
   if (!person) return;
+
+  if (typeof view !== 'undefined' && view === 'attendance') {
+    event.stopImmediatePropagation();
+    if (attendanceSelect || temporaryAttendanceSelect) person.status = event.target.value || 'Not checked in';
+    if (fixedTime) {
+      const clock = fixedTime.value.trim().replace(/\s*(AM|PM)$/i, '');
+      person[fixedTime.dataset.fixedTimeField] = clock ? `${clock} ${fixedTime.dataset.fixedPeriod}` : '';
+    }
+    if (hoursSlider) person.overtime_hours = Number(hoursSlider.value);
+    if (periodSelect) person.overtime_period = periodSelect.value;
+    person.attendance_entered_date = calendarDay;
+    return;
+  }
 
   if (fixedTime) {
     const clock = fixedTime.value.trim().replace(/\s*(AM|PM)$/i, '');
@@ -425,25 +441,40 @@ function overtimeSliderV21(person) {
 }
 
 function timingRowV21(person, savedRecord = null, editable = true, serialNumber = 1) {
+  const isAttendanceCalendar = typeof view !== 'undefined' && view === 'attendance';
   const source = savedRecord ? {
     ...person,
     status: savedRecord.status,
     shift: savedRecord.shift || person.shift,
-    login_time: savedRecord.login || person.login_time || '09:00 AM',
-    logout_time: savedRecord.logout || person.logout_time || '06:00 PM',
-    halftime_time: savedRecord.half_time || person.halftime_time || person.halftime_start || '01:00 PM',
-    halftime_period: savedRecord.half_period || person.halftime_period || 'PM',
+    login_time: savedRecord.login || '',
+    logout_time: savedRecord.logout || '',
+    halftime_time: savedRecord.half_time || '',
+    halftime_start: savedRecord.half_time || '',
+    halftime_period: savedRecord.half_period || 'PM',
     overtime_hours: savedRecord.overtime_hours ?? (Number.parseFloat(savedRecord.overtime) || 0),
     overtime_period: savedRecord.overtime_period || String(savedRecord.overtime || '').match(/\b(AM|PM)\b/)?.[1] || 'PM'
+  } : isAttendanceCalendar ? {
+    ...person,
+    status: 'Not checked in',
+    login_time: '',
+    logout_time: '',
+    halftime_time: '',
+    halftime_start: '',
+    overtime_hours: 0,
   } : person;
   const calculation = attendanceCalculationV21(source);
   const savedWork = String(savedRecord?.work || '').trim();
   const savedTotal = String(savedRecord?.total || '').trim();
   const attendanceInProgress = savedWork === 'In progress' || savedTotal === 'In progress';
-  const workedTimeDisplay = !editable && attendanceInProgress
+  const hasAttendanceClock = Boolean(source.login_time || source.logout_time);
+  const workedTimeDisplay = !hasAttendanceClock
+    ? '-'
+    : !editable && attendanceInProgress
     ? 'In progress'
     : (!editable && savedWork && savedWork !== '-' ? savedWork : durationTextV21(calculation.work));
-  const finalTotalDisplay = !editable && attendanceInProgress
+  const finalTotalDisplay = !hasAttendanceClock
+    ? '-'
+    : !editable && attendanceInProgress
     ? 'In progress'
     : (!editable && savedTotal && savedTotal !== '-' ? savedTotal : durationTextV21(calculation.total));
   const halfDisplay = source.halftime_time
@@ -462,13 +493,13 @@ function timingRowV21(person, savedRecord = null, editable = true, serialNumber 
     </select>` : esc(source.status || 'Not saved')}</td>
     <td>${esc(source.shift || '09:00 AM - 06:00 PM')}</td>
     <td><b>${GRACE_TIME}</b><small class="record-id">15 minutes</small></td>
-    <td>${editable ? fixedPeriodInput(person, 'login_time', 'AM', '09:00 AM') : show12(source.login_time)}</td>
-    <td>${editable ? fixedPeriodInput(person, 'logout_time', 'PM', '06:00 PM') : show12(source.logout_time)}</td>
-    <td>${editable ? halfTimeControlV21(person) : `${esc(halfDisplay)}<small class="record-id">${source.halftime_time ? '30m break' : '-'}</small>`}</td>
-    <td>${editable ? overtimeSliderV21(person) : `${selectedOvertimeHoursV21(source)} hr ${esc(source.overtime_period || 'PM')}`}</td>
+    <td>${editable ? fixedPeriodInput(source, 'login_time', 'AM', '09:00 AM') : show12(source.login_time)}</td>
+    <td>${editable ? fixedPeriodInput(source, 'logout_time', 'PM', '06:00 PM') : show12(source.logout_time)}</td>
+    <td>${editable ? halfTimeControlV21(source) : `${esc(halfDisplay)}<small class="record-id">${source.halftime_time ? '30m break' : '-'}</small>`}</td>
+    <td>${editable ? overtimeSliderV21(source) : selectedOvertimeHoursV21(source) ? `${selectedOvertimeHoursV21(source)} hr ${esc(source.overtime_period || 'PM')}` : '-'}</td>
     <td><b>${esc(workedTimeDisplay)}</b></td>
-    <td>${durationTextV21(calculation.breakMinutes)}</td>
-    <td>${durationTextV21(calculation.overtime)}</td>
+    <td>${source.halftime_time || source.halftime_start ? durationTextV21(calculation.breakMinutes) : '-'}</td>
+    <td>${selectedOvertimeHoursV21(source) ? durationTextV21(calculation.overtime) : '-'}</td>
     <td><b>${esc(finalTotalDisplay)}</b><small class="record-id">${esc(calculation.late)}</small></td>
     ${editable ? `<td><div class="row-actions">
       <button class="action save-person-button" data-save-person="${esc(person.id)}">Save</button></div></td>` : ''}
@@ -878,6 +909,10 @@ document.addEventListener('change', event => {
   const clock = input?.value.trim().replace(/\s*(AM|PM)$/i, '') || '';
   person.halftime_period = period?.value || 'PM';
   person.halftime_time = clock ? `${clock} ${person.halftime_period}` : '';
+  if (typeof view !== 'undefined' && view === 'attendance') {
+    person.attendance_entered_date = calendarDay;
+    return;
+  }
   logToday();
   render();
 }, true);
@@ -906,7 +941,10 @@ document.addEventListener('click', event => {
   if (!person) return;
 
   const selectedDate = calendarDay;
-  const calculatedRecord = attendanceRecordsForTodayV21().find(item => item.id === person.id);
+  person.attendance_entered_date = selectedDate;
+  const calculatedRecord = typeof manualAttendanceRecord === 'function'
+    ? manualAttendanceRecord(person)
+    : attendanceRecordsForTodayV21().find(item => item.id === person.id);
   if (!calculatedRecord) return;
   const newRecord = { ...calculatedRecord, source: 'Admin manual attendance', entered_by: admin.name || admin.email, entered_by_email: admin.email, admin_note: `Entered by administrator while ${configuredAttendanceModeV39()} authentication remained active.` };
   let day = attendanceLog.find(item => item.date === selectedDate);
