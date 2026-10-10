@@ -78,7 +78,7 @@ def public_account(account: dict) -> dict:
         "provider", "staff_count", "business_category", "workforce_types",
         "shift_types", "shifts", "shift_count", "shift_start", "shift_end",
         "address", "company_address", "pincode", "city", "state",
-        "latitude", "longitude", "role",
+        "latitude", "longitude", "role", "attendance_authentication",
     )
     return {key: account.get(key) for key in fields}
 
@@ -380,6 +380,9 @@ def register_account():
     if not shift_types:
         shift_types = [item["type"] for item in shifts]
     company_address = str(payload.get("company_address") or payload.get("address") or "").strip()
+    attendance_authentication = str(payload.get("attendance_authentication") or "face").strip().lower()
+    if attendance_authentication not in {"face", "biometric", "spreadsheet"}:
+        return jsonify({"error": "Select Face, Biometric or CSV File Authentication."}), 400
     account = {
         "name": str(payload.get("name") or email.split("@")[0]).strip(),
         "company": str(payload.get("company") or "").strip(),
@@ -399,6 +402,7 @@ def register_account():
         "latitude": payload.get("latitude") if payload.get("latitude") is not None else "",
         "longitude": payload.get("longitude") if payload.get("longitude") is not None else "",
         "role": str(payload.get("role") or "Owner").strip(),
+        "attendance_authentication": attendance_authentication,
         "email": email,
         "password_hash": generate_password_hash(password),
         "country": str(payload.get("country") or "India"),
@@ -410,7 +414,12 @@ def register_account():
     save_auth_accounts(accounts)
     WorkspaceDatabase().save(email, {
         "account": public_account(account),
-        "storage": {},
+        "storage": {
+            "attendance-integration-settings": {
+                "modes": [attendance_authentication],
+                "manual_enabled": True,
+            },
+        },
         "schema_version": 1,
     })
     ensure_subscription(email)
@@ -567,6 +576,14 @@ def update_company_account():
     if not shifts or any(not item["start"] or not item["end"] for item in shifts):
         return jsonify({"error": "Enter start and end timings for every selected shift."}), 400
 
+    attendance_authentication = str(
+        payload.get("attendance_authentication")
+        or account.get("attendance_authentication")
+        or "face"
+    ).strip().lower()
+    if attendance_authentication not in {"face", "biometric", "spreadsheet"}:
+        return jsonify({"error": "Select Face, Biometric or CSV File Authentication."}), 400
+
     company_address = str(payload.get("company_address") or payload.get("address") or "").strip()
     account.update({
         "company": str(payload.get("company") or "").strip(),
@@ -585,6 +602,7 @@ def update_company_account():
         "country": str(payload.get("country") or "India").strip(),
         "role": str(payload.get("role") or account.get("role") or "Owner").strip(),
         "name": str(payload.get("name") or account.get("name") or "MSME Manager").strip(),
+        "attendance_authentication": attendance_authentication,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     })
     save_auth_accounts(accounts)
@@ -596,6 +614,16 @@ def update_company_account():
         "schema_version": 1,
     }
     workspace["account"] = {**workspace.get("account", {}), **public_account(account)}
+    integration_settings = workspace.setdefault("storage", {}).get(
+        "attendance-integration-settings", {}
+    )
+    if not isinstance(integration_settings, dict):
+        integration_settings = {}
+    workspace["storage"]["attendance-integration-settings"] = {
+        **integration_settings,
+        "modes": [attendance_authentication],
+        "manual_enabled": integration_settings.get("manual_enabled", True) is not False,
+    }
     try:
         database.save(tenant, workspace, expected_updated_at=workspace.get("updated_at"))
     except WorkspaceConflictError as error:

@@ -162,8 +162,44 @@ function adminAttendancePhotoPanelV33(detail, date, person = {}) {
   const grace = Number(String(person.grace_period || person.grace || '15').match(/\d+/)?.[0] || 15);
   const late = attendanceVarianceV38(person.shift, shift?.check_in_at, 'late', grace);
   const early = attendanceVarianceV38(person.shift, shift?.check_out_at, 'early', 0);
-  return `<div class="admin-person-day-summary"><div><span>Date</span><b>${esc(date)}</b></div><div><span>Status</span><b>${status}</b></div><div><span>Check-in</span><b>${displayTime(shift?.check_in_at)}</b></div><div><span>Check-out</span><b>${displayTime(shift?.check_out_at)}</b></div><div><span>Working hours</span><b>${total}</b></div><div class="attendance-variance-box ${late.active?'warning':'ok'}"><span>Late join</span><b>${esc(late.display)}</b></div><div class="attendance-variance-box ${early.active?'warning':'ok'}"><span>Early left</span><b>${esc(early.display)}</b></div></div><div class="admin-attendance-photos">${photo('Check-in photo',detail?.check_in_photo)}${photo('Check-out photo',detail?.check_out_photo)}</div>`;
+  const shiftEnd = String(person.shift || '09:00 AM - 06:00 PM').split(/\s+-\s+/)[1] || '06:00 PM';
+  const checkoutClock = (() => {const match=shiftEnd.match(/(\d{1,2}):(\d{2})\s*([AP]M)?/i);if(!match)return '18:00';let hour=Number(match[1]);const period=String(match[3]||'').toUpperCase();if(period==='PM'&&hour<12)hour+=12;if(period==='AM'&&hour===12)hour=0;return `${String(hour).padStart(2,'0')}:${match[2]}`})();
+  const missedCheckoutForm = shift && !shift.check_out_at ? `<section class="admin-missed-checkout"><div><b>Checkout was missed</b><span>Add the correct checkout time. This action will be permanently recorded under the administrator account.</span></div><label>CHECKOUT TIME<input type="time" data-admin-checkout-time value="${checkoutClock}" required></label><label>ADMIN NOTE<input data-admin-checkout-note value="Employee forgot to check out." maxlength="500"></label><button class="primary" type="button" data-admin-detail-checkout="${esc(person.id)}" data-work-date="${esc(date)}">Save checkout by admin</button><small data-admin-checkout-status></small></section>` : '';
+  const adminAudit = shift?.admin_checkout_by ? `<p class="admin-checkout-audit"><b>Checked out by administrator:</b> ${esc(shift.admin_checkout_by)}${shift.admin_checkout_note ? ` · ${esc(shift.admin_checkout_note)}` : ''}</p>` : '';
+  return `<div class="admin-person-day-summary"><div><span>Date</span><b>${esc(date)}</b></div><div><span>Status</span><b>${status}</b></div><div><span>Check-in</span><b>${displayTime(shift?.check_in_at)}</b></div><div><span>Check-out</span><b>${displayTime(shift?.check_out_at)}</b></div><div><span>Working hours</span><b>${total}</b></div><div class="attendance-variance-box ${late.active?'warning':'ok'}"><span>Late join</span><b>${esc(late.display)}</b></div><div class="attendance-variance-box ${early.active?'warning':'ok'}"><span>Early left</span><b>${esc(early.display)}</b></div></div>${missedCheckoutForm}${adminAudit}<div class="admin-attendance-photos">${photo('Check-in photo',detail?.check_in_photo)}${photo('Check-out photo',detail?.check_out_photo)}</div>`;
 }
+
+document.addEventListener('click', async event => {
+  const button = event.target.closest('[data-admin-detail-checkout]');
+  if (!button) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  const form = button.closest('.admin-missed-checkout');
+  const status = form?.querySelector('[data-admin-checkout-status]');
+  const time = form?.querySelector('[data-admin-checkout-time]')?.value;
+  const note = form?.querySelector('[data-admin-checkout-note]')?.value.trim() || 'Employee forgot to check out.';
+  if (!time) { if (status) status.textContent = 'Enter the correct checkout time.'; return; }
+  const localCheckout = new Date(`${button.dataset.workDate}T${time}:00`);
+  if (Number.isNaN(localCheckout.getTime())) { if (status) status.textContent = 'Enter a valid checkout time.'; return; }
+  button.disabled = true;
+  button.textContent = 'Saving checkout…';
+  if (status) status.textContent = '';
+  try {
+    await adminAttendanceRequestV33(`/api/admin/employee-attendance/${encodeURIComponent(button.dataset.adminDetailCheckout)}/checkout`, { method: 'POST', body: JSON.stringify({ work_date: button.dataset.workDate, check_out_at: localCheckout.toISOString(), note }) });
+    automaticAttendanceLoadedV21.delete(button.dataset.workDate);
+    await syncAutomaticAttendanceV21(button.dataset.workDate, true);
+    const detail = await adminAttendanceRequestV33(`/api/admin/employee-attendance-detail?employee_id=${encodeURIComponent(button.dataset.adminDetailCheckout)}&date=${encodeURIComponent(button.dataset.workDate)}`);
+    const person = [...people, ...temporaryWorkers].find(item => item.id === button.dataset.adminDetailCheckout) || {};
+    const selected = document.querySelector('#admin-person-selected-day');
+    if (selected) selected.innerHTML = adminAttendancePhotoPanelV33(detail, button.dataset.workDate, person);
+    const calendarButton = document.querySelector(`[data-admin-attendance-date="${button.dataset.workDate}"] small`);
+    if (calendarButton) calendarButton.textContent = 'Present';
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = 'Save checkout by admin';
+    if (status) status.textContent = error.message;
+  }
+}, true);
 
 function localIndividualAttendanceV34(person, monthValue) {
   const days = new Map(attendanceLog
@@ -176,7 +212,7 @@ function localIndividualAttendanceV34(person, monthValue) {
       records.forEach(record => {
         const index = combined.findIndex(item => item.id === record.id);
         if (index < 0) combined.push(record);
-        else if (combined[index].source !== 'Manual attendance') combined[index] = { ...combined[index], ...record };
+        else if (!['Manual attendance', 'Admin manual override', 'Admin manual attendance'].includes(combined[index].source)) combined[index] = { ...combined[index], ...record };
       });
       days.set(date, combined);
     });
@@ -713,8 +749,9 @@ function calendarYearOptionsV25(selectedYear) {
 }
 
 window.attendanceCalendar = function advancedAttendanceCalendarV25() {
-  manualAttendanceEnabledV21 = typeof configuredAttendanceModeV39 === 'function'
-    && configuredAttendanceModeV39() === 'manual';
+  manualAttendanceEnabledV21 = typeof manualAttendancePermissionV42 === 'function'
+    ? manualAttendancePermissionV42()
+    : true;
   const date = new Date(`${calendarDay}T00:00:00`);
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -768,8 +805,8 @@ window.attendanceCalendar = function advancedAttendanceCalendarV25() {
       <div class="calendar-legend"><span><i class="legend-today">✓</i> Today</span>
         <span><i class="legend-selected"></i> Selected date</span>
         <b>${savedRecord ? `Attendance saved for ${calendarDay}` : `No saved attendance for ${calendarDay}`}</b></div>
-      <div class="manual-attendance-switch ${manualAttendanceEnabledV21 ? 'manual-mode-on' : 'manual-mode-off'}"><span><b>Manual attendance: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b><small>This switch follows Settings → Attendance Integration. Turn off the current method there before selecting another method.</small></span>
-        <label class="enter-manually-button" title="Change this from Settings → Attendance Integration"><input type="checkbox" id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? 'checked' : ''} disabled aria-disabled="true"><i></i><b>Enter manually: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b></label></div>
+      <div class="manual-attendance-switch ${manualAttendanceEnabledV21 ? 'manual-mode-on' : 'manual-mode-off'}"><span><b>Manual administrator attendance: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b><small>This permission is available with every authentication integration. Only the signed-in administrator can turn it on or off.</small></span>
+        <label class="enter-manually-button" title="Administrator-only manual attendance permission"><input type="checkbox" id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? 'checked' : ''}><i></i><b>Enter manually: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b></label></div>
     </section>
     <div class="calendar-role-sections">
       ${calendarTemporarySectionV21(record)}

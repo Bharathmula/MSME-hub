@@ -45,7 +45,9 @@ def configured_attendance_mode(db,tenant):
  storage=workspace.get('storage',{}) if isinstance(workspace,dict) else {}
  settings=storage.get('attendance-integration-settings',{}) if isinstance(storage,dict) else {}
  modes=settings.get('modes',['face']) if isinstance(settings,dict) else ['face']
- return str(modes[-1]) if isinstance(modes,list) and modes else ''
+ if isinstance(modes,list) and not modes:return ''
+ mode=str(modes[-1]) if isinstance(modes,list) else 'face'
+ return mode if mode in {'face','biometric','spreadsheet'} else 'face'
 
 EMPLOYEE_EDITABLE_PROFILE_FIELDS={
  'name','phone','dob','gender','marital_status','aadhaar','qualification','hobbies','passion',
@@ -429,7 +431,7 @@ def remove_employee_access(account_id):
 @require('ADMIN','HR')
 def admin_checkout_employee(employee_id):
  """Close an employee's open shift and retain the administrator audit note."""
- tenant=g.employee_identity['tenant'];p=data();work_date=str(p.get('work_date') or now().date().isoformat()).strip();note=str(p.get('note') or 'Employee forgot to check out.').strip()[:500]
+ tenant=g.employee_identity['tenant'];p=data();work_date=str(p.get('work_date') or now().date().isoformat()).strip();note=str(p.get('note') or 'Employee forgot to check out.').strip()[:500];requested_checkout=str(p.get('check_out_at') or '').strip()
  if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',work_date):return jsonify({'error':'A valid attendance date is required.'}),400
  actor=str(g.employee_identity.get('email') or '').strip().lower()
  with transaction() as db:
@@ -438,7 +440,17 @@ def admin_checkout_employee(employee_id):
   shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(account['id'],work_date)).fetchone()
   if not shift:return jsonify({'error':'This employee has no check-in for the selected date.'}),404
   if shift['check_out_at'] or shift['status']=='COMPLETED':return jsonify({'error':'This attendance shift is already checked out.'}),409
-  checkout_at=stamp();minutes=max(0,int((now()-datetime.fromisoformat(shift['check_in_at'])).total_seconds()//60))
+  check_in_moment=datetime.fromisoformat(shift['check_in_at'])
+  if check_in_moment.tzinfo is None:check_in_moment=check_in_moment.replace(tzinfo=timezone.utc)
+  if requested_checkout:
+   try:checkout_moment=datetime.fromisoformat(requested_checkout.replace('Z','+00:00'))
+   except ValueError:return jsonify({'error':'Enter a valid administrator checkout date and time.'}),400
+   if checkout_moment.tzinfo is None:checkout_moment=checkout_moment.replace(tzinfo=timezone.utc)
+   checkout_moment=checkout_moment.astimezone(timezone.utc)
+  else:checkout_moment=now()
+  if checkout_moment<=check_in_moment:return jsonify({'error':'Checkout time must be after the saved check-in time.'}),400
+  if checkout_moment>now()+timedelta(minutes=5):return jsonify({'error':'Checkout time cannot be in the future.'}),400
+  checkout_at=checkout_moment.isoformat();minutes=max(0,int((checkout_moment-check_in_moment).total_seconds()//60))
   db.execute("UPDATE employee_shifts SET check_out_at=?,worked_minutes=?,status='COMPLETED',admin_checkout_by=?,admin_checkout_note=? WHERE id=?",(checkout_at,minutes,actor,note,shift['id']))
   event_id=uuid4().hex
   db.execute('INSERT INTO employee_attendance_events(id,employee_account_id,company_id,shift_id,event_type,server_timestamp,verification_method,idempotency_key,device_identifier,face_capture_data) VALUES(?,?,?,?,?,?,?,?,?,?)',(event_id,account['id'],account['company_id'],shift['id'],'CHECK_OUT',checkout_at,'ADMIN_OVERRIDE',f'admin-checkout-{event_id}',f'ADMIN:{actor}',None))
