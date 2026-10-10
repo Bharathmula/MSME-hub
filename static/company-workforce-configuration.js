@@ -62,10 +62,10 @@
     const present = records.filter(person => person.status === 'Present').length;
     const leave = records.filter(person => person.status === 'On leave').length;
     const absent = records.filter(person => person.status === 'Absent').length;
-    return `<article class="metric-group" data-configured-role="${esc(category.role)}">
+    return `<article class="metric-group" data-configured-role="${esc(category.role)}" data-overflow-role="${esc(category.role)}" tabindex="0" role="button" aria-label="Open individual ${esc(category.label)} accounts">
       <div class="metric-head"><span class="metric-icon">${category.icon}</span><div><b>${esc(category.label)}</b><small>Live workforce snapshot</small></div></div>
       <div class="metric-body"><div class="metric"><b>${total}</b><span>Total</span></div><div class="metric"><b>${present}</b><span>Present</span></div><div class="metric"><b>${leave}</b><span>On leave</span></div><div class="metric"><b>${absent}</b><span>Absent</span></div></div>
-      <button class="overview-overflow-button" type="button" data-view="${category.view}">Open ${esc(category.singular)} dashboard →</button>
+      <button class="overview-overflow-button" type="button" data-overflow-role="${esc(category.role)}">Open individual accounts →</button>
     </article>`;
   }
 
@@ -75,9 +75,9 @@
     const leave = records.filter(person => person.status === 'On leave').length;
     const absent = records.filter(person => person.status === 'Absent').length;
     const percentage = records.length ? Math.round(present / records.length * 100) : 0;
-    return `<article class="role-attendance-sector ${category.view}-attendance">
+    return `<article class="role-attendance-sector ${category.view}-attendance" data-overflow-role="${esc(category.role)}" tabindex="0" role="button" aria-label="Open individual ${esc(category.label)} accounts">
       <div class="role-attendance-head"><div><span>${esc(category.singular)}</span><b>${percentage}% present today</b></div>
-        <button type="button" data-view="${category.view}">Open dashboard →</button></div>
+        <button type="button" data-overflow-role="${esc(category.role)}">Open individual accounts →</button></div>
       <div class="role-attendance-progress-row"><div class="role-attendance-progress" role="progressbar" aria-label="${esc(category.label)} total present" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percentage}"><i style="width:${percentage}%"></i></div>
         <div class="role-attendance-progress-counts"><span><b>${present}</b> Present</span><span><b>${leave}</b> On leave</span><span><b>${absent}</b> Absent</span></div></div>
       <div class="role-attendance-values"><div><b>${records.length}</b><span>Total people</span></div><div><b>${present}</b><span>Total present</span></div><div><b>${leave}</b><span>On leave:</span></div><div><b>${absent}</b><span>Absent:</span></div></div>
@@ -97,6 +97,14 @@
     if (overviewGrid && typeof attendanceOverviewCard === 'function') {
       overviewGrid.classList.add('configured-workforce-grid');
       overviewGrid.innerHTML = active.map(category => attendanceOverviewCard(category.label, recordsFor(category), category.view)).join('');
+      [...overviewGrid.children].forEach((card, index) => {
+        const category = active[index];
+        if (!category) return;
+        card.dataset.overflowRole = category.role;
+        card.tabIndex = 0;
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-label', `Open individual ${category.label} accounts`);
+      });
     }
     const healthGrid = document.querySelector('#view-root .attendance-health-role-dashboard');
     if (healthGrid) healthGrid.innerHTML = active.map(healthSector).join('');

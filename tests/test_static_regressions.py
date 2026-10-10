@@ -359,6 +359,13 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("applyOverviewCategories", configuration)
         self.assertIn("applyAttendanceCategories", configuration)
         self.assertIn("categoryForView(view)", configuration)
+        self.assertIn('data-overflow-role="${esc(category.role)}"', configuration)
+        self.assertIn("Open individual accounts", configuration)
+        self.assertIn("card.dataset.overflowRole = category.role", configuration)
+        self.assertNotIn('class="overview-overflow-button" type="button" data-view="${category.view}"', configuration)
+        operations = (ROOT / "static" / "workforce-operations.js").read_text(encoding="utf-8")
+        self.assertIn("roleName === 'Temporary Worker'", operations)
+        self.assertIn("#view-root [data-overflow-role]", operations)
         self.assertIn("configuredRolePairs", portal)
         for role in ("EMPLOYEE", "MANAGER", "HR", "OWNER"):
             self.assertIn(role, routes)

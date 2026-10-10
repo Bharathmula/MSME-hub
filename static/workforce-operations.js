@@ -246,7 +246,9 @@ async function openIndividualAttendanceCalendarV33(person, monthValue = new Date
 }
 
 function roleOverflowV22(roleName) {
-  const rolePeople = group(roleName);
+  const rolePeople = roleName === 'Temporary Worker'
+    ? [...temporaryWorkers].sort(compareWorkforceIds)
+    : group(roleName);
   const present = rolePeople.filter(person => person.status === 'Present').length;
   const absent = rolePeople.filter(person => person.status === 'Absent').length;
   const leave = rolePeople.filter(person => person.status === 'On leave').length;
@@ -300,7 +302,7 @@ function roleOverflowV22(roleName) {
 }
 
 document.addEventListener('click', event => {
-  const roleCard = event.target.closest('#view-root .metric-group[data-overflow-role]');
+  const roleCard = event.target.closest('#view-root [data-overflow-role]');
   const profileCard = event.target.closest('[data-overflow-profile]');
   const attendanceButton = event.target.closest('[data-person-attendance]');
   const backButton = event.target.closest('#back-to-overview');
@@ -343,7 +345,11 @@ document.addEventListener('click', event => {
     return;
   }
   if (roleCard) roleOverflowV22(roleCard.dataset.overflowRole);
-  if (profileCard) editor(profileCard.dataset.overflowProfile);
+  if (profileCard) {
+    const profileId = profileCard.dataset.overflowProfile;
+    if (temporaryWorkers.some(item => item.id === profileId) && typeof tempEditor === 'function') tempEditor(profileId);
+    else editor(profileId);
+  }
   if (backButton) {
     view = 'dashboard';
     render();
@@ -604,7 +610,8 @@ document.addEventListener('click', event => {
   event.stopImmediatePropagation();
   if (addOverflow) {
     const roleName = addOverflow.dataset.overflowAdd;
-    add(roleName);
+    if (roleName === 'Temporary Worker' && typeof tempEditor === 'function') tempEditor();
+    else add(roleName);
   }
   if (saveTemp) {
     save();
