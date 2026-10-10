@@ -759,6 +759,33 @@ function calendarYearOptionsV25(selectedYear) {
     .map(year => `<option value="${year}" ${year === selectedYear ? 'selected' : ''}>${year}</option>`).join('');
 }
 
+window.attendanceDayNotesV44 = window.attendanceDayNotesV44 || {};
+
+function attendanceDayNoteV44(date, savedRecord) {
+  return Object.prototype.hasOwnProperty.call(window.attendanceDayNotesV44, date)
+    ? window.attendanceDayNotesV44[date]
+    : (savedRecord?.note || '');
+}
+
+function openAttendanceDayNoteV44() {
+  const savedRecord = attendanceLog.find(item => item.date === calendarDay);
+  const note = attendanceDayNoteV44(calendarDay, savedRecord);
+  document.getElementById('modal-root').innerHTML = `<div class="modal-backdrop"><form class="modal" id="attendance-day-note-form">
+    <div class="modal-head"><div><div class="eyebrow">ATTENDANCE NOTE</div><h2>${esc(calendarDay)}</h2><p style="margin:0;color:var(--muted);font-size:12px">Add a note for this attendance date. It will be stored when you save attendance.</p></div><button class="close" type="button" data-close-attendance-note>×</button></div>
+    <div class="form-grid"><label class="full">DAY NOTE<textarea id="attendance-day-note-text" maxlength="1000" placeholder="Example: Festival shift, transport delay, weather disruption...">${esc(note)}</textarea></label></div>
+    <div class="modal-actions"><button class="secondary" type="button" data-close-attendance-note>Cancel</button><button class="primary" type="submit">Save note</button></div>
+  </form></div>`;
+  document.querySelectorAll('[data-close-attendance-note]').forEach(button => {
+    button.onclick = () => { document.getElementById('modal-root').innerHTML = ''; };
+  });
+  document.getElementById('attendance-day-note-form').onsubmit = event => {
+    event.preventDefault();
+    window.attendanceDayNotesV44[calendarDay] = document.getElementById('attendance-day-note-text').value.trim();
+    document.getElementById('modal-root').innerHTML = '';
+    render();
+  };
+}
+
 window.attendanceCalendar = function advancedAttendanceCalendarV25() {
   manualAttendanceEnabledV21 = typeof manualAttendancePermissionV42 === 'function'
     ? manualAttendancePermissionV42()
@@ -769,6 +796,7 @@ window.attendanceCalendar = function advancedAttendanceCalendarV25() {
   const lastDay = new Date(year, month + 1, 0).getDate();
   const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
   const savedRecord = attendanceLog.find(item => item.date === calendarDay);
+  const dayNote = attendanceDayNoteV44(calendarDay, savedRecord);
   const record = typeof combinedAttendanceRecordV21 === 'function'
     ? combinedAttendanceRecordV21(calendarDay, savedRecord)
     : savedRecord;
@@ -783,6 +811,7 @@ window.attendanceCalendar = function advancedAttendanceCalendarV25() {
     </div><div class="calendar-page-actions">
       <button class="calendar-action-button" id="delete-day">Delete day</button>
       <button class="calendar-action-button" id="restore-day">Restore day</button>
+      <button class="calendar-action-button" id="attendance-day-note">${dayNote ? '✓ Note added' : '+ Add note'}</button>
       <button class="calendar-action-button" id="save-day-attendance">Save attendance</button>
       <button class="calendar-action-button strong" id="download-attendance">⇩ Download everyone’s attendance</button>
     </div></div>
@@ -879,13 +908,13 @@ function setRangePresetV25(preset) {
 }
 
 function downloadAttendanceRangeV25(from, to) {
-  const rows = [['Date','Name','Role','Status','Shift','Grace period','Login','Logout','Half time','Break','Overtime','Working hours','Final total','Grace status']];
+  const rows = [['Date','Name','Role','Status','Shift','Grace period','Login','Logout','Half time','Break','Overtime','Working hours','Final total','Grace status','Day note']];
   attendanceLog.filter(day => day.date >= from && day.date <= to)
     .sort((a, b) => a.date.localeCompare(b.date))
     .forEach(day => day.records.forEach(record => rows.push([
       day.date, record.name, record.role, record.status, record.shift || '', record.grace || GRACE_TIME,
       show12(record.login), show12(record.logout), record.half_time ? show12(record.half_time) : '',
-      record.half || '', record.overtime || '', record.work || '', record.total || '', record.late || ''
+      record.half || '', record.overtime || '', record.work || '', record.total || '', record.late || '', day.note || ''
     ])));
   const csv = rows.map(row => row.map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(',')).join('\n');
   const fileUrl = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -903,15 +932,17 @@ document.addEventListener('click', event => {
   const previous = event.target.closest('#previous-attendance-month');
   const next = event.target.closest('#next-attendance-month');
   const today = event.target.closest('#attendance-today');
+  const note = event.target.closest('#attendance-day-note');
   const closeRange = event.target.closest('#close-range-download, #cancel-range-download');
   const preset = event.target.closest('[data-range-preset]');
-  if (!download && !previous && !next && !today && !closeRange && !preset) return;
+  if (!download && !previous && !next && !today && !note && !closeRange && !preset) return;
   event.preventDefault();
   event.stopImmediatePropagation();
   if (download) openAttendanceDownloadRangeV25();
   if (previous) changeAttendanceMonthV25(-1);
   if (next) changeAttendanceMonthV25(1);
   if (today) { calendarDay = localDateKeyV25(); render(); }
+  if (note) openAttendanceDayNoteV44();
   if (closeRange) document.getElementById('modal-root').innerHTML = '';
   if (preset) setRangePresetV25(preset.dataset.rangePreset);
 }, true);

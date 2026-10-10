@@ -93,14 +93,53 @@
     date: typeof indiaAttendanceDateV37 === 'function' ? indiaAttendanceDateV37() : new Date().toISOString().slice(0, 10),
   };
 
-  function attendanceInsightsPage() {
+  function attendanceInsightRows() {
     const categories = activeCategories();
     const scopedCategories = categories.filter(category => attendanceInsightsState.role === 'all' || category.view === attendanceInsightsState.role);
-    const allRows = scopedCategories.flatMap(category => recordsFor(category).map(person => ({
+    return scopedCategories.flatMap(category => recordsFor(category).map(person => ({
       category,
       person,
       state: attendanceOperationalStateV43(person, attendanceInsightsState.date),
     })));
+  }
+
+  function downloadAttendanceInsightsReport() {
+    const rows = attendanceInsightRows().filter(item => attendanceInsightsState.status === 'all' || item.state.code === attendanceInsightsState.status);
+    const csvCell = value => {
+      const text = String(value ?? '');
+      const safe = /^[=+\-@]/.test(text) ? `'${text}` : text;
+      return `"${safe.replaceAll('"', '""')}"`;
+    };
+    const dayNote = attendanceLog.find(item => item.date === attendanceInsightsState.date)?.note || '';
+    const report = [['Date', 'Name', 'ID', 'Category', 'Status', 'Shift', 'Check-in', 'Check-out', 'Source', 'Day note']];
+    rows.forEach(({ category, person, state }) => report.push([
+      attendanceInsightsState.date,
+      person.name,
+      person.id,
+      category.label,
+      state.label,
+      person.shift || `${admin.shift_start || '09:00'} - ${admin.shift_end || '18:00'}`,
+      state.login ? (typeof show12 === 'function' ? show12(state.login) : state.login) : '',
+      state.logout ? (typeof show12 === 'function' ? show12(state.logout) : state.logout) : '',
+      state.source,
+      dayNote,
+    ]));
+    const csv = report.map(row => row.map(csvCell).join(',')).join('\n');
+    const fileUrl = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    const category = attendanceInsightsState.role === 'all' ? 'all-workforce' : attendanceInsightsState.role;
+    const status = attendanceInsightsState.status === 'all' ? 'all-statuses' : attendanceInsightsState.status;
+    link.href = fileUrl;
+    link.download = `msme-${category}-${status}-${attendanceInsightsState.date}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(fileUrl), 1000);
+  }
+
+  function attendanceInsightsPage() {
+    const categories = activeCategories();
+    const allRows = attendanceInsightRows();
     const rows = allRows.filter(item => attendanceInsightsState.status === 'all' || item.state.code === attendanceInsightsState.status);
     const roleLabel = attendanceInsightsState.role === 'all'
       ? 'All workforce categories'
@@ -121,12 +160,12 @@
       <td>${esc(state.source)}</td><td><button class="action" type="button" data-attendance-insights-profile="${esc(person.id)}">Open profile</button></td>
     </tr>`).join('') || '<tr><td colspan="8" class="empty">No attendance records match these filters.</td></tr>';
 
-    root.innerHTML = `<div class="page-heading attendance-insights-heading"><div><div class="eyebrow">ATTENDANCE CONTROL CENTRE</div><h1>${esc(roleLabel)}</h1><p>${esc(statusLabel)} for ${esc(attendanceInsightsState.date)}. Statuses use each person’s shift and grace period.</p></div><div class="attendance-insights-actions"><button class="secondary" type="button" data-attendance-insights-back>← Overview</button></div></div>
+    root.innerHTML = `<div class="page-heading attendance-insights-heading"><div><div class="eyebrow">ATTENDANCE CONTROL CENTRE</div><h1>${esc(roleLabel)}</h1><p>${esc(statusLabel)} for ${esc(attendanceInsightsState.date)}. Statuses use each person’s shift and grace period.</p></div><div class="attendance-insights-actions"><button class="secondary" type="button" data-attendance-insights-back>← Overview</button><button class="primary" type="button" data-attendance-insights-download>⇩ Download report</button></div></div>
       <section class="attendance-insight-metrics">${summary}</section>
       <section class="panel attendance-insights-panel"><div class="panel-header"><div><h2>Attendance records</h2><p>Open a profile only when personal details are required.</p></div><div class="attendance-insight-filters"><label>DATE<input type="date" data-attendance-insights-date value="${esc(attendanceInsightsState.date)}"></label><label>CATEGORY<select data-attendance-insights-category>${roleOptions}</select></label><label>STATUS<select data-attendance-insights-status>${statusOptions}</select></label></div></div>
-      <div class="attendance-insight-guidance"><span><b>Not yet due</b> Shift grace period has not ended.</span><span><b>No check-in after grace</b> No attendance was received after the allowed grace period.</span><span><b>Missed check-out</b> A check-in exists but checkout is missing after shift end.</span></div>
+      <div class="attendance-insight-guidance"><span><b>Not checked in</b> The employee has not checked in and the shift grace period is still open.</span><span><b>No check-in after grace</b> No attendance was received after the allowed grace period.</span><span><b>Missed check-out</b> A check-in exists but checkout is missing after shift end.</span></div>
       <div class="table-wrap"><table class="attendance-insights-table"><thead><tr><th>PERSON</th><th>CATEGORY</th><th>STATUS</th><th>SHIFT</th><th>CHECK-IN</th><th>CHECK-OUT</th><th>SOURCE</th><th></th></tr></thead><tbody>${body}</tbody></table></div></section>`;
-    document.querySelectorAll('.nav-link').forEach(button => button.classList.toggle('active', button.dataset.view === 'attendance'));
+    document.querySelectorAll('.nav-link').forEach(button => button.classList.remove('active'));
   }
 
   function applyOverviewCategories() {
@@ -260,7 +299,8 @@
     const statusMetric = event.target.closest('[data-attendance-insight-filter-status]');
     const profileButton = event.target.closest('[data-attendance-insights-profile]');
     const backButton = event.target.closest('[data-attendance-insights-back]');
-    if (!insightTarget && !statusMetric && !profileButton && !backButton) return;
+    const downloadButton = event.target.closest('[data-attendance-insights-download]');
+    if (!insightTarget && !statusMetric && !profileButton && !backButton && !downloadButton) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     if (insightTarget) {
@@ -282,6 +322,10 @@
       const id = profileButton.dataset.attendanceInsightsProfile;
       if (temporaryWorkers.some(person => person.id === id) && typeof tempEditor === 'function') tempEditor(id);
       else editor(id);
+      return;
+    }
+    if (downloadButton) {
+      downloadAttendanceInsightsReport();
       return;
     }
     if (backButton) { view = 'dashboard'; render(); }

@@ -849,8 +849,14 @@ function attendanceRecordsForTodayV21() {
 function saveAttendanceDateV21(date) {
   const records = attendanceRecordsForTodayV21();
   const index = attendanceLog.findIndex(day => day.date === date);
-  if (index < 0) attendanceLog.push({ date, records });
-  else attendanceLog[index] = { date, records };
+  const existing = index < 0 ? null : attendanceLog[index];
+  const pendingNotes = window.attendanceDayNotesV44 || {};
+  const hasPendingNote = Object.prototype.hasOwnProperty.call(pendingNotes, date);
+  const note = hasPendingNote ? pendingNotes[date] : (existing?.note || '');
+  const savedDay = { date, records, note };
+  if (index < 0) attendanceLog.push(savedDay);
+  else attendanceLog[index] = savedDay;
+  if (hasPendingNote) delete pendingNotes[date];
   save();
 }
 
@@ -877,11 +883,11 @@ window.saveSelectedDay = function saveSelectedDayV21() {
 };
 
 window.downloadSheet = function downloadEveryoneAttendanceV21() {
-  const rows = [['Date','Name','Role','Status','Shift','Grace period','Login','Logout','Half time','Break','Overtime','Working hours','Final total','Grace status']];
+  const rows = [['Date','Name','Role','Status','Shift','Grace period','Login','Logout','Half time','Break','Overtime','Working hours','Final total','Grace status','Day note']];
   attendanceLog.forEach(day => day.records.forEach(record => rows.push([
     day.date, record.name, record.role, record.status, record.shift || '', record.grace || GRACE_TIME,
     show12(record.login), show12(record.logout), record.half_time ? show12(record.half_time) : '',
-    record.half || '', record.overtime || '', record.work || '', record.total || '', record.late || ''
+    record.half || '', record.overtime || '', record.work || '', record.total || '', record.late || '', day.note || ''
   ])));
   const csv = rows.map(row => row.map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(',')).join('\n');
   const fileUrl = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));

@@ -1140,7 +1140,7 @@ function enhanceContractorForm() {
 
 const attendanceOperationalStatusesV43 = [
   { code: 'present', label: 'Present' },
-  { code: 'not_due', label: 'Not yet due' },
+  { code: 'not_due', label: 'Not checked in' },
   { code: 'approved_leave', label: 'Approved leave' },
   { code: 'no_checkin', label: 'No check-in after grace' },
   { code: 'missed_checkout', label: 'Missed check-out' },
@@ -1320,7 +1320,7 @@ function enhanceOverviewDashboard() {
   }
   if (document.getElementById('operations-overview')) return;
   const section = `<section class="operations-overview" id="operations-overview">
-    <div class="operations-overview-heading"><div><span>OVERVIEW</span><h2>Attendance status and deadline overflow</h2></div><div class="attendance-overview-legend"><span class="present"><i></i>Present</span><span class="not_due"><i></i>Not yet due</span><span class="approved_leave"><i></i>Approved leave</span><span class="no_checkin"><i></i>No check-in</span><span class="missed_checkout"><i></i>Missed check-out</span><span class="absent"><i></i>Absent</span></div></div>
+    <div class="operations-overview-heading"><div><span>OVERVIEW</span><h2>Attendance status and deadline overflow</h2></div><div class="attendance-overview-legend"><span class="present"><i></i>Present</span><span class="not_due"><i></i>Not checked in</span><span class="approved_leave"><i></i>Approved leave</span><span class="no_checkin"><i></i>No check-in</span><span class="missed_checkout"><i></i>Missed check-out</span><span class="absent"><i></i>Absent</span></div></div>
     <div class="attendance-overview-grid">${attendanceOverviewCard('Employees / Workers', workerRecords, 'workers')}${attendanceOverviewCard('Staff', staffRecords, 'staff')}${attendanceOverviewCard('Entrepreneurs', entrepreneurRecords, 'entrepreneurs')}${attendanceOverviewCard('Temporary workers', temporary, 'temporary')}</div>
     <div class="overflow-overview-grid">
       <article class="overflow-overview-card temporary-overflow"><div class="overflow-card-head"><h3>Temporary worker overflow</h3><strong>${temporaryOverflow.length}</strong></div>${temporaryOverflow.length ? temporaryOverflow.map(person => { const extra = Math.max(0, elapsed(person) - 180); return overviewDeadlineRow(person.name, `${extra} day${extra === 1 ? '' : 's'} beyond 180-day limit`, 'temporary'); }).join('') : '<p class="overflow-empty">No temporary worker has crossed the 180-day limit.</p>'}</article>
