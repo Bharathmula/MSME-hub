@@ -212,8 +212,7 @@ function localIndividualAttendanceV34(person, monthValue) {
       records.forEach(record => {
         const index = combined.findIndex(item => item.id === record.id);
         if (index < 0) combined.push(record);
-        else if (typeof isAdminManualAttendanceSourceV44 === 'function' && isAdminManualAttendanceSourceV44(combined[index].source)) combined[index] = mergeFacePriorityAttendanceV44(record, combined[index]);
-        else combined[index] = { ...combined[index], ...record };
+        else if (!['Manual attendance', 'Admin manual override', 'Admin manual attendance'].includes(combined[index].source)) combined[index] = { ...combined[index], ...record };
       });
       days.set(date, combined);
     });
@@ -880,13 +879,13 @@ function setRangePresetV25(preset) {
 }
 
 function downloadAttendanceRangeV25(from, to) {
-  const rows = [['Date','Name','Role','Status','Shift','Grace period','Login','Logout','Half time','Break','Overtime','Working hours','Final total','Grace status','Person note','Day note']];
+  const rows = [['Date','Name','Role','Status','Shift','Grace period','Login','Logout','Half time','Break','Overtime','Working hours','Final total','Grace status']];
   attendanceLog.filter(day => day.date >= from && day.date <= to)
     .sort((a, b) => a.date.localeCompare(b.date))
     .forEach(day => day.records.forEach(record => rows.push([
       day.date, record.name, record.role, record.status, record.shift || '', record.grace || GRACE_TIME,
       show12(record.login), show12(record.logout), record.half_time ? show12(record.half_time) : '',
-      record.half || '', record.overtime || '', record.work || '', record.total || '', record.late || '', record.attendance_note || '', day.note || ''
+      record.half || '', record.overtime || '', record.work || '', record.total || '', record.late || ''
     ])));
   const csv = rows.map(row => row.map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(',')).join('\n');
   const fileUrl = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));

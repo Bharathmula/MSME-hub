@@ -646,10 +646,11 @@ function manualAttendanceRecord(person) {
   const calculation = typeof attendanceCalculationV21 === 'function'
     ? attendanceCalculationV21(person)
     : null;
-  const record = {
+  return {
     id: person.id,
     name: person.name,
     role: person.role,
+    source: 'Admin manual attendance',
     entered_by: admin.name || admin.email,
     entered_by_email: admin.email,
     admin_note: `Entered by administrator while ${typeof configuredAttendanceModeV39 === 'function' ? configuredAttendanceModeV39() : 'the selected'} authentication remained active.`,
@@ -668,16 +669,6 @@ function manualAttendanceRecord(person) {
     total: calculation ? durationTextV21(calculation.total) : '',
     late: calculation ? calculation.late : '-'
   };
-  record.checkin_face_captured = Boolean(person.checkin_face_captured);
-  record.checkout_face_captured = Boolean(person.checkout_face_captured);
-  const savedRecord = attendanceLog.find(day => day.date === calendarDay)?.records?.find(item => item.id === person.id) || null;
-  record.attendance_note = typeof attendancePersonNoteV45 === 'function'
-    ? attendancePersonNoteV45(calendarDay, person.id, savedRecord)
-    : String(savedRecord?.attendance_note || '');
-  record.source = typeof attendanceSourceLabelV44 === 'function'
-    ? attendanceSourceLabelV44(record)
-    : (record.login && record.logout ? 'Admin manual check-in + Admin manual checkout' : record.login ? 'Admin manual check-in' : record.logout ? 'Admin manual checkout' : 'Admin manual status');
-  return record;
 }
 
 window.saveSelectedDay = function saveOnlyManuallyEnteredAttendance() {
@@ -694,31 +685,15 @@ window.saveSelectedDay = function saveOnlyManuallyEnteredAttendance() {
   const records = [...automatic];
   manuallyEntered.forEach(record => {
     const index = records.findIndex(item => item.id === record.id);
-    if (index < 0) records.push(record);
-    else records[index] = typeof mergeFacePriorityAttendanceV44 === 'function'
-      ? mergeFacePriorityAttendanceV44(records[index], record)
-      : record;
+    if (index < 0) records.push(record); else records[index] = record;
   });
   if (!records.length) {
     alert(`No automatic or manual attendance is available for ${calendarDay}.`);
     return;
   }
   const index = attendanceLog.findIndex(day => day.date === calendarDay);
-  const existing = index < 0 ? null : attendanceLog[index];
-  records.forEach(record => {
-    const savedRecord = existing?.records?.find(item => item.id === record.id) || null;
-    const key = typeof attendancePersonNoteKeyV45 === 'function' ? attendancePersonNoteKeyV45(calendarDay, record.id) : '';
-    if (typeof attendancePersonNoteV45 === 'function') record.attendance_note = attendancePersonNoteV45(calendarDay, record.id, savedRecord);
-    else if (savedRecord?.attendance_note) record.attendance_note = savedRecord.attendance_note;
-    if (key && Object.prototype.hasOwnProperty.call(window.attendancePersonNotesV45 || {}, key)) delete window.attendancePersonNotesV45[key];
-  });
-  const pendingNotes = window.attendanceDayNotesV44 || {};
-  const hasPendingNote = Object.prototype.hasOwnProperty.call(pendingNotes, calendarDay);
-  const note = hasPendingNote ? pendingNotes[calendarDay] : (existing?.note || '');
-  const savedDay = { date: calendarDay, records, note };
-  if (index < 0) attendanceLog.push(savedDay);
-  else attendanceLog[index] = savedDay;
-  if (hasPendingNote) delete pendingNotes[calendarDay];
+  if (index < 0) attendanceLog.push({ date: calendarDay, records });
+  else attendanceLog[index] = { date: calendarDay, records };
   save();
   render();
   const saveType = manuallyEntered.length && automatic.length
@@ -1163,72 +1138,20 @@ function enhanceContractorForm() {
   else form.querySelector('.form-grid')?.insertAdjacentHTML('beforeend', markup);
 }
 
-const attendanceOperationalStatusesV43 = [
-  { code: 'present', label: 'Present' },
-  { code: 'not_due', label: 'Not checked in' },
-  { code: 'approved_leave', label: 'Approved leave' },
-  { code: 'no_checkin', label: 'No check-in after grace' },
-  { code: 'missed_checkout', label: 'Missed check-out' },
-  { code: 'absent', label: 'Absent' },
-];
-
-function attendanceRecordForDateV43(person, date) {
-  const saved = (Array.isArray(attendanceLog) ? attendanceLog : []).find(day => day.date === date);
-  const combined = typeof combinedAttendanceRecordV21 === 'function'
-    ? combinedAttendanceRecordV21(date, saved)
-    : saved;
-  return (combined?.records || []).find(record => record.id === person.id) || null;
-}
-
-function attendanceShiftFinishedV43(person, date, now = new Date()) {
-  const today = typeof indiaAttendanceDateV37 === 'function' ? indiaAttendanceDateV37(now) : now.toISOString().slice(0, 10);
-  if (date < today) return true;
-  if (date > today) return false;
-  const shift = String(person.shift || `${admin?.shift_start || '09:00'} - ${admin?.shift_end || '18:00'}`).split(/\s+(?:-|–|—)\s+/);
-  const start = typeof minutes === 'function' ? minutes(shift[0]) : 540;
-  const end = typeof minutes === 'function' ? minutes(shift[1]) : 1080;
-  const current = typeof indiaClockMinutesV40 === 'function'
-    ? indiaClockMinutesV40(now)
-    : now.getHours() * 60 + now.getMinutes();
-  if (!Number.isFinite(end)) return false;
-  if (Number.isFinite(start) && end <= start) return current >= end && current < start;
-  return current > end;
-}
-
-function attendanceOperationalStateV43(person, date = (typeof indiaAttendanceDateV37 === 'function' ? indiaAttendanceDateV37() : new Date().toISOString().slice(0, 10))) {
-  const record = attendanceRecordForDateV43(person, date);
-  const status = String(record?.status || person.status || 'Not checked in');
-  const source = String(record?.source || 'Live workforce status');
-  const login = record?.login || record?.check_in_at || person.login_time || '';
-  const logout = record?.logout || record?.check_out_at || person.logout_time || '';
-  let code = 'not_due';
-
-  if (status === 'On leave') code = 'approved_leave';
-  else if (login && !logout && attendanceShiftFinishedV43(person, date)) code = 'missed_checkout';
-  else if (login || status === 'Present') code = 'present';
-  else if (status === 'Absent' && record && !/automatic no check-in/i.test(source)) code = 'absent';
-  else {
-    const automaticStatus = typeof automaticNoCheckinStatusV40 === 'function'
-      ? automaticNoCheckinStatusV40(person, date)
-      : (date < new Date().toISOString().slice(0, 10) ? 'Absent' : 'Not checked in');
-    code = automaticStatus === 'Absent' ? 'no_checkin' : 'not_due';
-  }
-
-  const definition = attendanceOperationalStatusesV43.find(item => item.code === code) || attendanceOperationalStatusesV43[0];
-  return { ...definition, person, record, login, logout, source };
-}
-
-function attendanceStatusCounts(records, date) {
-  const states = (Array.isArray(records) ? records : []).map(person => attendanceOperationalStateV43(person, date));
-  const counts = { total: states.length, states };
-  attendanceOperationalStatusesV43.forEach(status => { counts[status.code] = states.filter(state => state.code === status.code).length; });
-  return counts;
+function attendanceStatusCounts(records) {
+  const list = Array.isArray(records) ? records : [];
+  const uncertain = new Set(['On leave', 'Not checked in', 'Not sure', 'Not sure absent', 'Pending']);
+  return {
+    total: list.length,
+    present: list.filter(item => item.status === 'Present').length,
+    unsure: list.filter(item => uncertain.has(item.status)).length,
+    absent: list.filter(item => item.status === 'Absent').length
+  };
 }
 
 function attendanceOverviewCard(title, records, viewName) {
   const counts = attendanceStatusCounts(records);
-  const statusRows = attendanceOperationalStatusesV43.map(status => `<span class="attendance-color ${status.code}"><i></i><b>${counts[status.code]}</b> ${esc(status.label)}</span>`).join('');
-  return `<article class="attendance-overview-card overview-role-${esc(viewName)}" data-attendance-insights-role="${esc(viewName)}" tabindex="0" role="button" aria-label="Open ${esc(title)} attendance insights"><div class="attendance-overview-head"><h3>${esc(title)}</h3><span>Open insights →</span></div><p>${counts.total} total record${counts.total === 1 ? '' : 's'}</p><div class="attendance-color-counts">${statusRows}</div></article>`;
+  return `<article class="attendance-overview-card overview-role-${esc(viewName)}"><div class="attendance-overview-head"><h3>${esc(title)}</h3></div><p>${counts.total} total record${counts.total === 1 ? '' : 's'}</p><div class="attendance-color-counts"><span class="attendance-color present"><i></i><b>${counts.present}</b> Present</span><span class="attendance-color unsure"><i></i><b>${counts.unsure}</b> Not sure / on leave</span><span class="attendance-color absent"><i></i><b>${counts.absent}</b> Sure absent</span></div></article>`;
 }
 
 function overviewDeadlineRow(name, detail, className) {
@@ -1337,11 +1260,15 @@ function enhanceOverviewDashboard() {
   const staffRecords = activePeople.filter(person => person.role === 'Staff');
   const entrepreneurRecords = activePeople.filter(person => person.role === 'Entrepreneur');
   const riskRecords = [...activePeople, ...temporary.filter(person => !activePeople.some(item => item.id === person.id))];
-  health?.querySelector('.attendance-health-role-heading')?.remove();
-  health?.querySelector('.attendance-health-role-dashboard')?.remove();
+  if (health && !health.querySelector('.attendance-health-role-dashboard')) {
+    health.querySelector('.panel-header')?.insertAdjacentHTML('afterend', `
+      <div class="attendance-health-role-heading"><div><span>TODAY</span><b>Total attendance by workforce</b></div></div>
+      <div class="role-attendance-dashboard attendance-health-role-dashboard">${attendanceSector('Worker', 'workers', 'worker-attendance')}${attendanceSector('Staff', 'staff', 'staff-attendance')}${attendanceSector('Entrepreneur', 'entrepreneurs', 'entrepreneur-attendance')}</div>
+    `);
+  }
   if (document.getElementById('operations-overview')) return;
   const section = `<section class="operations-overview" id="operations-overview">
-    <div class="operations-overview-heading"><div><span>OVERVIEW</span><h2>Attendance status and deadline overflow</h2></div><div class="attendance-overview-legend"><span class="present"><i></i>Present</span><span class="not_due"><i></i>Not checked in</span><span class="approved_leave"><i></i>Approved leave</span><span class="no_checkin"><i></i>No check-in</span><span class="missed_checkout"><i></i>Missed check-out</span><span class="absent"><i></i>Absent</span></div></div>
+    <div class="operations-overview-heading"><div><span>OVERVIEW</span><h2>Attendance status and deadline overflow</h2></div><div class="attendance-overview-legend"><span class="present"><i></i>Present</span><span class="unsure"><i></i>Not sure</span><span class="absent"><i></i>Sure absent</span></div></div>
     <div class="attendance-overview-grid">${attendanceOverviewCard('Employees / Workers', workerRecords, 'workers')}${attendanceOverviewCard('Staff', staffRecords, 'staff')}${attendanceOverviewCard('Entrepreneurs', entrepreneurRecords, 'entrepreneurs')}${attendanceOverviewCard('Temporary workers', temporary, 'temporary')}</div>
     <div class="overflow-overview-grid">
       <article class="overflow-overview-card temporary-overflow"><div class="overflow-card-head"><h3>Temporary worker overflow</h3><strong>${temporaryOverflow.length}</strong></div>${temporaryOverflow.length ? temporaryOverflow.map(person => { const extra = Math.max(0, elapsed(person) - 180); return overviewDeadlineRow(person.name, `${extra} day${extra === 1 ? '' : 's'} beyond 180-day limit`, 'temporary'); }).join('') : '<p class="overflow-empty">No temporary worker has crossed the 180-day limit.</p>'}</article>

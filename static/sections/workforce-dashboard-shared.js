@@ -1,6 +1,9 @@
-/* Shared workforce directory used by every company category dashboard.
- * Attendance belongs to Attendance Calendar and Attendance Control Centre,
- * so category dashboards intentionally show profile information only.
+/*
+ * Shared automatic workforce dashboard.
+ *
+ * Manual attendance belongs only to Attendance Calendar. Worker, Staff,
+ * Entrepreneur and Temporary Worker dashboards call this renderer to display
+ * attendance, face-capture and salary results calculated from saved records.
  */
 (function () {
   const roleConfigurations = {};
@@ -18,58 +21,327 @@
     );
   }
 
+  function durationMinutes(value) {
+    const raw = String(value || "").toLowerCase();
+    const hours = Number(raw.match(/([\d.]+)\s*h/)?.[1] || 0);
+    const minutes = Number(raw.match(/([\d.]+)\s*m/)?.[1] || 0);
+    return Math.round(hours * 60 + minutes);
+  }
+
+  function money(value) {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 2,
+    }).format(Number(value || 0));
+  }
+
+  function currentMonthPrefix() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  function todayDateKey() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  }
+
   function currentDateTimeCard() {
     const now = new Date();
     return `<time class="workforce-current-date"><span>Today</span><b>${esc(now.toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }))}</b><small>${esc(now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }))}</small></time>`;
   }
 
-  function skillList(person) {
-    const skills = Array.isArray(person.skills)
-      ? person.skills
-      : String(person.skills || '').split(',').map(value => value.trim()).filter(Boolean);
-    return skills.length
-      ? `<div class="skills">${skills.slice(0, 5).map(skill => `<span class="skill">${esc(skill)}</span>`).join('')}</div>`
-      : '<span class="workforce-directory-empty">No skills entered</span>';
+  function recordsFor(person, monthPrefix) {
+    return (Array.isArray(attendanceLog) ? attendanceLog : [])
+      .filter((day) => String(day.date || "").startsWith(monthPrefix))
+      .flatMap((day) =>
+        (day.records || [])
+          .filter((record) => record.id === person.id)
+          .map((record) => ({ ...record, attendance_date: day.date })),
+      );
   }
 
-  function directoryRows(records, configuration) {
-    return records.map(person => `<tr>
-      <td><div class="cell-person"><span class="avatar">${ini(person.name)}</span><div><b>${esc(person.name)}</b><small>${esc(text(person.id))}</small></div></div></td>
-      <td>${esc(text(person.phone))}</td>
-      <td>${esc(text(person.email))}</td>
-      <td>${esc(text(person.dept, 'Unassigned'))}</td>
-      <td>${esc(text(person.designation, configuration.label))}</td>
-      <td>${skillList(person)}</td>
-      <td><button class="secondary workforce-directory-open" type="button" data-workforce-profile="${esc(person.id)}">Open details</button></td>
-    </tr>`).join('');
+  function todayRecord(person) {
+    const today = todayDateKey();
+    const day = (Array.isArray(attendanceLog) ? attendanceLog : []).find(
+      (entry) => entry.date === today,
+    );
+    const combined = typeof combinedAttendanceRecordV21 === "function"
+      ? combinedAttendanceRecordV21(today, day)
+      : day;
+    return combined?.records?.find((record) => record.id === person.id) || {};
   }
 
-  function openProfile(personId, configuration) {
-    if (configuration.role === 'Temporary Worker' && typeof tempEditor === 'function') tempEditor(personId);
-    else if (typeof editor === 'function') editor(personId);
+  function salarySummary(person, monthPrefix) {
+    const monthlyRecords = recordsFor(person, monthPrefix);
+    const presentRecords = monthlyRecords.filter(
+      (record) => record.status === "Present",
+    );
+    const workedMinutes = presentRecords.reduce(
+      (total, record) => total + durationMinutes(record.work),
+      0,
+    );
+    const overtimeMinutes = presentRecords.reduce(
+      (total, record) => total + durationMinutes(record.overtime),
+      0,
+    );
+    const monthlySalary = Number(person.monthly_salary || 0);
+    const dailyRate = Number(person.daily_rate || 0);
+    const hourlyRate = monthlySalary > 0
+      ? monthlySalary / (26 * 8)
+      : dailyRate > 0 ? dailyRate / 8 : 0;
+    const estimatedSalary = hourlyRate * ((workedMinutes + overtimeMinutes) / 60);
+
+    return {
+      estimatedSalary,
+      monthlySalary,
+      overtimeMinutes,
+      presentDays: presentRecords.length,
+    };
   }
 
-  function addProfile(configuration) {
-    if (configuration.role === 'Temporary Worker' && typeof tempEditor === 'function') tempEditor('');
-    else if (typeof add === 'function') add(configuration.role);
+  function faceStatus(captured) {
+    return captured
+      ? '<span class="face-status captured">Yes</span>'
+      : '<span class="face-status missing">No</span>';
+  }
+
+  function clockMinutes(value) {
+    if (!value) return null;
+    const raw = String(value).trim();
+    const parsedDate = new Date(raw);
+    if (/\d{4}-\d{2}-\d{2}T/.test(raw) && !Number.isNaN(parsedDate.getTime())) {
+      return parsedDate.getHours() * 60 + parsedDate.getMinutes();
+    }
+    const match = raw.match(/(\d{1,2}):(\d{2})(?:\s*([AP]M))?/i);
+    if (!match) return null;
+    let hour = Number(match[1]);
+    const minute = Number(match[2]);
+    const period = String(match[3] || '').toUpperCase();
+    if (period === 'PM' && hour < 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
+    return hour * 60 + minute;
+  }
+
+  function shiftBoundaryMinutes(shift, boundary) {
+    const parts = String(shift || '09:00 AM - 06:00 PM').split(/\s+-\s+/);
+    return clockMinutes(parts[boundary === 'end' ? 1 : 0]);
+  }
+
+  function graceMinutes(person) {
+    return Number(String(person.grace_period || person.grace || '15').match(/\d+/)?.[0] || 15);
+  }
+
+  function varianceDisplay(person, actualValue, kind) {
+    const actual = clockMinutes(actualValue);
+    if (actual === null) return '—';
+    const boundary = shiftBoundaryMinutes(person.shift, kind === 'early' ? 'end' : 'start');
+    if (boundary === null) return '—';
+    const difference = kind === 'late'
+      ? Math.max(0, actual - boundary - graceMinutes(person))
+      : Math.max(0, boundary - actual);
+    const label = difference
+      ? `${Math.floor(difference / 60) ? `${Math.floor(difference / 60)}h ` : ''}${difference % 60}m ${kind}`
+      : kind === 'late' ? 'On time' : 'Full shift';
+    return `${text(actualValue)} · ${label}`;
+  }
+
+  function workforceRows(records) {
+    const monthPrefix = currentMonthPrefix();
+
+    return records.map((person) => {
+      const today = todayRecord(person);
+      const salary = salarySummary(person, monthPrefix);
+      const totalTime = text(today.work);
+      const overtime = text(today.overtime, "0h 0m");
+
+      return `
+        <tr>
+          <td><b>${todayDateKey()}</b><small>Today</small></td>
+          <td>
+            <b>${esc(person.name)}</b>
+            <small>${esc(person.id)}</small>
+          </td>
+          <td>${esc(text(person.phone))}</td>
+          <td>${esc(text(person.shift, "09:00 AM - 06:00 PM"))}</td>
+          <td>${esc(text(today.login || today.login_time))}</td>
+          <td>${esc(text(today.logout || today.logout_time))}</td>
+          <td><span class="attendance-variance ${varianceDisplay(person, today.login || today.login_time, 'late').includes(' late') ? 'warning' : 'ok'}">${esc(varianceDisplay(person, today.login || today.login_time, 'late'))}</span></td>
+          <td><span class="attendance-variance ${varianceDisplay(person, today.logout || today.logout_time, 'early').includes(' early') ? 'warning' : 'ok'}">${esc(varianceDisplay(person, today.logout || today.logout_time, 'early'))}</span></td>
+          <td>${esc(text(today.portal_login_at))}</td>
+          <td>${esc(text(today.portal_logout_at))}</td>
+          <td>${faceStatus(today.checkin_face_captured || today.checkin_photo)}</td>
+          <td>${faceStatus(today.checkout_face_captured || today.checkout_photo)}</td>
+          <td>${esc(totalTime)}</td>
+          <td>${esc(overtime)}</td>
+          <td>
+            <b>${money(salary.estimatedSalary)}</b>
+            <small>${salary.presentDays} present day(s)</small>
+          </td>
+          <td>${money(salary.monthlySalary)}</td>
+          <td><div class="workforce-row-actions"><button class="secondary workforce-shift-edit" data-workforce-id="${esc(person.id)}">Edit shift</button>${(today.login || today.login_time) && !(today.logout || today.logout_time) ? `<button class="secondary workforce-admin-checkout" data-workforce-checkout="${esc(person.id)}" data-work-date="${todayDateKey()}">Admin check-out</button>` : ''}</div>${today.admin_checkout_by ? `<small class="admin-checkout-audit"><b>Checked out by:</b> ${esc(today.admin_checkout_by)}${today.admin_checkout_note ? ` · ${esc(today.admin_checkout_note)}` : ''}</small>` : ''}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function openShiftEditor(person, configuration) {
+    const modalRoot = document.getElementById('modal-root');
+    modalRoot.innerHTML = `<div class="modal-backdrop"><form class="modal" id="workforce-shift-form"><div class="modal-head"><div><div class="eyebrow">EDIT SHIFT TIMINGS</div><h2>${esc(person.name)}</h2><p>Update the shift, then use Save dashboard to store it permanently.</p></div><button class="close" type="button" data-close>×</button></div><div class="form-grid"><label class="full">SHIFT TIMINGS<input name="shift" value="${esc(person.shift || '09:00 AM - 06:00 PM')}" required></label></div><div class="modal-actions"><button class="secondary" type="button" data-close>Cancel</button><button class="primary">Apply shift</button></div></form></div>`;
+    modalRoot.querySelectorAll('[data-close]').forEach(button => button.onclick = () => { modalRoot.innerHTML = ''; });
+    modalRoot.querySelector('#workforce-shift-form').onsubmit = event => {
+      event.preventDefault();
+      person.shift = new FormData(event.target).get('shift').trim();
+      modalRoot.innerHTML = '';
+      renderDashboard(configuration);
+    };
   }
 
   function renderDashboard(configuration) {
     const records = [...configuration.records()].sort(workforceIdOrder);
     const label = configuration.label;
-    root.innerHTML = `<div class="page-heading"><div><div class="eyebrow">${esc(label.toUpperCase())} DIRECTORY</div><h1>${esc(label)} dashboard.</h1><p>Manage ${esc(label.toLowerCase())} profiles and workforce details. Attendance records are available in Attendance Calendar and Attendance Control Centre.</p></div>${currentDateTimeCard()}</div>
-      <section class="panel workforce-directory-panel"><div class="panel-header"><div><h2>${esc(label)} profiles</h2><p>Personal, department and skill information only.</p></div><button class="primary" type="button" data-workforce-directory-add>+ Add ${esc(label)}</button></div>
-      <div class="table-wrap workforce-directory-table"><table><thead><tr><th>NAME</th><th>PHONE NO.</th><th>EMAIL</th><th>DEPARTMENT</th><th>DESIGNATION</th><th>SKILLS</th><th>ACTIONS</th></tr></thead><tbody>${directoryRows(records, configuration) || `<tr><td colspan="7" class="empty">No ${esc(label.toLowerCase())} profiles saved.</td></tr>`}</tbody></table></div></section>`;
 
-    root.querySelectorAll('[data-workforce-profile]').forEach(button => {
-      button.onclick = () => openProfile(button.dataset.workforceProfile, configuration);
+    if (configuration.attendance === false) {
+      root.innerHTML = `
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">${esc(configuration.eyebrow)}</div>
+            <h1>${esc(label)} details.</h1>
+            <p>The entrepreneur is the company owner or head. Attendance is not tracked for this role.</p>
+          </div>
+          <button class="primary" id="add-person">+ Add ${esc(label)}</button>
+        </div>
+        <div class="table-wrap automatic-workforce-table">
+          <table>
+            <thead><tr><th>NAME</th><th>ID</th><th>PHONE NO.</th><th>EMAIL</th><th>DEPARTMENT</th><th>SKILLS</th><th>ACTIONS</th></tr></thead>
+            <tbody>${records.map(person => `<tr>
+              <td><b>${esc(person.name)}</b></td>
+              <td>${esc(text(person.id))}</td>
+              <td>${esc(text(person.phone))}</td>
+              <td>${esc(text(person.email))}</td>
+              <td>${esc(text(person.dept))}</td>
+              <td>${esc(Array.isArray(person.skills) ? person.skills.join(', ') : text(person.skills))}</td>
+              <td><button class="secondary entrepreneur-details-edit" data-entrepreneur-id="${esc(person.id)}">Open details</button></td>
+            </tr>`).join('') || '<tr><td colspan="7" class="empty">No entrepreneur details saved.</td></tr>'}</tbody>
+          </table>
+        </div>`;
+      root.querySelectorAll('.entrepreneur-details-edit').forEach(button => {
+        button.onclick = () => editor(button.dataset.entrepreneurId);
+      });
+      return;
+    }
+
+    root.innerHTML = `
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow">${esc(configuration.eyebrow)}</div>
+          <h1>${esc(label)} dashboard.</h1>
+          <p>
+            Attendance and salary are calculated automatically from records
+            saved in Attendance Calendar. There are no manual attendance controls here.
+          </p>
+        </div>
+        ${currentDateTimeCard()}
+      </div>
+
+      <section class="panel automatic-workforce-note">
+        <b>Automatic attendance view</b>
+        <span>To enter or correct attendance, open Attendance Calendar.</span>
+        <button class="text-button" data-view="attendance">Open Attendance Calendar →</button>
+      </section>
+
+      <div class="table-wrap automatic-workforce-table">
+        <table>
+          <thead>
+            <tr>
+              <th>DATE</th>
+              <th>NAME</th>
+              <th>PHONE NO.</th>
+              <th>SHIFT TIMINGS</th>
+              <th>CHECK-IN TIME</th>
+              <th>CHECK-OUT TIME</th>
+              <th>LATE JOIN</th>
+              <th>EARLY LEFT</th>
+              <th>PORTAL LOGIN</th>
+              <th>PORTAL LOGOUT</th>
+              <th>CHECK-IN FACE</th>
+              <th>CHECK-OUT FACE</th>
+              <th>TOTAL TIME</th>
+              <th>OVERTIME</th>
+              <th>TOTAL SALARY</th>
+              <th>MONTHLY SALARY</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${workforceRows(records) || `
+              <tr>
+                <td colspan="17" class="empty">No ${esc(label.toLowerCase())} records.</td>
+              </tr>
+            `}
+          </tbody>
+        </table>
+      </div>
+      <div class="workforce-dashboard-actions"><button class="primary" id="save-workforce-dashboard">Save dashboard</button><span id="workforce-save-message"></span></div>
+    `;
+
+    root.querySelectorAll('.workforce-shift-edit').forEach(button => {
+      button.onclick = () => {
+        const person = records.find(item => item.id === button.dataset.workforceId);
+        if (!person) return;
+        openShiftEditor(person, configuration);
+      };
     });
-    root.querySelector('[data-workforce-directory-add]')?.addEventListener('click', () => addProfile(configuration));
+    root.querySelectorAll('.workforce-admin-checkout').forEach(button => {
+      button.onclick = async () => {
+        const note = window.prompt('Add an administrator check-out note:', 'Employee forgot to check out.');
+        if (note === null) return;
+        button.disabled = true;
+        button.textContent = 'Checking out…';
+        try {
+          await adminAttendanceRequestV33(`/api/admin/employee-attendance/${encodeURIComponent(button.dataset.workforceCheckout)}/checkout`, {
+            method: 'POST',
+            body: JSON.stringify({ work_date: button.dataset.workDate, note }),
+          });
+          automaticAttendanceLoadedV21.delete(button.dataset.workDate);
+          await syncAutomaticAttendanceV21(button.dataset.workDate, true);
+          renderDashboard(configuration);
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = 'Admin check-out';
+          alert(error.message);
+        }
+      };
+    });
+    root.querySelector('#save-workforce-dashboard').onclick = () => {
+      const today = todayDateKey();
+      const automatic = typeof automaticAttendanceDraftsV21 !== 'undefined'
+        ? (automaticAttendanceDraftsV21.get(today) || [])
+        : [];
+      if (automatic.length) {
+        const shifted = automatic.map(record => {
+          const person = records.find(item => item.id === record.id);
+          return { ...record, shift: person?.shift || record.shift || '09:00 AM - 06:00 PM' };
+        });
+        const index = attendanceLog.findIndex(day => day.date === today);
+        if (index < 0) attendanceLog.push({ date: today, records: shifted });
+        else {
+          const retained = attendanceLog[index].records.filter(record => !shifted.some(item => item.id === record.id));
+          attendanceLog[index] = { date: today, records: [...retained, ...shifted] };
+        }
+      }
+      save();
+      root.querySelector('#workforce-save-message').textContent = 'Saved permanently.';
+    };
+
+    if (typeof syncAutomaticAttendanceV21 === 'function') {
+      syncAutomaticAttendanceV21(todayDateKey());
+    }
   }
 
   window.MSMEWorkforceDashboards = {
     register(role, configuration) {
-      roleConfigurations[role] = { ...configuration, role };
+      roleConfigurations[role] = configuration;
     },
     render(role) {
       const configuration = roleConfigurations[role];
@@ -77,11 +349,11 @@
     },
   };
 
-  window.roleDashboard = function workforceDirectoryDashboard(roleName) {
+  window.roleDashboard = function automaticRoleDashboard(roleName) {
     window.MSMEWorkforceDashboards.render(roleName);
   };
 
-  window.temporaryDashboard = function temporaryWorkforceDirectoryDashboard() {
+  window.temporaryDashboard = function automaticTemporaryDashboard() {
     window.MSMEWorkforceDashboards.render("Temporary Worker");
   };
 })();

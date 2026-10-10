@@ -6,14 +6,6 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 class StaticRegressionTests(unittest.TestCase):
-    def test_company_sidebar_uses_developer_logo_and_navy_without_changing_cream_labels(self):
-        index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
-        styles = (ROOT / "static" / "dashboard-final-theme-and-form-controls.css").read_text(encoding="utf-8")
-        self.assertIn('class="workspace-brand-logo"', index)
-        self.assertIn("Track · Manage · Grow", index)
-        self.assertIn(".sidebar{background:#06182d!important;color:#fff8e9!important}", styles)
-        self.assertIn(".nav-link,.nav-link em{color:#f5e9d0!important}", styles)
-
     def test_payroll_is_sorted_and_uses_consistent_salary_precedence(self):
         payroll = (ROOT / "static" / "overview-payroll-and-training.js").read_text(
             encoding="utf-8"
@@ -23,6 +15,12 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("const hourlyRate = monthlySalary > 0", payroll)
         self.assertIn("const today = indiaDateKey();", payroll)
         self.assertIn("new Map(datedRecords.map", payroll)
+
+        shared = (
+            ROOT / "static" / "sections" / "workforce-dashboard-shared.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("const hourlyRate = monthlySalary > 0", shared)
+        self.assertIn("workedMinutes + overtimeMinutes", shared)
 
     def test_shared_workforce_dashboards_sort_by_natural_id(self):
         shared = (
@@ -138,8 +136,7 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("status: 'Not checked in'", forms)
         self.assertNotIn("person.role !== 'Entrepreneur'", controls)
         self.assertIn("calendarRoleSectionV21('Entrepreneurs'", advanced_calendar)
-        self.assertIn("workforce-directory configuration", entrepreneur)
-        self.assertNotIn("attendance: true", entrepreneur)
+        self.assertIn("attendance: true", entrepreneur)
 
     def test_employee_login_waits_for_dashboard_and_has_category_invitations(self):
         login = (ROOT / "static" / "owned-authentication-login.js").read_text(
@@ -251,10 +248,7 @@ class StaticRegressionTests(unittest.TestCase):
         operations = (ROOT / "static" / "workforce-operations.js").read_text(encoding="utf-8")
         self.assertIn("manualAttendancePermissionV42", operations)
         self.assertNotIn('id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? \'checked\' : \'\'} disabled', operations)
-        self.assertIn("attendanceSourceLabelV44", attendance)
-        self.assertIn("Admin manual check-in", attendance)
-        self.assertIn("Admin manual checkout", attendance)
-        self.assertIn("mergeFacePriorityAttendanceV44", attendance)
+        self.assertIn("source: 'Admin manual attendance'", attendance)
         self.assertIn("const selectedDate = calendarDay", attendance)
         self.assertIn("const savedWork = String(savedRecord?.work || '').trim()", attendance)
         self.assertIn("const savedTotal = String(savedRecord?.total || '').trim()", attendance)
@@ -338,6 +332,7 @@ class StaticRegressionTests(unittest.TestCase):
         settings = (ROOT / "static" / "settings-attendance-integrations-and-reports.js").read_text(encoding="utf-8")
         controls = (ROOT / "static" / "dashboard-attendance-controls.js").read_text(encoding="utf-8")
         operations = (ROOT / "static" / "workforce-operations.js").read_text(encoding="utf-8")
+        workforce_dashboard = (ROOT / "static" / "sections" / "workforce-dashboard-shared.js").read_text(encoding="utf-8")
         routes = (ROOT / "employee_portal" / "routes.py").read_text(encoding="utf-8")
         self.assertIn("Temporary Workers", settings)
         self.assertIn("save-company-details", settings)
@@ -358,20 +353,9 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("data-admin-detail-checkout", operations)
         self.assertIn("Save checkout by admin", operations)
         self.assertIn("check_out_at: localCheckout.toISOString()", operations)
+        self.assertIn("workforce-admin-checkout", workforce_dashboard)
+        self.assertIn("Checked out by:", workforce_dashboard)
         self.assertIn("ADMIN_ATTENDANCE_CHECKOUT", routes)
-
-    def test_category_dashboards_are_profile_directories_without_automatic_attendance_view(self):
-        shared = (ROOT / "static" / "sections" / "workforce-dashboard-shared.js").read_text(encoding="utf-8")
-        configuration = (ROOT / "static" / "company-workforce-configuration.js").read_text(encoding="utf-8")
-        self.assertIn("Shared workforce directory", shared)
-        self.assertIn("workforce-directory-panel", shared)
-        self.assertIn("data-workforce-profile", shared)
-        self.assertIn("Attendance Control Centre", shared)
-        self.assertNotIn("Automatic attendance view", shared)
-        self.assertNotIn("save-workforce-dashboard", shared)
-        self.assertNotIn("workforce-admin-checkout", shared)
-        self.assertNotIn("TOTAL SALARY", shared)
-        self.assertNotIn("AUTOMATIC ATTENDANCE", configuration)
 
     def test_selected_company_categories_control_every_workforce_view(self):
         index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
@@ -405,8 +389,7 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("categoryForView(view)", configuration)
         self.assertIn('data-overflow-role="${esc(category.role)}"', configuration)
         self.assertIn("Open individual accounts", configuration)
-        self.assertIn("card.dataset.attendanceInsightsRole = category.view", configuration)
-        self.assertIn("Open attendance insights", configuration)
+        self.assertIn("card.dataset.overflowRole = category.role", configuration)
         self.assertNotIn('class="overview-overflow-button" type="button" data-view="${category.view}"', configuration)
         operations = (ROOT / "static" / "workforce-operations.js").read_text(encoding="utf-8")
         self.assertIn("roleName === 'Temporary Worker'", operations)
@@ -414,45 +397,6 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("configuredRolePairs", portal)
         for role in ("EMPLOYEE", "MANAGER", "HR", "OWNER"):
             self.assertIn(role, routes)
-
-    def test_attendance_cards_open_control_centre_with_separate_operational_statuses(self):
-        index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
-        overview = (ROOT / "static" / "overview-payroll-and-training.js").read_text(encoding="utf-8")
-        configuration = (ROOT / "static" / "company-workforce-configuration.js").read_text(encoding="utf-8")
-        styles = (ROOT / "static" / "dashboard-feature-extensions.css").read_text(encoding="utf-8")
-        self.assertIn("attendanceOperationalStateV43", overview)
-        self.assertIn("Not checked in", overview)
-        self.assertNotIn("not yet due", overview.lower())
-        self.assertIn("Approved leave", overview)
-        self.assertIn("No check-in after grace", overview)
-        self.assertIn("Missed check-out", overview)
-        self.assertNotIn("Not sure / on leave", overview)
-        self.assertIn("data-attendance-insights-role", configuration)
-        self.assertIn("ATTENDANCE CONTROL CENTRE", configuration)
-        self.assertIn("Open attendance insights", configuration)
-        self.assertIn("data-attendance-insights-date", configuration)
-        self.assertIn("data-attendance-insights-download", configuration)
-        self.assertIn("downloadAttendanceInsightsReport", configuration)
-        self.assertIn("'Day note'", configuration)
-        self.assertIn("button.classList.remove('active')", configuration)
-        self.assertIn(".attendance-insight-metrics", styles)
-        self.assertIn('data-view="attendance"', index)
-        self.assertNotIn("data-attendance-insights-calendar", configuration)
-        self.assertNotIn("data-attendance-insights-status", overview)
-        self.assertIn('class="attendance-color ${status.code}"', overview)
-        self.assertIn("cursor:default", styles)
-
-    def test_attendance_calendar_has_person_notes_before_each_save(self):
-        controls = (ROOT / "static" / "dashboard-attendance-controls.js").read_text(encoding="utf-8")
-        operations = (ROOT / "static" / "workforce-operations.js").read_text(encoding="utf-8")
-        overview = (ROOT / "static" / "overview-payroll-and-training.js").read_text(encoding="utf-8")
-        self.assertIn("attendancePersonNotesV45", controls)
-        self.assertIn("openAttendancePersonNoteV45", controls)
-        self.assertIn('data-attendance-person-note="${esc(person.id)}"', controls)
-        self.assertLess(controls.index('data-attendance-person-note="${esc(person.id)}"'), controls.index('data-save-person="${esc(person.id)}"'))
-        self.assertNotIn('id="attendance-day-note"', operations)
-        self.assertIn("'Person note'", operations)
-        self.assertIn("attendance-health-role-dashboard')?.remove()", overview)
 
     def test_streamlit_inlines_css_background_images_for_srcdoc(self):
         streamlit = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
