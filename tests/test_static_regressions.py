@@ -24,12 +24,6 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("const today = indiaDateKey();", payroll)
         self.assertIn("new Map(datedRecords.map", payroll)
 
-        shared = (
-            ROOT / "static" / "sections" / "workforce-dashboard-shared.js"
-        ).read_text(encoding="utf-8")
-        self.assertIn("const hourlyRate = monthlySalary > 0", shared)
-        self.assertIn("workedMinutes + overtimeMinutes", shared)
-
     def test_shared_workforce_dashboards_sort_by_natural_id(self):
         shared = (
             ROOT / "static" / "sections" / "workforce-dashboard-shared.js"
@@ -144,7 +138,8 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("status: 'Not checked in'", forms)
         self.assertNotIn("person.role !== 'Entrepreneur'", controls)
         self.assertIn("calendarRoleSectionV21('Entrepreneurs'", advanced_calendar)
-        self.assertIn("attendance: true", entrepreneur)
+        self.assertIn("workforce-directory configuration", entrepreneur)
+        self.assertNotIn("attendance: true", entrepreneur)
 
     def test_employee_login_waits_for_dashboard_and_has_category_invitations(self):
         login = (ROOT / "static" / "owned-authentication-login.js").read_text(
@@ -340,7 +335,6 @@ class StaticRegressionTests(unittest.TestCase):
         settings = (ROOT / "static" / "settings-attendance-integrations-and-reports.js").read_text(encoding="utf-8")
         controls = (ROOT / "static" / "dashboard-attendance-controls.js").read_text(encoding="utf-8")
         operations = (ROOT / "static" / "workforce-operations.js").read_text(encoding="utf-8")
-        workforce_dashboard = (ROOT / "static" / "sections" / "workforce-dashboard-shared.js").read_text(encoding="utf-8")
         routes = (ROOT / "employee_portal" / "routes.py").read_text(encoding="utf-8")
         self.assertIn("Temporary Workers", settings)
         self.assertIn("save-company-details", settings)
@@ -361,9 +355,20 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("data-admin-detail-checkout", operations)
         self.assertIn("Save checkout by admin", operations)
         self.assertIn("check_out_at: localCheckout.toISOString()", operations)
-        self.assertIn("workforce-admin-checkout", workforce_dashboard)
-        self.assertIn("Checked out by:", workforce_dashboard)
         self.assertIn("ADMIN_ATTENDANCE_CHECKOUT", routes)
+
+    def test_category_dashboards_are_profile_directories_without_automatic_attendance_view(self):
+        shared = (ROOT / "static" / "sections" / "workforce-dashboard-shared.js").read_text(encoding="utf-8")
+        configuration = (ROOT / "static" / "company-workforce-configuration.js").read_text(encoding="utf-8")
+        self.assertIn("Shared workforce directory", shared)
+        self.assertIn("workforce-directory-panel", shared)
+        self.assertIn("data-workforce-profile", shared)
+        self.assertIn("Attendance Control Centre", shared)
+        self.assertNotIn("Automatic attendance view", shared)
+        self.assertNotIn("save-workforce-dashboard", shared)
+        self.assertNotIn("workforce-admin-checkout", shared)
+        self.assertNotIn("TOTAL SALARY", shared)
+        self.assertNotIn("AUTOMATIC ATTENDANCE", configuration)
 
     def test_selected_company_categories_control_every_workforce_view(self):
         index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")

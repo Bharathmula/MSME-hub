@@ -1,6 +1,5 @@
-/* Staff dashboard configuration. Edit Staff-specific labels here. */
+/* Staff workforce-directory configuration. */
 MSMEWorkforceDashboards.register("Staff", {
   label: "Staff",
-  eyebrow: "STAFF AUTOMATIC ATTENDANCE",
   records: () => people.filter((person) => person.role === "Staff"),
 });

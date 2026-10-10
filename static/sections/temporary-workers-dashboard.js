@@ -1,6 +1,5 @@
-/* Temporary Workers dashboard configuration. */
+/* Temporary Workers workforce-directory configuration. */
 MSMEWorkforceDashboards.register("Temporary Worker", {
   label: "Temporary Worker",
-  eyebrow: "TEMPORARY WORKER AUTOMATIC ATTENDANCE",
   records: () => temporaryWorkers,
 });

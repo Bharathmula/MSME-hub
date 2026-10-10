@@ -187,7 +187,6 @@
   ['Employee', 'Manager', 'HR', 'Owner'].forEach(roleName => {
     window.MSMEWorkforceDashboards?.register(roleName, {
       label: roleName,
-      eyebrow: `${roleName.toUpperCase()} AUTOMATIC ATTENDANCE`,
       records: () => people.filter(person => person.role === roleName),
     });
   });
