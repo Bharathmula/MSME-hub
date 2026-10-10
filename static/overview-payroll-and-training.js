@@ -670,6 +670,10 @@ function manualAttendanceRecord(person) {
   };
   record.checkin_face_captured = Boolean(person.checkin_face_captured);
   record.checkout_face_captured = Boolean(person.checkout_face_captured);
+  const savedRecord = attendanceLog.find(day => day.date === calendarDay)?.records?.find(item => item.id === person.id) || null;
+  record.attendance_note = typeof attendancePersonNoteV45 === 'function'
+    ? attendancePersonNoteV45(calendarDay, person.id, savedRecord)
+    : String(savedRecord?.attendance_note || '');
   record.source = typeof attendanceSourceLabelV44 === 'function'
     ? attendanceSourceLabelV44(record)
     : (record.login && record.logout ? 'Admin manual check-in + Admin manual checkout' : record.login ? 'Admin manual check-in' : record.logout ? 'Admin manual checkout' : 'Admin manual status');
@@ -701,6 +705,13 @@ window.saveSelectedDay = function saveOnlyManuallyEnteredAttendance() {
   }
   const index = attendanceLog.findIndex(day => day.date === calendarDay);
   const existing = index < 0 ? null : attendanceLog[index];
+  records.forEach(record => {
+    const savedRecord = existing?.records?.find(item => item.id === record.id) || null;
+    const key = typeof attendancePersonNoteKeyV45 === 'function' ? attendancePersonNoteKeyV45(calendarDay, record.id) : '';
+    if (typeof attendancePersonNoteV45 === 'function') record.attendance_note = attendancePersonNoteV45(calendarDay, record.id, savedRecord);
+    else if (savedRecord?.attendance_note) record.attendance_note = savedRecord.attendance_note;
+    if (key && Object.prototype.hasOwnProperty.call(window.attendancePersonNotesV45 || {}, key)) delete window.attendancePersonNotesV45[key];
+  });
   const pendingNotes = window.attendanceDayNotesV44 || {};
   const hasPendingNote = Object.prototype.hasOwnProperty.call(pendingNotes, calendarDay);
   const note = hasPendingNote ? pendingNotes[calendarDay] : (existing?.note || '');
@@ -1326,12 +1337,8 @@ function enhanceOverviewDashboard() {
   const staffRecords = activePeople.filter(person => person.role === 'Staff');
   const entrepreneurRecords = activePeople.filter(person => person.role === 'Entrepreneur');
   const riskRecords = [...activePeople, ...temporary.filter(person => !activePeople.some(item => item.id === person.id))];
-  if (health && !health.querySelector('.attendance-health-role-dashboard')) {
-    health.querySelector('.panel-header')?.insertAdjacentHTML('afterend', `
-      <div class="attendance-health-role-heading"><div><span>TODAY</span><b>Total attendance by workforce</b></div></div>
-      <div class="role-attendance-dashboard attendance-health-role-dashboard">${attendanceSector('Worker', 'workers', 'worker-attendance')}${attendanceSector('Staff', 'staff', 'staff-attendance')}${attendanceSector('Entrepreneur', 'entrepreneurs', 'entrepreneur-attendance')}</div>
-    `);
-  }
+  health?.querySelector('.attendance-health-role-heading')?.remove();
+  health?.querySelector('.attendance-health-role-dashboard')?.remove();
   if (document.getElementById('operations-overview')) return;
   const section = `<section class="operations-overview" id="operations-overview">
     <div class="operations-overview-heading"><div><span>OVERVIEW</span><h2>Attendance status and deadline overflow</h2></div><div class="attendance-overview-legend"><span class="present"><i></i>Present</span><span class="not_due"><i></i>Not checked in</span><span class="approved_leave"><i></i>Approved leave</span><span class="no_checkin"><i></i>No check-in</span><span class="missed_checkout"><i></i>Missed check-out</span><span class="absent"><i></i>Absent</span></div></div>

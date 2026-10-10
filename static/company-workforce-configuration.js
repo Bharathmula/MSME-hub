@@ -111,7 +111,7 @@
       return `"${safe.replaceAll('"', '""')}"`;
     };
     const dayNote = attendanceLog.find(item => item.date === attendanceInsightsState.date)?.note || '';
-    const report = [['Date', 'Name', 'ID', 'Category', 'Status', 'Shift', 'Check-in', 'Check-out', 'Source', 'Day note']];
+    const report = [['Date', 'Name', 'ID', 'Category', 'Status', 'Shift', 'Check-in', 'Check-out', 'Source', 'Person note', 'Day note']];
     rows.forEach(({ category, person, state }) => report.push([
       attendanceInsightsState.date,
       person.name,
@@ -122,6 +122,7 @@
       state.login ? (typeof show12 === 'function' ? show12(state.login) : state.login) : '',
       state.logout ? (typeof show12 === 'function' ? show12(state.logout) : state.logout) : '',
       state.source,
+      state.record?.attendance_note || '',
       dayNote,
     ]));
     const csv = report.map(row => row.map(csvCell).join(',')).join('\n');

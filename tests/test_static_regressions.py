@@ -442,15 +442,17 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn('class="attendance-color ${status.code}"', overview)
         self.assertIn("cursor:default", styles)
 
-    def test_attendance_calendar_has_persisted_day_notes(self):
+    def test_attendance_calendar_has_person_notes_before_each_save(self):
         controls = (ROOT / "static" / "dashboard-attendance-controls.js").read_text(encoding="utf-8")
         operations = (ROOT / "static" / "workforce-operations.js").read_text(encoding="utf-8")
-        self.assertIn("attendanceDayNotesV44", controls)
-        self.assertIn("const savedDay = { date, records, note }", controls)
-        self.assertIn('id="attendance-day-note"', operations)
-        self.assertIn("openAttendanceDayNoteV44", operations)
-        self.assertIn("'Day note'", operations)
-        self.assertLess(operations.index('id="attendance-day-note"'), operations.index('id="save-day-attendance"', operations.index('id="attendance-day-note"')))
+        overview = (ROOT / "static" / "overview-payroll-and-training.js").read_text(encoding="utf-8")
+        self.assertIn("attendancePersonNotesV45", controls)
+        self.assertIn("openAttendancePersonNoteV45", controls)
+        self.assertIn('data-attendance-person-note="${esc(person.id)}"', controls)
+        self.assertLess(controls.index('data-attendance-person-note="${esc(person.id)}"'), controls.index('data-save-person="${esc(person.id)}"'))
+        self.assertNotIn('id="attendance-day-note"', operations)
+        self.assertIn("'Person note'", operations)
+        self.assertIn("attendance-health-role-dashboard')?.remove()", overview)
 
     def test_streamlit_inlines_css_background_images_for_srcdoc(self):
         streamlit = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
