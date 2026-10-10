@@ -6,6 +6,14 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 class StaticRegressionTests(unittest.TestCase):
+    def test_company_sidebar_uses_developer_logo_and_navy_without_changing_cream_labels(self):
+        index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        styles = (ROOT / "static" / "dashboard-final-theme-and-form-controls.css").read_text(encoding="utf-8")
+        self.assertIn('class="workspace-brand-logo"', index)
+        self.assertIn("Track · Manage · Grow", index)
+        self.assertIn(".sidebar{background:#06182d!important;color:#fff8e9!important}", styles)
+        self.assertIn(".nav-link,.nav-link em{color:#f5e9d0!important}", styles)
+
     def test_payroll_is_sorted_and_uses_consistent_salary_precedence(self):
         payroll = (ROOT / "static" / "overview-payroll-and-training.js").read_text(
             encoding="utf-8"

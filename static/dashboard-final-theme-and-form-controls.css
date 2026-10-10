@@ -146,10 +146,20 @@
 .calendar-action-button,.calendar-action-button.strong{border-color:#d5b97f!important;background:#f1dfb9!important;color:#14273a!important}
 .calendar-action-button:hover{background:#dcc28c!important}
 
-/* Final navigation treatment: navy workspace with cream labels. */
-.sidebar{background:#102a43!important;color:#fff8e9!important}
+/* Final navigation treatment: developer-dashboard navy with existing cream labels. */
+.sidebar{background:#06182d!important;color:#fff8e9!important}
 .brand,.brand b{color:#f1dfb9!important}
 .brand-mark{border-color:#f1dfb9!important;background:#f1dfb9!important;color:#102a43!important}
+.workspace-brand{align-items:center;gap:12px;margin-bottom:36px;text-transform:none!important;letter-spacing:0!important}
+.workspace-brand-logo{width:56px;height:40px;flex:0 0 56px;overflow:visible}
+.workspace-brand-logo path{fill:none;stroke-width:19;stroke-linecap:round;stroke-linejoin:round}
+.workspace-brand-logo path:nth-of-type(1){stroke:#ef42dc}
+.workspace-brand-logo path:nth-of-type(2){stroke:#5938ea}
+.workspace-brand-logo path:nth-of-type(3){stroke:#11c5ea}
+.workspace-brand-logo path:nth-of-type(4){stroke:#4050ff}
+.workspace-brand-copy{display:grid;gap:2px;min-width:0}
+.workspace-brand-copy strong{color:#fff8e9;font-size:19px;line-height:1;font-weight:800;letter-spacing:.02em}
+.workspace-brand-copy small{color:#9fc2de;font-size:11px;line-height:1.25;white-space:nowrap}
 .workspace-label{color:#cdbb98!important}
 .nav-link,.nav-link em{color:#f5e9d0!important}
 .nav-link.active,.nav-link:hover{background:#1d466b!important;color:#fff!important}
