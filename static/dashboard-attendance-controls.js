@@ -520,7 +520,9 @@ function indiaAttendanceDateV37(date = new Date()) {
 }
 
 function automaticRoleV21(role) {
-  return role === 'TEMPORARY' ? 'Temporary Worker' : role.charAt(0) + role.slice(1).toLowerCase();
+  if (role === 'TEMPORARY') return 'Temporary Worker';
+  if (role === 'HR') return 'HR';
+  return role.charAt(0) + role.slice(1).toLowerCase();
 }
 
 function automaticTimeV21(value) {

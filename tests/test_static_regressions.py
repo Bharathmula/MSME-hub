@@ -324,6 +324,28 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("COMPANY ADDRESS", modern)
         self.assertNotIn("HOW DID YOU HEAR ABOUT US?", modern)
 
+    def test_selected_company_categories_control_every_workforce_view(self):
+        index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        configuration = (ROOT / "static" / "company-workforce-configuration.js").read_text(
+            encoding="utf-8"
+        )
+        portal = (ROOT / "static" / "employee-portal" / "employee-portal.js").read_text(
+            encoding="utf-8"
+        )
+        routes = (ROOT / "employee_portal" / "routes.py").read_text(encoding="utf-8")
+        self.assertIn('data-view="employees"', index)
+        self.assertIn('data-view="managers"', index)
+        self.assertIn('data-view="hr"', index)
+        self.assertIn('data-view="owners"', index)
+        self.assertIn('company-workforce-configuration.js', index)
+        self.assertIn("admin.workforce_types", configuration)
+        self.assertIn("applyOverviewCategories", configuration)
+        self.assertIn("applyAttendanceCategories", configuration)
+        self.assertIn("categoryForView(view)", configuration)
+        self.assertIn("configuredRolePairs", portal)
+        for role in ("EMPLOYEE", "MANAGER", "HR", "OWNER"):
+            self.assertIn(role, routes)
+
     def test_streamlit_inlines_css_background_images_for_srcdoc(self):
         streamlit = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
         self.assertIn("def inline_local_asset", streamlit)

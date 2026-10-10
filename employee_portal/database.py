@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS employee_accounts (
     employee_id TEXT NOT NULL,
     name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
-    workforce_role TEXT NOT NULL CHECK (workforce_role IN ('WORKER','STAFF','TEMPORARY','ENTREPRENEUR')),
+    workforce_role TEXT NOT NULL CHECK (workforce_role IN ('EMPLOYEE','WORKER','STAFF','MANAGER','HR','OWNER','TEMPORARY','ENTREPRENEUR')),
     password_hash TEXT,
     pin_hash TEXT,
     status TEXT NOT NULL DEFAULT 'INVITED' CHECK (status IN ('INVITED','ACTIVE','SUSPENDED')),
@@ -537,7 +537,7 @@ def initialize() -> None:
             db.execute(
                 "ALTER TABLE employee_accounts ADD CONSTRAINT "
                 "employee_accounts_workforce_role_check CHECK "
-                "(workforce_role IN ('WORKER','STAFF','TEMPORARY','ENTREPRENEUR'))"
+                "(workforce_role IN ('EMPLOYEE','WORKER','STAFF','MANAGER','HR','OWNER','TEMPORARY','ENTREPRENEUR'))"
             )
             _strengthen_company_isolation(db)
             return
@@ -599,7 +599,8 @@ def initialize() -> None:
         account_schema = db.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='employee_accounts'"
         ).fetchone()
-        if account_schema and "ENTREPRENEUR" not in (account_schema["sql"] or ""):
+        required_roles = ("EMPLOYEE", "MANAGER", "HR", "OWNER", "ENTREPRENEUR")
+        if account_schema and not all(role in (account_schema["sql"] or "") for role in required_roles):
             # SQLite cannot alter a CHECK constraint in place. Rebuild only this
             # table, retaining every account and leaving attendance/session
             # tables pointed at the same final employee_accounts table name.
@@ -613,7 +614,7 @@ def initialize() -> None:
                     employee_id TEXT NOT NULL,
                     name TEXT NOT NULL,
                     email TEXT NOT NULL UNIQUE,
-                    workforce_role TEXT NOT NULL CHECK(workforce_role IN('WORKER','STAFF','TEMPORARY','ENTREPRENEUR')),
+                    workforce_role TEXT NOT NULL CHECK(workforce_role IN('EMPLOYEE','WORKER','STAFF','MANAGER','HR','OWNER','TEMPORARY','ENTREPRENEUR')),
                     password_hash TEXT,
                     pin_hash TEXT,
                     status TEXT NOT NULL DEFAULT 'INVITED' CHECK(status IN('INVITED','ACTIVE','SUSPENDED')),

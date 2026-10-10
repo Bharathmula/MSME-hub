@@ -223,11 +223,10 @@ def reconcile_employee_accounts(tenant: str, workspace: dict) -> bool:
             saved_profile = json.loads(row["profile_json"] or "{}")
         except (TypeError, json.JSONDecodeError):
             saved_profile = {}
-        role = (
-            "Temporary Worker"
-            if row["workforce_role"] == "TEMPORARY"
-            else str(row["workforce_role"]).title()
-        )
+        role = {
+            "TEMPORARY": "Temporary Worker",
+            "HR": "HR",
+        }.get(row["workforce_role"], str(row["workforce_role"]).title())
         target.append({
             "id": employee_id,
             "name": row["name"],

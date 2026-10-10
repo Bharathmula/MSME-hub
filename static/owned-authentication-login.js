@@ -178,7 +178,7 @@ function employeeForgotPassword(){
 function show(){
  screen.querySelector('.back-to-signin').hidden=tab==='signin';
  if(mode==='worker'){
-  if(tab==='signin')panel.innerHTML=`<form class="auth-form" id="owned-employee-signin"><h2>Workforce sign in</h2><p>Workers, Staff, Temporary Workers and Entrepreneurs use credentials issued by their administrator.</p><label>PHONE NUMBER / EMAIL<span class="input-icon-wrap">${mailIcon()}<input name="email" type="text" required autocomplete="username" placeholder="Enter registered email"></span></label><label>PASSWORD<span class="password-wrap input-icon-wrap">${lockIcon()}<input name="password" type="password" required autocomplete="current-password">${eye()}</span></label><button class="forgot" type="button" data-employee-forgot>Forgot password?</button><p data-message></p><button class="primary" type="submit">Sign in</button></form>`;
+  if(tab==='signin')panel.innerHTML=`<form class="auth-form" id="owned-employee-signin"><h2>Workforce sign in</h2><p>People from the workforce categories enabled by their company use credentials issued by the administrator.</p><label>PHONE NUMBER / EMAIL<span class="input-icon-wrap">${mailIcon()}<input name="email" type="text" required autocomplete="username" placeholder="Enter registered email"></span></label><label>PASSWORD<span class="password-wrap input-icon-wrap">${lockIcon()}<input name="password" type="password" required autocomplete="current-password">${eye()}</span></label><button class="forgot" type="button" data-employee-forgot>Forgot password?</button><p data-message></p><button class="primary" type="submit">Sign in</button></form>`;
   else {const query=employeeInviteParams();panel.innerHTML=`<form class="auth-form" id="owned-employee-activate"><h2>Create employee account</h2><p>Open the invitation link to fill this form automatically, or paste the copied invitation link/token manually below.</p><label>INVITATION LINK OR TOKEN<input name="invite_token" value="${esc(query.get('employee_invite')||'')}" required autocomplete="off" placeholder="Paste the complete invitation link or token"></label><label>EMAIL ADDRESS<input name="contact" type="email" value="${esc(query.get('employee_email')||'')}" required placeholder="Enter the email address on your invitation"></label><label>CREATE PASSWORD<span class="password-wrap"><input name="password" type="password" minlength="8" required>${eye()}</span></label><p data-message></p><button class="primary" type="submit">Create account</button></form>`;}
   bindEmployeeAccess();panel.querySelector('[data-employee-forgot]')?.addEventListener('click',employeeForgotPassword);return
  }
@@ -198,7 +198,7 @@ window.addEventListener('msme-employee-session-expired',event=>{sessionRestoreOv
 if(!restoredEmail&&sessionStorage.getItem('msme-employee-token'))setTimeout(()=>window.MSMEEmployeePortal?.open().then(()=>{sessionRestoreOverlay?.remove();sessionRestoreOverlay=null}).catch(()=>{}),0);
 
 /* Structured company onboarding with multi-role and multi-shift setup. */
-const workforceChoicesV41=['Workers','Employees','Staff','Manager','HR','Owner','Entrepreneur'];
+const workforceChoicesV41=['Workers','Employees','Staff','Manager','HR','Owner','Entrepreneur','Temporary Workers'];
 const shiftChoicesV41=[
  {id:'day',label:'Day shift',start:'09:00',end:'18:00'},
  {id:'night',label:'Night shift',start:'21:00',end:'06:00'},

@@ -393,6 +393,11 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
 .metrics.four-role-overview {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
+.metrics.configured-workforce-metrics,
+.attendance-overview-grid.configured-workforce-grid {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+.sidebar .nav-link[hidden] { display: none !important; }
 
 @media(max-width:1200px) {
   .metrics.four-role-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }

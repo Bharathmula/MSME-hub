@@ -254,6 +254,18 @@ class EmployeePortalTests(unittest.TestCase):
   record=next(item for item in admin_attendance.json['attendance'] if item['employee_id']=='EN-100')
   self.assertEqual(record['workforce_role'],'ENTREPRENEUR')
 
+ def test_company_selected_employee_manager_hr_and_owner_roles_are_supported(self):
+  tenant='configured-roles@example.com'
+  with app.app_context():configured_admin=token(tenant,'ADMIN',tenant)
+  workspace={'account':{'email':tenant,'company':'Configured Roles','workforce_types':['Employees','Manager','HR','Owner']},'storage':{'people':[],'temporary':[],'attendance':[]}}
+  self.assertEqual(self.c.put('/api/workspace',json=workspace,headers=self.headers(configured_admin)).status_code,200)
+  expected=[]
+  for index,role in enumerate(('EMPLOYEE','MANAGER','HR','OWNER'),1):
+   payload={'name':role.title(),'employee_id':f'{role}-{index}','email':f'{role.lower()}.{index}@configured.example.com','workforce_role':role,'password':'Configured123!','pin':f'12345{index}'}
+   created=self.c.post('/api/admin/employee-accounts',json=payload,headers=self.headers(configured_admin));self.assertEqual(created.status_code,201,created.text);expected.append(role)
+  accounts=self.c.get('/api/admin/employee-accounts',headers=self.headers(configured_admin));self.assertEqual(accounts.status_code,200,accounts.text)
+  self.assertEqual(sorted(item['workforce_role'] for item in accounts.json['employees']),sorted(expected))
+
  def test_employee_password_reset_captcha_is_required(self):
   captcha=self.c.get('/api/employee/password-reset-captcha');self.assertEqual(captcha.status_code,200,captcha.text);self.assertEqual(len(captcha.json['captcha_code']),6)
   rejected=self.c.post('/api/employee/reset-password',json={'email':'worker100@gmail.com','password':'Another123!','captcha_id':captcha.json['captcha_id'],'captcha_answer':'WRONG1'})
