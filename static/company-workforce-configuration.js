@@ -1,6 +1,7 @@
 /* Company-specific workforce modules selected during workspace creation. */
 (function () {
   const catalog = [
+    { choice: 'Temporary Workers', role: 'Temporary Worker', view: 'temporary', label: 'Temporary Workers', singular: 'Temporary Worker', icon: '◷', count: 'temporary-worker-count', prefix: 'TW', api: 'TEMPORARY', temporary: true },
     { choice: 'Employees', role: 'Employee', view: 'employees', label: 'Employees', singular: 'Employee', icon: '◎', count: 'employee-count', prefix: 'EMP', api: 'EMPLOYEE' },
     { choice: 'Workers', role: 'Worker', view: 'workers', label: 'Workers', singular: 'Worker', icon: '◉', count: 'worker-count', prefix: 'WR', api: 'WORKER' },
     { choice: 'Staff', role: 'Staff', view: 'staff', label: 'Staff', singular: 'Staff', icon: '◈', count: 'staff-count', prefix: 'ST', api: 'STAFF' },
@@ -8,7 +9,6 @@
     { choice: 'HR', role: 'HR', view: 'hr', label: 'HR', singular: 'HR', icon: '◇', count: 'hr-count', prefix: 'HR', api: 'HR' },
     { choice: 'Owner', role: 'Owner', view: 'owners', label: 'Owners', singular: 'Owner', icon: '♛', count: 'owner-count', prefix: 'OW', api: 'OWNER' },
     { choice: 'Entrepreneur', role: 'Entrepreneur', view: 'entrepreneurs', label: 'Entrepreneurs', singular: 'Entrepreneur', icon: '♔', count: 'entrepreneur-count', prefix: 'EN', api: 'ENTREPRENEUR' },
-    { choice: 'Temporary Workers', role: 'Temporary Worker', view: 'temporary', label: 'Temporary Workers', singular: 'Temporary Worker', icon: '◷', count: 'temporary-worker-count', prefix: 'TW', api: 'TEMPORARY', temporary: true },
   ];
   const legacyChoices = new Set(['Workers', 'Staff', 'Entrepreneur', 'Temporary Workers']);
 

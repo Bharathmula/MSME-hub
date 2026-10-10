@@ -658,8 +658,12 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
 .present i { background: #24a148; }.unsure i { background: #f2b701; }.absent i { background: #d93025; }
 .attendance-overview-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-top: 15px; }
 .attendance-overview-card,.overflow-overview-card { padding: 14px; border: 1px solid #dbe5ec; border-radius: 10px; background: #fff; }
+.attendance-overview-card.overview-role-employees { background: linear-gradient(135deg,#2457a7,#477fd0); }
 .attendance-overview-card.overview-role-workers { background: linear-gradient(135deg,#092a5d,#0b4f9a); }
 .attendance-overview-card.overview-role-staff { background: linear-gradient(135deg,#174f78,#267ca8); }
+.attendance-overview-card.overview-role-managers { background: linear-gradient(135deg,#8a4b12,#c87924); }
+.attendance-overview-card.overview-role-hr { background: linear-gradient(135deg,#9b2f58,#d15f88); }
+.attendance-overview-card.overview-role-owners { background: linear-gradient(135deg,#263a78,#586fc2); }
 .attendance-overview-card.overview-role-entrepreneurs { background: linear-gradient(135deg,#4b356e,#76559d); }
 .attendance-overview-card.overview-role-temporary { background: linear-gradient(135deg,#145a54,#23877d); }
 .attendance-overview-card[class*="overview-role-"] { border-color: transparent; box-shadow: 0 8px 20px rgba(9,42,93,.14); }
