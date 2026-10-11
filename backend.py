@@ -73,7 +73,68 @@ def save_auth_accounts(accounts: list[dict]) -> None:
 
 
 def public_account(account: dict) -> dict:
-    return {key: account.get(key) for key in ("name", "company", "phone", "email", "country", "email_updates", "provider", "shift_start", "shift_end")}
+    fields = (
+        "name",
+        "company",
+        "phone",
+        "email",
+        "country",
+        "email_updates",
+        "provider",
+        "staff_count",
+        "business_category",
+        "workforce_categories",
+        "shift_types",
+        "shifts",
+        "shift_start",
+        "shift_end",
+        "company_address",
+        "address",
+        "pincode",
+        "city",
+        "state",
+        "latitude",
+        "longitude",
+        "role",
+    )
+    return {key: account.get(key) for key in fields}
+
+
+def registration_list(value, *, allowed: set[str] | None = None) -> list[str]:
+    """Return a unique, bounded list from an untrusted registration payload."""
+    if not isinstance(value, list):
+        return []
+    result: list[str] = []
+    for item in value:
+        normalized = str(item or "").strip()[:80]
+        if not normalized or (allowed is not None and normalized not in allowed):
+            continue
+        if normalized not in result:
+            result.append(normalized)
+    return result
+
+
+def registration_shifts(value, selected_types: list[str]) -> list[dict[str, str]]:
+    """Validate company shift definitions without changing legacy shift fields."""
+    if not isinstance(value, list):
+        return []
+    shifts: list[dict[str, str]] = []
+    time_pattern = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        shift_type = str(item.get("type") or "").strip()
+        start = str(item.get("start") or "").strip()
+        end = str(item.get("end") or "").strip()
+        if (
+            shift_type not in selected_types
+            or not time_pattern.fullmatch(start)
+            or not time_pattern.fullmatch(end)
+            or any(shift["type"] == shift_type for shift in shifts)
+        ):
+            continue
+        shifts.append({"type": shift_type, "start": start, "end": end})
+    return shifts
 
 
 def otp_key(email: str, purpose: str) -> str:
@@ -345,14 +406,38 @@ def register_account():
     accounts = load_auth_accounts()
     if any(item.get("email") == email for item in accounts):
         return jsonify({"error": "An account with this email already exists."}), 409
+    workforce_categories = registration_list(
+        payload.get("workforce_categories"),
+        allowed={"Workers", "Employees", "Staff", "Manager", "HR", "Owner", "Entrepreneur"},
+    )
+    shift_types = registration_list(
+        payload.get("shift_types"),
+        allowed={"Day Shift", "Night Shift", "Rotational Shift"},
+    )
+    shifts = registration_shifts(payload.get("shifts"), shift_types)
+    legacy_shift_start = str(payload.get("shift_start") or "09:00").strip()
+    legacy_shift_end = str(payload.get("shift_end") or "18:00").strip()
+    if not shifts:
+        shift_types = shift_types or ["Day Shift"]
+        shifts = [{"type": shift_types[0], "start": legacy_shift_start, "end": legacy_shift_end}]
+    primary_shift = shifts[0]
     account = {
         "name": str(payload.get("name") or email.split("@")[0]).strip(),
         "company": str(payload.get("company") or "").strip(),
         "staff_count": str(payload.get("staff_count") or "").strip(),
         "business_category": str(payload.get("business_category") or "").strip(),
-        "shift_start": str(payload.get("shift_start") or "09:00").strip(),
-        "shift_end": str(payload.get("shift_end") or "18:00").strip(),
+        "workforce_categories": workforce_categories,
+        "shift_types": shift_types,
+        "shifts": shifts,
+        "shift_start": primary_shift["start"],
+        "shift_end": primary_shift["end"],
+        "company_address": str(payload.get("company_address") or "").strip(),
         "address": str(payload.get("address") or "").strip(),
+        "pincode": str(payload.get("pincode") or "").strip(),
+        "city": str(payload.get("city") or "").strip(),
+        "state": str(payload.get("state") or "").strip(),
+        "latitude": str(payload.get("latitude") or "").strip(),
+        "longitude": str(payload.get("longitude") or "").strip(),
         "role": str(payload.get("role") or "Owner").strip(),
         "email": email,
         "password_hash": generate_password_hash(password),

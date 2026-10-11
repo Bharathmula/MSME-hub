@@ -360,3 +360,52 @@ body:has(#login-screen:not(.hidden):not(.entry-hidden)){
   content:none!important;
   display:none!important;
 }
+
+/* Structured company onboarding: one field per row with selectable company options. */
+#owned-auth-panel .onboarding-form{gap:18px}
+#owned-auth-panel .onboarding-grid{display:grid;grid-template-columns:1fr;gap:16px}
+#owned-auth-panel .onboarding-grid .full{grid-column:1}
+#owned-auth-panel .onboarding-field{gap:7px;color:#344054;letter-spacing:.035em}
+#owned-auth-panel .onboarding-field input,
+#owned-auth-panel .onboarding-field select,
+#owned-auth-panel .onboarding-field textarea{min-height:48px;border-color:#c9d6e5;background:#fbfdff;font:500 14px 'DM Sans',sans-serif;transition:border-color .18s,box-shadow .18s,background .18s}
+#owned-auth-panel .onboarding-field textarea{resize:vertical;line-height:1.55}
+#owned-auth-panel .onboarding-field input:focus,
+#owned-auth-panel .onboarding-field select:focus,
+#owned-auth-panel .onboarding-field textarea:focus{outline:0;border-color:#176fbd;background:#fff;box-shadow:0 0 0 3px rgba(23,111,189,.12)}
+.onboarding-section{min-width:0;margin:0;padding:17px;border:1px solid #d4dfeb;border-radius:12px;background:#f8fbfe}
+.onboarding-section legend{padding:0 7px;color:#24364a;font-size:12px;font-weight:800;letter-spacing:.045em}
+.onboarding-section>p{margin:0 0 13px;color:#66788a;font-size:12px;line-height:1.45}
+.onboarding-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#owned-auth-panel .onboarding-choice{display:flex;grid-template:none;align-items:flex-start;gap:11px;min-height:68px;padding:12px;border:1px solid #cfdae6;border-radius:10px;background:#fff;cursor:pointer;box-sizing:border-box;transition:transform .16s,border-color .16s,box-shadow .16s,background .16s}
+#owned-auth-panel .onboarding-choice:hover{transform:translateY(-1px);border-color:#7da9d2;box-shadow:0 7px 18px rgba(22,69,111,.08)}
+#owned-auth-panel .onboarding-choice:has(input:checked){border-color:#176fbd;background:#eef7ff;box-shadow:0 0 0 2px rgba(23,111,189,.1)}
+#owned-auth-panel .onboarding-choice input{width:18px;height:18px;min-width:18px;margin:2px 0 0;accent-color:#0a5795}
+.onboarding-choice span{display:grid;gap:4px;min-width:0}
+.onboarding-choice b{color:#172b3f;font-size:13px}
+.onboarding-choice small{color:#6b7d90;font-size:11px;font-weight:500;line-height:1.35}
+.shift-choice-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.shift-timing-list{display:grid;gap:11px}
+.shift-timing-card{display:grid;grid-template-columns:minmax(145px,.65fr) 1.35fr;align-items:center;gap:18px;padding:15px;border:1px solid #cbd9e7;border-radius:12px;background:#fff}
+.shift-timing-card[hidden]{display:none}
+.shift-timing-card>div:first-child{display:grid;gap:4px}
+.shift-timing-card>div:first-child b{color:#112f4c;font-size:14px}
+.shift-timing-card>div:first-child small{color:#6c7d8e;font-size:11px}
+.shift-time-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#owned-auth-panel .shift-time-inputs label{color:#53677a;font-size:10px;letter-spacing:.035em}
+#owned-auth-panel .shift-time-inputs input{min-height:43px;background:#f8fbff}
+.current-location-button{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:12px;align-items:center;width:100%;padding:13px 15px;border:1px dashed #79a7cf;border-radius:11px;background:#f0f8ff;color:#114c7d;text-align:left;cursor:pointer}
+.current-location-button>span{grid-row:1/3;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#dceeff;font-size:20px}
+.current-location-button>b{font-size:13px}
+.current-location-button>small{color:#617c93;font-size:11px;font-weight:500}
+.current-location-button:hover{border-style:solid;background:#e7f4ff}
+.current-location-button:disabled{opacity:.65;cursor:wait}
+.location-status{min-height:0;margin:-8px 0 0!important;color:#65788b;font-size:11px;line-height:1.4}
+.location-status:empty{display:none}
+.location-status.success{color:#1d764d}
+.location-status.error{color:#a34732}
+
+@media(max-width:620px){
+ .onboarding-choice-grid,.shift-choice-grid,.shift-timing-card,.shift-time-inputs{grid-template-columns:1fr}
+ .shift-timing-card{gap:12px}
+}

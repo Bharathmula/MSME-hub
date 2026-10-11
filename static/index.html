@@ -39,7 +39,7 @@
   <section class="login-screen entry-hidden" id="login-screen">
     <div class="login-art">
       <div class="os-logo"><span class="os-icon">▥</span> MSME OS</div>
-      <div class="art-copy"><h2>MSME<br><i>MULTI SKILL</i><br><i>PLANNER</i></h2><span class="blue-line"></span><p>A smart workforce management system for Indian MSMEs to plan, manage, and optimize multi-skills of employees, ensure better attendance, and improve overall efficiency.</p></div>
+      <div class="art-copy"><h2>MSME<br><i>MULTI SKILL</i><br><i>PLANNER</i></h2><span class="blue-line"></span><p>A smart workforce management system to plan, manage, and optimize multi-skills of employees, ensure better attendance, and improve overall efficiency.</p></div>
     </div>
     <div class="login-panel-wrap"><div class="login-panel">
       <p class="eyebrow login-badge">▣ &nbsp; MANAGER LOGIN</p>
@@ -53,7 +53,21 @@
   </section>
   <div class="app-shell" id="app-shell">
     <aside class="sidebar">
-      <a class="brand" href="#dashboard"><span class="brand-mark">M</span><span>MSME <b>PLANNER</b></span></a>
+      <a class="brand mgbook-brand" href="#dashboard" aria-label="MG BOOK dashboard">
+        <svg class="mgbook-mark" viewBox="0 0 120 76" role="img" aria-label="MG BOOK M logo">
+          <defs>
+            <linearGradient id="mgbook-pink" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#9b45ff"/><stop offset=".55" stop-color="#dd3df1"/><stop offset="1" stop-color="#ff63e4"/></linearGradient>
+            <linearGradient id="mgbook-fold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d949ee"/><stop offset=".52" stop-color="#713cf0"/><stop offset="1" stop-color="#3c45f4"/></linearGradient>
+            <linearGradient id="mgbook-cyan" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#149fe9"/><stop offset=".52" stop-color="#18c9ed"/><stop offset="1" stop-color="#24d7ef"/></linearGradient>
+            <linearGradient id="mgbook-blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#15c5ec"/><stop offset=".5" stop-color="#246cf3"/><stop offset="1" stop-color="#4939ef"/></linearGradient>
+          </defs>
+          <path d="M20 61 39 15" stroke="url(#mgbook-pink)"/>
+          <path d="M39 15 59 61" stroke="url(#mgbook-fold)"/>
+          <path d="M59 61 79 15" stroke="url(#mgbook-cyan)"/>
+          <path d="M79 15 100 61" stroke="url(#mgbook-blue)"/>
+        </svg>
+        <span class="mgbook-brand-copy"><strong>MG BOOK</strong><small>Track · Manage · Grow</small></span>
+      </a>
       <p class="workspace-label">WORKSPACE</p>
       <nav id="side-nav">
         <button class="nav-link active" data-view="dashboard"><span>▦</span> Overview</button>
@@ -77,7 +91,7 @@
       <button class="logout-button" id="sign-out">↗ &nbsp; Log out</button>
     </aside>
     <main>
-      <header class="topbar"><div class="mobile-brand">MSME PLANNER</div><label class="search"><span>⌕</span><input id="global-search" placeholder="Search people, skills, department..." /></label><div class="today" id="today"></div><button class="bell" data-view="reminders">♧<i id="alert-dot"></i></button><button class="primary" id="add-person">+ Add profile</button></header>
+      <header class="topbar"><div class="mobile-brand">MG BOOK</div><label class="search"><span>⌕</span><input id="global-search" placeholder="Search people, skills, department..." /></label><div class="today" id="today"></div><button class="bell" data-view="reminders">♧<i id="alert-dot"></i></button><button class="primary" id="add-person">+ Add profile</button></header>
       <section id="view-root"></section>
     </main>
   </div>

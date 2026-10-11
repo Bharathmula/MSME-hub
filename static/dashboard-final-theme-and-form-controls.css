@@ -393,3 +393,21 @@ input[type="date"][data-date-enhanced]::-webkit-calendar-picker-indicator{
 }
 .date-picker-help{display:block!important;margin:5px 0 0;color:#52687b!important;font-size:9px!important;font-weight:500!important;letter-spacing:0!important}
 #modal-root .modal .form-grid label{padding:9px;border:1px solid #b1c1cf;border-radius:8px;background:#f9fbfd}#modal-root .modal .form-grid input,#modal-root .modal .form-grid select,#modal-root .modal .form-grid textarea{border:1.5px solid #748da3!important;background:#fff!important;box-shadow:inset 0 0 0 1px rgba(116,141,163,.08)}#modal-root .modal .form-grid input:focus,#modal-root .modal .form-grid select:focus,#modal-root .modal .form-grid textarea:focus{border-color:#087cf1!important;outline:2px solid rgba(8,124,241,.16)!important}
+
+/* MG BOOK sidebar branding. The cream workspace and content surfaces remain unchanged. */
+.sidebar{background:#06182d!important;color:#fff!important}
+.mgbook-brand{align-items:center;gap:12px;margin:0 10px 30px;color:#fff!important;letter-spacing:0}
+.mgbook-mark{flex:0 0 56px;width:56px;height:40px;overflow:visible}
+.mgbook-mark path{fill:none;stroke-width:19;stroke-linecap:round;stroke-linejoin:round}
+.mgbook-brand-copy{display:grid;gap:2px;min-width:0}
+.mgbook-brand-copy strong{color:#fff;font-size:19px;font-weight:700;line-height:1.1;letter-spacing:.025em;white-space:nowrap}
+.mgbook-brand-copy small{color:#91b5d2;font-size:10px;font-weight:500;line-height:1.25;white-space:nowrap}
+.workspace-label{color:#c9a96e!important}
+.nav-link,.nav-link em{color:#a9bfd2!important}
+.nav-link.active,.nav-link:hover{background:#15385f!important;color:#fff!important}
+.sidebar-footer{border-top-color:#203951!important}
+.sidebar-footer strong{color:#fff!important}
+.sidebar-footer small{color:#8fa9bf!important}
+.logout-button{border-color:transparent!important;background:transparent!important;color:#a9bfd2!important}
+.logout-button:hover{background:#15385f!important;color:#fff!important}
+@media(max-width:900px){.mobile-brand{color:#06182d!important;letter-spacing:.03em}}

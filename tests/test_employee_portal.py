@@ -104,6 +104,12 @@ class EmployeePortalTests(unittest.TestCase):
   self.assertEqual(subscription.status_code,200,subscription.text)
   plan=subscription.json['subscription'];self.assertEqual(plan['plan_code'],'TRIAL');self.assertEqual(plan['days_remaining'],30);self.assertFalse(plan['read_only'])
 
+ def test_registration_saves_company_workforce_shifts_and_address(self):
+  captcha=self.c.get('/api/auth/captcha').json
+  payload={'email':'configured.company@example.com','password':'Configured123!','name':'Configured Admin','company':'Configured Industries','business_category':'Manufacturing','workforce_categories':['Workers','Staff','HR'],'shift_types':['Day Shift','Night Shift'],'shifts':[{'type':'Day Shift','start':'08:00','end':'17:00'},{'type':'Night Shift','start':'20:00','end':'05:00'}],'company_address':'Plot 10, Industrial Area','pincode':'500001','city':'Hyderabad','state':'Telangana','country':'India','latitude':'17.385000','longitude':'78.486700','address':'Plot 10, Industrial Area, Hyderabad, Telangana, 500001, India','role':'Administrator','captcha_id':captcha['captcha_id'],'captcha_answer':captcha['captcha_code']}
+  registered=self.c.post('/api/auth/register',json=payload);self.assertEqual(registered.status_code,200,registered.text)
+  account=registered.json['account'];self.assertEqual(account['workforce_categories'],['Workers','Staff','HR']);self.assertEqual(account['shift_types'],['Day Shift','Night Shift']);self.assertEqual(account['shifts'][1],{'type':'Night Shift','start':'20:00','end':'05:00'});self.assertEqual(account['shift_start'],'08:00');self.assertEqual(account['shift_end'],'17:00');self.assertEqual(account['company_address'],'Plot 10, Industrial Area');self.assertEqual(account['pincode'],'500001');self.assertEqual(account['city'],'Hyderabad');self.assertEqual(account['state'],'Telangana');self.assertEqual(account['role'],'Administrator')
+
  def test_expired_trial_preserves_workspace_as_read_only(self):
   tenant='expired-trial@example.com'
   with app.app_context():admin=token(tenant,'ADMIN',tenant)

@@ -40,6 +40,50 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn('class="login-screen entry-hidden"', index)
         self.assertIn("screen.classList.remove('entry-hidden')", authentication)
 
+    def test_admin_sidebar_uses_mg_book_gradient_brand(self):
+        index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        styles = (
+            ROOT / "static" / "dashboard-final-theme-and-form-controls.css"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('aria-label="MG BOOK dashboard"', index)
+        self.assertIn('class="mgbook-mark"', index)
+        self.assertIn('<strong>MG BOOK</strong>', index)
+        self.assertIn('<div class="mobile-brand">MG BOOK</div>', index)
+        self.assertNotIn('MSME <b>PLANNER</b>', index)
+        self.assertIn('.sidebar{background:#06182d!important', styles)
+        self.assertIn('The cream workspace and content surfaces remain unchanged.', styles)
+
+    def test_company_onboarding_supports_workforce_shifts_and_location(self):
+        authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(
+            encoding="utf-8"
+        )
+        styles = (ROOT / "static" / "owned-authentication.css").read_text(
+            encoding="utf-8"
+        )
+        sync = (ROOT / "static" / "workspace-database-sync.js").read_text(
+            encoding="utf-8"
+        )
+
+        for category in ("Workers", "Employees", "Staff", "Manager", "HR", "Owner", "Entrepreneur"):
+            self.assertIn(f"['{category}'", authentication)
+        for shift in ("Day Shift", "Night Shift", "Rotational Shift"):
+            self.assertIn(f"name:'{shift}'", authentication)
+        self.assertIn("WHO WORKS IN YOUR COMPANY?", authentication)
+        self.assertIn("HOW MANY SHIFTS?", authentication)
+        self.assertIn("COMPANY ADDRESS", authentication)
+        self.assertIn("Use current location", authentication)
+        self.assertIn("navigator.geolocation.getCurrentPosition", authentication)
+        self.assertIn("ADMIN NAME", authentication)
+        self.assertIn("ADMIN EMAIL", authentication)
+        self.assertIn("ADMIN ROLE", authentication)
+        self.assertIn("data.shifts=data.shift_types.map", authentication)
+        self.assertIn("data.shift_start=primary.start", authentication)
+        self.assertIn(".onboarding-choice-grid", styles)
+        self.assertIn(".shift-timing-card", styles)
+        self.assertIn('"workforce_categories"', sync)
+        self.assertIn('"shifts"', sync)
+
     def test_saved_session_uses_restore_screen_instead_of_login_flash(self):
         authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(
             encoding="utf-8"
