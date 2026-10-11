@@ -675,8 +675,8 @@ function calendarYearOptionsV25(selectedYear) {
 }
 
 window.attendanceCalendar = function advancedAttendanceCalendarV25() {
-  manualAttendanceEnabledV21 = typeof configuredAttendanceModeV39 === 'function'
-    && configuredAttendanceModeV39() === 'manual';
+  manualAttendanceEnabledV21 = typeof manualAttendancePreferenceV41 === 'function'
+    && manualAttendancePreferenceV41();
   const date = new Date(`${calendarDay}T00:00:00`);
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -730,8 +730,8 @@ window.attendanceCalendar = function advancedAttendanceCalendarV25() {
       <div class="calendar-legend"><span><i class="legend-today">✓</i> Today</span>
         <span><i class="legend-selected"></i> Selected date</span>
         <b>${savedRecord ? `Attendance saved for ${calendarDay}` : `No saved attendance for ${calendarDay}`}</b></div>
-      <div class="manual-attendance-switch ${manualAttendanceEnabledV21 ? 'manual-mode-on' : 'manual-mode-off'}"><span><b>Manual attendance: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b><small>This switch follows Settings → Attendance Integration. Turn off the current method there before selecting another method.</small></span>
-        <label class="enter-manually-button" title="Change this from Settings → Attendance Integration"><input type="checkbox" id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? 'checked' : ''} disabled aria-disabled="true"><i></i><b>Enter manually: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b></label></div>
+      <div class="manual-attendance-switch ${manualAttendanceEnabledV21 ? 'manual-mode-on' : 'manual-mode-off'}"><span><b>Manual attendance: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b><small>Use manual attendance with Face, Biometric, CSV or any other attendance source. This preference is saved for your company.</small></span>
+        <label class="enter-manually-button" title="Turn manual attendance on or off"><input type="checkbox" id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? 'checked' : ''}><i></i><b>Enter manually: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b></label></div>
     </section>
     <div class="calendar-role-sections">
       ${calendarTemporarySectionV21(record)}

@@ -31,9 +31,9 @@
   function integrationSettings() {
     const stored = readJson(settingsKey(), {});
     const storedModes = Array.isArray(stored.modes) ? stored.modes.filter(Boolean) : ['face'];
-    const selectedMode = storedModes.length ? storedModes[storedModes.length - 1] : null;
+    const selectedModes = [...new Set(storedModes)];
     return {
-      modes: selectedMode ? [selectedMode] : [],
+      modes: selectedModes,
       provider: '',
       softwareUrl: '',
       endpoint: '',
@@ -43,12 +43,13 @@
       secretReference: '',
       syncInterval: '15',
       ...stored,
-      modes: selectedMode ? [selectedMode] : [],
+      modes: selectedModes,
     };
   }
 
   function saveIntegrationSettings(value) {
     localStorage.setItem(settingsKey(), JSON.stringify(value));
+    if (typeof save === 'function') save();
   }
 
   function updateEmployeeLoginSetupVisibility() {
@@ -203,12 +204,12 @@
       <div class="settings-mode-grid">
         ${modeCard('biometric', 'Biometric', 'Connect a fingerprint, card or device provider through its API or scheduled export.')}
         ${modeCard('face', 'Face Authentication', 'Use the existing face check-in and check-out workflow in this application.')}
-        ${modeCard('manual', 'Manual', 'Allow authorised admins to enter or correct attendance in Attendance Calendar.')}
+        ${modeCard('manual', 'Manual', 'Allow any signed-in dashboard user with Attendance Calendar access to enter or correct attendance.')}
         ${modeCard('spreadsheet', 'CSV Report / Excel Sheet', 'Import past attendance exported from Excel or another attendance system.')}
       </div>
       <p class="settings-import-status" id="attendance-mode-status">${esc(modeSelectionMessage)}</p>
       ${detail}
-      ${!detail ? '<p class="settings-selection-help">Select Biometric or CSV Report / Excel Sheet to open its setup page. Face Authentication opens Employee Login Setup and controls its sidebar visibility.</p>' : ''}
+      ${!detail ? '<p class="settings-selection-help">You can use one or more attendance sources. Manual attendance is an independent preference and can remain on with Face, Biometric or CSV attendance.</p>' : ''}
     </section>`;
   }
 
@@ -443,15 +444,13 @@
       const current = integrationSettings();
       const mode = modeButton.dataset.attendanceMode;
       const selected = !current.modes.includes(mode);
-      if (selected && current.modes.length) {
-        const labels = { biometric: 'Biometric', face: 'Face Authentication', manual: 'Manual', spreadsheet: 'CSV Report / Excel Sheet' };
-        modeSelectionMessage = `Turn off ${labels[current.modes[0]] || 'the selected attendance method'} before selecting ${labels[mode] || mode}.`;
-        settingsPage();
-        return;
-      }
-      const modes = selected ? [mode] : [];
+      const modes = selected
+        ? [...new Set([...current.modes, mode])]
+        : current.modes.filter(item => item !== mode);
       saveIntegrationSettings({ ...current, modes });
-      modeSelectionMessage = selected ? `${modeButton.closest('[data-mode-card]')?.querySelector('b')?.textContent || 'Attendance method'} selected.` : 'Attendance method turned off. You can now select another method.';
+      modeSelectionMessage = selected
+        ? `${modeButton.closest('[data-mode-card]')?.querySelector('b')?.textContent || 'Attendance method'} turned on.`
+        : `${modeButton.closest('[data-mode-card]')?.querySelector('b')?.textContent || 'Attendance method'} turned off.`;
       updateEmployeeLoginSetupVisibility();
       if (selected && mode === 'face') {
         document.querySelector('.nav-link[data-view="employeeaccess"]')?.click();

@@ -83,11 +83,14 @@ def public_account(account: dict) -> dict:
         "provider",
         "staff_count",
         "business_category",
+        "business_subcategory",
+        "industry_roles",
         "workforce_categories",
         "shift_types",
         "shifts",
         "shift_start",
         "shift_end",
+        "address_number",
         "company_address",
         "address",
         "pincode",
@@ -408,8 +411,9 @@ def register_account():
         return jsonify({"error": "An account with this email already exists."}), 409
     workforce_categories = registration_list(
         payload.get("workforce_categories"),
-        allowed={"Workers", "Employees", "Staff", "Manager", "HR", "Owner", "Entrepreneur"},
+        allowed={"Temporary Workers", "Workers", "Employees", "Staff", "Manager", "HR", "Owner", "Entrepreneur"},
     )
+    industry_roles = registration_list(payload.get("industry_roles"))
     shift_types = registration_list(
         payload.get("shift_types"),
         allowed={"Day Shift", "Night Shift", "Rotational Shift"},
@@ -426,11 +430,14 @@ def register_account():
         "company": str(payload.get("company") or "").strip(),
         "staff_count": str(payload.get("staff_count") or "").strip(),
         "business_category": str(payload.get("business_category") or "").strip(),
+        "business_subcategory": str(payload.get("business_subcategory") or "").strip(),
+        "industry_roles": industry_roles,
         "workforce_categories": workforce_categories,
         "shift_types": shift_types,
         "shifts": shifts,
         "shift_start": primary_shift["start"],
         "shift_end": primary_shift["end"],
+        "address_number": str(payload.get("address_number") or "").strip(),
         "company_address": str(payload.get("company_address") or "").strip(),
         "address": str(payload.get("address") or "").strip(),
         "pincode": str(payload.get("pincode") or "").strip(),

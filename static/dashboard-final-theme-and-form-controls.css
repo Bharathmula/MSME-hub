@@ -397,8 +397,8 @@ input[type="date"][data-date-enhanced]::-webkit-calendar-picker-indicator{
 /* MG BOOK sidebar branding. The cream workspace and content surfaces remain unchanged. */
 .sidebar{background:#06182d!important;color:#fff!important}
 .mgbook-brand{align-items:center;gap:12px;margin:0 10px 30px;color:#fff!important;letter-spacing:0}
-.mgbook-mark{flex:0 0 56px;width:56px;height:40px;overflow:visible}
-.mgbook-mark path{fill:none;stroke-width:19;stroke-linecap:round;stroke-linejoin:round}
+.mgbook-mark{flex:0 0 56px;width:56px;height:40px;overflow:visible;filter:drop-shadow(0 5px 5px rgba(12,20,112,.34)) drop-shadow(0 0 12px rgba(76,98,255,.34))}
+.mgbook-mark path{fill:none;stroke-width:24;stroke-linecap:round;stroke-linejoin:round}
 .mgbook-brand-copy{display:grid;gap:2px;min-width:0}
 .mgbook-brand-copy strong{color:#fff;font-size:19px;font-weight:700;line-height:1.1;letter-spacing:.025em;white-space:nowrap}
 .mgbook-brand-copy small{color:#91b5d2;font-size:10px;font-weight:500;line-height:1.25;white-space:nowrap}

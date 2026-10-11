@@ -21,8 +21,8 @@
   filter: grayscale(1);
 }
 
-.manual-attendance-switch.manual-mode-off { opacity: 0.58; }
-.manual-attendance-switch.manual-mode-off label { cursor: not-allowed; }
+.manual-attendance-switch.manual-mode-off { opacity: 0.92; }
+.manual-attendance-switch.manual-mode-off label { cursor: pointer; }
 .manual-attendance-switch.manual-mode-on { opacity: 1; }
 
 .settings-tabs,

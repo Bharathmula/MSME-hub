@@ -53,6 +53,20 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertNotIn('MSME <b>PLANNER</b>', index)
         self.assertIn('.sidebar{background:#06182d!important', styles)
         self.assertIn('The cream workspace and content surfaces remain unchanged.', styles)
+        self.assertIn('stroke-width:24', styles)
+        self.assertIn('drop-shadow(0 5px 5px rgba(12,20,112,.34))', styles)
+
+    def test_welcome_and_login_branding_use_mg_book(self):
+        index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("<title>MG BOOK</title>", index)
+        self.assertIn('<h1><span>MG BOOK</span></h1>', authentication)
+        self.assertIn('<span class="msme-logo-copy"><b>MG BOOK</b>', authentication)
+        self.assertIn('aria-label="MG BOOK M logo"', authentication)
+        self.assertNotIn('<i>MULTI SKILL</i><i>PLANNER</i>', authentication)
 
     def test_company_onboarding_supports_workforce_shifts_and_location(self):
         authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(
@@ -65,14 +79,21 @@ class StaticRegressionTests(unittest.TestCase):
             encoding="utf-8"
         )
 
-        for category in ("Workers", "Employees", "Staff", "Manager", "HR", "Owner", "Entrepreneur"):
+        for category in ("Temporary Workers", "Employees", "Workers", "Staff", "Manager", "HR", "Owner", "Entrepreneur"):
             self.assertIn(f"['{category}'", authentication)
         for shift in ("Day Shift", "Night Shift", "Rotational Shift"):
             self.assertIn(f"name:'{shift}'", authentication)
         self.assertIn("WHO WORKS IN YOUR COMPANY?", authentication)
+        self.assertIn("WHO WORKS IN THIS INDUSTRY?", authentication)
+        self.assertIn("BUSINESS SUB-CATEGORY", authentication)
+        self.assertIn("'Software / IT':", authentication)
+        self.assertIn("Software developers", authentication)
         self.assertIn("HOW MANY SHIFTS?", authentication)
+        self.assertIn("BUILDING / DOOR / PLOT NUMBER", authentication)
         self.assertIn("COMPANY ADDRESS", authentication)
         self.assertIn("Use current location", authentication)
+        self.assertIn("accept-language=en", authentication)
+        self.assertIn("'Accept-Language':'en'", authentication)
         self.assertIn("navigator.geolocation.getCurrentPosition", authentication)
         self.assertIn("ADMIN NAME", authentication)
         self.assertIn("ADMIN EMAIL", authentication)
@@ -80,8 +101,14 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("data.shifts=data.shift_types.map", authentication)
         self.assertIn("data.shift_start=primary.start", authentication)
         self.assertIn(".onboarding-choice-grid", styles)
+        self.assertIn(".onboarding-section-title", styles)
+        self.assertIn(".industry-role-grid", styles)
+        self.assertIn(".location-pin svg", styles)
         self.assertIn(".shift-timing-card", styles)
         self.assertIn('"workforce_categories"', sync)
+        self.assertIn('"business_subcategory"', sync)
+        self.assertIn('"industry_roles"', sync)
+        self.assertIn('"address_number"', sync)
         self.assertIn('"shifts"', sync)
 
     def test_saved_session_uses_restore_screen_instead_of_login_flash(self):
@@ -279,19 +306,22 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("data-integration-detail=\"spreadsheet\"", settings)
         self.assertIn("updateEmployeeLoginSetupVisibility", settings)
         self.assertIn("navigation.disabled = !enabled", settings)
-        self.assertIn("const modes = selected ? [mode] : []", settings)
-        self.assertIn("if (selected && current.modes.length)", settings)
-        self.assertIn("Turn off ${labels[current.modes[0]]", settings)
+        self.assertIn("[...new Set([...current.modes, mode])]", settings)
+        self.assertIn("current.modes.filter(item => item !== mode)", settings)
+        self.assertIn("Manual attendance is an independent preference", settings)
         self.assertIn(".nav-link[data-view=\"attendance\"]", settings)
         employee_portal = (ROOT / "static" / "employee-portal" / "employee-portal.js").read_text(encoding="utf-8")
         self.assertIn("employeeLoginSetupEnabled", employee_portal)
         self.assertIn("navigation.getAttribute('aria-disabled') !== 'true'", employee_portal)
         attendance = (ROOT / "static" / "dashboard-attendance-controls.js").read_text(encoding="utf-8")
-        self.assertIn("configuredAttendanceModeV39() === 'manual'", attendance)
-        self.assertIn('disabled aria-disabled="true"', attendance)
+        self.assertIn("function manualAttendancePreferenceV41", attendance)
+        self.assertIn("saveManualAttendancePreferenceV41(manualAttendanceEnabledV21)", attendance)
+        self.assertIn("manualToggle.checked", attendance)
+        self.assertNotIn('id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? \'checked\' : \'\'} disabled', attendance)
         operations = (ROOT / "static" / "workforce-operations.js").read_text(encoding="utf-8")
-        self.assertIn("configuredAttendanceModeV39() === 'manual'", operations)
-        self.assertIn('disabled aria-disabled="true"', operations)
+        self.assertIn("manualAttendancePreferenceV41()", operations)
+        self.assertIn("Use manual attendance with Face, Biometric, CSV", operations)
+        self.assertNotIn('id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? \'checked\' : \'\'} disabled', operations)
         self.assertIn("source: 'Manual attendance'", attendance)
         self.assertIn("const selectedDate = calendarDay", attendance)
         self.assertIn("const savedWork = String(savedRecord?.work || '').trim()", attendance)
@@ -330,7 +360,8 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("openLandingAuth('signup')", authentication)
         self.assertIn("Existing customers can sign in", authentication)
         self.assertIn("landingActions.className='landing-actions'", authentication)
-        self.assertIn('<span>MSME</span><i>MULTI SKILL</i><i>PLANNER</i>', authentication)
+        self.assertIn('<h1><span>MG BOOK</span></h1>', authentication)
+        self.assertNotIn('<span>MSME</span><i>MULTI SKILL</i><i>PLANNER</i>', authentication)
         self.assertNotIn('class="landing-empowerment"', authentication)
         self.assertNotIn('class="landing-global"', authentication)
         self.assertIn("PRODUCTIVITY", authentication)
