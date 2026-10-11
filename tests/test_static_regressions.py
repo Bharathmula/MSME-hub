@@ -68,6 +68,19 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn('aria-label="MG BOOK M logo"', authentication)
         self.assertNotIn('<i>MULTI SKILL</i><i>PLANNER</i>', authentication)
 
+    def test_dashboard_logout_returns_to_welcome_page(self):
+        authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("function returnToWelcomePage()", authentication)
+        self.assertIn("dashboardSignOut.onclick=returnToWelcomePage", authentication)
+        self.assertIn("sessionStorage.removeItem('msme-admin-auth')", authentication)
+        self.assertIn("sessionStorage.removeItem('msme-admin-api-token')", authentication)
+        self.assertIn("screen.classList.remove('hidden')", authentication)
+        self.assertIn("screen.classList.add('entry-hidden')", authentication)
+        self.assertIn("landing.classList.remove('hidden')", authentication)
+
     def test_company_onboarding_supports_workforce_shifts_and_location(self):
         authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(
             encoding="utf-8"

@@ -185,6 +185,26 @@ function show(){
  if(tab==='signin'){const remembered=localStorage.getItem('msme-last-login-email')||'';panel.innerHTML=`<form class="auth-form" id="owned-signin"><label>EMAIL<span class="input-icon-wrap">${mailIcon()}<input type="email" name="email" value="${esc(remembered)}" required autocomplete="username"></span></label><label>PASSWORD<span class="password-wrap input-icon-wrap">${lockIcon()}<input type="password" name="password" required autocomplete="current-password">${eye()}</span></label><button type="button" class="forgot" data-forgot>Forgot password?</button><p data-message></p><button type="button" class="primary" id="owned-signin-submit">Sign in</button></form>`;bind();return}
  signup={};panel.innerHTML=`<form class="auth-form" id="owned-signup">${progress(0)}<label>EMAIL<input type="email" name="email" required></label><label>CREATE PASSWORD<span class="password-wrap"><input type="password" name="password" minlength="8" required>${eye()}</span></label><label>CONFIRM PASSWORD<span class="password-wrap"><input type="password" name="confirm" minlength="8" required>${eye()}</span></label><label>CAPTCHA VERIFICATION<div class="captcha-box"><strong data-captcha-code>Loading…</strong><button type="button" class="secondary" data-refresh>↻ New code</button></div><input name="captcha_answer" maxlength="6" autocomplete="off" placeholder="Enter the six-character code" required></label><p data-message></p><button class="primary">Continue to company details</button></form>`;bind();newCaptcha().catch(e=>message(e.message,true));
 }
+function returnToWelcomePage(){
+ sessionStorage.removeItem('msme-admin-auth');
+ sessionStorage.removeItem('msme-admin-api-token');
+ sessionStorage.removeItem('msme-employee-token');
+ sessionRestoreOverlay?.remove();
+ sessionRestoreOverlay=null;
+ mode='workspace';
+ tab='signin';
+ screen.querySelectorAll('[data-access]').forEach(item=>item.classList.toggle('active',item.dataset.access==='workspace'));
+ screen.querySelectorAll('[data-tab]').forEach(item=>item.classList.toggle('active',item.dataset.tab==='signin'));
+ show();
+ document.querySelector('#modal-root').innerHTML='';
+ document.querySelector('#app-shell')?.classList.remove('visible');
+ screen.classList.remove('hidden');
+ screen.classList.add('entry-hidden');
+ landing.classList.remove('hidden');
+ window.scrollTo({top:0,left:0,behavior:'auto'});
+}
+const dashboardSignOut=document.querySelector('#sign-out');
+if(dashboardSignOut)dashboardSignOut.onclick=returnToWelcomePage;
 const onboardingWorkforce=[
  ['Temporary Workers','Seasonal, contract and short-term workers'],
  ['Employees','General company employees'],
