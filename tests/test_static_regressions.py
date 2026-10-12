@@ -55,6 +55,9 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn('The cream workspace and content surfaces remain unchanged.', styles)
         self.assertIn('stroke-width:24', styles)
         self.assertIn('drop-shadow(0 5px 5px rgba(12,20,112,.34))', styles)
+        self.assertIn('background:linear-gradient(90deg,#ef42dc 0%,#8c43f2 38%,#19c8ed 72%,#4050ff 100%)', styles)
+        self.assertIn('.nav-link,.nav-link em,.nav-link span{color:#f5e9d0!important}', styles)
+        self.assertIn('.mgbook-brand-copy small{color:#f1dfb9!important', styles)
 
     def test_welcome_and_login_branding_use_mg_book(self):
         index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
