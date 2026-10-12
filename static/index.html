@@ -53,6 +53,7 @@
   </section>
   <div class="app-shell" id="app-shell">
     <aside class="sidebar">
+      <button class="mobile-sidebar-close" id="mobile-sidebar-close" type="button" aria-label="Close navigation menu">×</button>
       <a class="brand mgbook-brand" href="#dashboard" aria-label="MG BOOK dashboard">
         <svg class="mgbook-mark" viewBox="0 0 120 76" role="img" aria-label="MG BOOK M logo">
           <defs>
@@ -91,9 +92,10 @@
       <button class="logout-button" id="sign-out">↗ &nbsp; Log out</button>
     </aside>
     <main>
-      <header class="topbar"><div class="mobile-brand">MG BOOK</div><label class="search"><span>⌕</span><input id="global-search" placeholder="Search people, skills, department..." /></label><div class="today" id="today"></div><button class="bell" data-view="reminders">♧<i id="alert-dot"></i></button><button class="primary" id="add-person">+ Add profile</button></header>
+      <header class="topbar"><button class="mobile-menu-toggle" id="mobile-menu-toggle" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="side-nav">☰</button><div class="mobile-brand">MG BOOK</div><label class="search"><span>⌕</span><input id="global-search" placeholder="Search people, skills, department..." /></label><div class="today" id="today"></div><button class="bell" data-view="reminders">♧<i id="alert-dot"></i></button><button class="primary" id="add-person">+ Add profile</button></header>
       <section id="view-root"></section>
     </main>
+    <button class="mobile-sidebar-backdrop" id="mobile-sidebar-backdrop" type="button" aria-label="Close navigation menu" tabindex="-1"></button>
   </div>
   <div id="modal-root"></div>
   <div id="employee-portal-root"></div>
@@ -113,5 +115,6 @@
   <script src="settings-attendance-integrations-and-reports.js"></script>
   <script src="employee-portal/employee-portal.js"></script>
   <script src="owned-authentication-login.js"></script>
+  <script src="mobile-sidebar.js"></script>
 </body>
 </html>

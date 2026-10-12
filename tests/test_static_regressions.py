@@ -59,6 +59,25 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn('.nav-link,.nav-link em,.nav-link span{color:#f5e9d0!important}', styles)
         self.assertIn('.mgbook-brand-copy small{color:#f1dfb9!important', styles)
 
+    def test_mobile_dashboard_has_accessible_sidebar_drawer(self):
+        index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        styles = (
+            ROOT / "static" / "dashboard-final-theme-and-form-controls.css"
+        ).read_text(encoding="utf-8")
+        mobile_sidebar = (ROOT / "static" / "mobile-sidebar.js").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('id="mobile-menu-toggle"', index)
+        self.assertIn('id="mobile-sidebar-close"', index)
+        self.assertIn('id="mobile-sidebar-backdrop"', index)
+        self.assertIn('<script src="mobile-sidebar.js"></script>', index)
+        self.assertIn('.sidebar.mobile-open{transform:translateX(0)}', styles)
+        self.assertIn('display:flex!important;position:fixed!important', styles)
+        self.assertIn("function setMobileSidebar(open)", mobile_sidebar)
+        self.assertIn("event.key === 'Escape'", mobile_sidebar)
+        self.assertIn("sidebar.querySelectorAll('[data-view], #sign-out')", mobile_sidebar)
+
     def test_welcome_and_login_branding_use_mg_book(self):
         index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
         authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(
