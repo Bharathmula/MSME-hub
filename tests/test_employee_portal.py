@@ -1,4 +1,5 @@
 import os,tempfile,unittest
+from unittest.mock import patch
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
 from urllib.parse import parse_qs,urlparse
@@ -202,6 +203,35 @@ class EmployeePortalTests(unittest.TestCase):
   removed=self.c.delete(f'/api/admin/employee-accounts/{account_id}',headers=self.headers(self.admin));self.assertEqual(removed.status_code,200,removed.text);self.assertTrue(removed.json['attendance_history_preserved'])
   self.assertEqual(self.c.post('/api/employee/login',json={'email':'worker100@gmail.com','password':'Reset123!'}).status_code,401)
   preserved=self.c.get('/api/admin/employee-attendance-detail',query_string={'employee_id':'W-100','date':datetime.now(timezone.utc).date().isoformat()},headers=self.headers(self.admin));self.assertEqual(preserved.status_code,200,preserved.text);self.assertEqual(preserved.json['check_in_photo'],face);self.assertEqual(preserved.json['check_out_photo'],face)
+
+ def test_check_in_is_rejected_after_assigned_shift_ends(self):
+  tenant='shift-window@example.com'
+  with app.app_context():admin=token(tenant,'ADMIN',tenant)
+  workspace={'account':{'email':tenant,'company':'Shift Window Test'},'storage':{'people':[{'id':'W-SHIFT','name':'Shift Worker','email':'shift.worker@example.com','role':'Worker','shift':'09:00 AM - 06:00 PM'}],'temporary':[],'attendance':[],'attendance-integration-settings':{'modes':['face']}}}
+  self.assertEqual(self.c.put('/api/workspace',json=workspace,headers=self.headers(admin)).status_code,200)
+  created=self.c.post('/api/admin/employee-accounts',json={'name':'Shift Worker','employee_id':'W-SHIFT','email':'shift.worker@example.com','workforce_role':'WORKER','password':'ShiftTest123!','pin':'123456'},headers=self.headers(admin))
+  self.assertEqual(created.status_code,201,created.text)
+  login=self.c.post('/api/employee/login',json={'email':'shift.worker@example.com','password':'ShiftTest123!'})
+  employee=login.json['access_token'];face='data:image/jpeg;base64,/9j/2Q=='
+  after_end=datetime(2026,10,12,13,30,tzinfo=timezone.utc)
+  with patch('employee_portal.routes.now',return_value=after_end):
+   dashboard=self.c.get('/api/employee/dashboard',headers=self.headers(employee))
+   self.assertFalse(dashboard.json['check_in_allowed']);self.assertIn('shift ended at 06:00 PM',dashboard.json['check_in_message'])
+   rejected=self.c.post('/api/employee/attendance',json={'device_identifier':'shift-test','face_capture':face,'expected_action':'CHECK_IN'},headers=self.headers(employee,{'Idempotency-Key':'late-check-in'}))
+  self.assertEqual(rejected.status_code,409,rejected.text);self.assertIn('shift ended at 06:00 PM',rejected.json['error'])
+  attendance=self.c.get('/api/admin/employee-attendance',query_string={'date':'2026-10-12'},headers=self.headers(admin))
+  self.assertEqual(attendance.json['attendance'],[])
+
+  before_end=datetime(2026,10,12,12,0,tzinfo=timezone.utc)
+  with patch('employee_portal.routes.now',return_value=before_end):
+   accepted=self.c.post('/api/employee/attendance',json={'device_identifier':'shift-test','face_capture':face,'expected_action':'CHECK_IN'},headers=self.headers(employee,{'Idempotency-Key':'valid-check-in'}))
+  self.assertEqual(accepted.status_code,200,accepted.text);self.assertEqual(accepted.json['event']['event_type'],'CHECK_IN')
+  after_checkout=datetime(2026,10,12,13,45,tzinfo=timezone.utc)
+  with patch('employee_portal.routes.now',return_value=after_checkout):
+   dashboard=self.c.get('/api/employee/dashboard',headers=self.headers(employee))
+   self.assertEqual(dashboard.json['next_action'],'CHECK_OUT');self.assertTrue(dashboard.json['check_in_allowed'])
+   checked_out=self.c.post('/api/employee/attendance',json={'device_identifier':'shift-test','face_capture':face,'expected_action':'CHECK_OUT'},headers=self.headers(employee,{'Idempotency-Key':'valid-check-out'}))
+  self.assertEqual(checked_out.status_code,200,checked_out.text);self.assertEqual(checked_out.json['event']['event_type'],'CHECK_OUT')
 
  def test_admin_can_create_active_employee_credentials(self):
   response=self.c.post('/api/admin/employee-accounts',json={'name':'Direct Staff','employee_id':'ST-DIRECT','email':'direct.staff@gmail.com','phone':'9000000001','workforce_role':'STAFF','password':'Direct123!','pin':'456789'},headers=self.headers(self.admin))

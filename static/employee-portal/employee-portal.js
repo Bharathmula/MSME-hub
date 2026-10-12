@@ -240,6 +240,11 @@
         <section class="ep-card"><h2>Attendance method controlled by your administrator</h2><p>Face check-in and check-out are unavailable until Face Authentication is selected in Settings → Attendance Integration.</p></section>`);
       return;
     }
+    if (action === 'CHECK_IN' && dashboard.check_in_allowed === false) {
+      employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">TODAY</p><h1>Check-in unavailable</h1><p>Your attendance was not recorded.</p></section>
+        <section class="ep-card"><h2>Outside your assigned shift</h2><p class="ep-error">${esc(dashboard.check_in_message || 'You cannot check in because your assigned shift has ended.')}</p><p>Contact your administrator if the shift timing shown in your profile is incorrect.</p></section>`);
+      return;
+    }
     employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">TODAY</p><h1>${action === 'CHECK_IN' ? 'Ready to check in?' : 'Ready to check out?'}</h1><p>Capture a current live face photo to record your attendance.</p></section>
       <div class="ep-overview-grid">
         <section class="ep-card"><h2>Attendance status</h2><div class="ep-status ${(today?.status || 'not-started').toLowerCase()}">${esc(today?.status || 'NOT STARTED')}</div>

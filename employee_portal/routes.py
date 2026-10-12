@@ -45,6 +45,47 @@ def configured_attendance_mode(db,tenant):
  modes=settings.get('modes',['face']) if isinstance(settings,dict) else ['face']
  return str(modes[-1]) if isinstance(modes,list) and modes else ''
 
+INDIA_TIMEZONE=timezone(timedelta(hours=5,minutes=30))
+
+def india_now():
+ return now().astimezone(INDIA_TIMEZONE)
+
+def clock_minutes(value):
+ match=re.fullmatch(r'\s*(\d{1,2}):(\d{2})\s*(AM|PM)?\s*',str(value or '').upper())
+ if not match:return None
+ hour=int(match.group(1));minute=int(match.group(2));period=match.group(3)
+ if minute>59 or (period and not 1<=hour<=12) or (not period and hour>23):return None
+ if period:
+  hour%=12
+  if period=='PM':hour+=12
+ return hour*60+minute
+
+def employee_shift_window(workspace,profile):
+ shift=str(profile.get('shift') or '').strip() if isinstance(profile,dict) else ''
+ parts=re.split(r'\s+(?:-|–|—)\s+',shift,maxsplit=1) if shift else []
+ start=clock_minutes(parts[0]) if len(parts)==2 else None
+ end=clock_minutes(parts[1]) if len(parts)==2 else None
+ account=workspace.get('account',{}) if isinstance(workspace,dict) else {}
+ if start is None or end is None:
+  configured_start=clock_minutes(account.get('shift_start')) if isinstance(account,dict) else None
+  configured_end=clock_minutes(account.get('shift_end')) if isinstance(account,dict) else None
+  if configured_start is None or configured_end is None:return None
+  start,end=configured_start,configured_end
+ return start,end
+
+def display_clock(value):
+ hour=(value//60)%24;minute=value%60;period='AM' if hour<12 else 'PM'
+ display_hour=hour%12 or 12
+ return f'{display_hour:02d}:{minute:02d} {period}'
+
+def check_in_availability(workspace,profile,moment=None):
+ window=employee_shift_window(workspace,profile)
+ if not window:return True,''
+ start,end=window;current_time=moment or india_now();current=current_time.hour*60+current_time.minute
+ ended=(start<end and current>=end) or (start>end and end<=current<start)
+ if not ended:return True,''
+ return False,f"You can’t check in right now because your shift ended at {display_clock(end)}. Your shift timing is {display_clock(start)}–{display_clock(end)}."
+
 EMPLOYEE_EDITABLE_PROFILE_FIELDS={
  'name','phone','dob','gender','marital_status','aadhaar','qualification','hobbies','passion',
  'temporary_address','address','father_name','mother_name','father_occupation','mother_occupation',
@@ -184,7 +225,8 @@ def dashboard():
  try:
   row=current(db)
   if not row:return jsonify({'error':'Employee account is not active.'}),403
-  shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(row['id'],now().date().isoformat())).fetchone()
+  work_date=india_now().date().isoformat()
+  shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(row['id'],work_date)).fetchone()
   history=db.execute('''SELECT s.*,
    EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_IN' AND COALESCE(e.face_capture_data,'') <> '') AS checkin_face_captured,
    EXISTS(SELECT 1 FROM employee_attendance_events e WHERE e.shift_id=s.id AND e.event_type='CHECK_OUT' AND COALESCE(e.face_capture_data,'') <> '') AS checkout_face_captured
@@ -192,14 +234,19 @@ def dashboard():
   sessions=db.execute('SELECT id,login_at,logout_at FROM employee_login_sessions WHERE employee_account_id=? ORDER BY login_at DESC LIMIT 50',(row['id'],)).fetchall()
   current_session=next((item for item in sessions if item['id']==g.employee_identity.get('session_id')),None)
   previous_logout=next((item['logout_at'] for item in sessions if item['logout_at']),None)
-  _,_,_,profile=workspace_profile(db,row)
+  workspace,_,_,profile=workspace_profile(db,row)
   face_enabled=configured_attendance_mode(db,row['tenant_email'])=='face'
+  next_action='CHECK_OUT' if shift and shift['status']=='OPEN' else 'CHECK_IN'
+  check_in_allowed,check_in_message=check_in_availability(workspace,profile)
+  if next_action!='CHECK_IN':check_in_allowed,check_in_message=True,''
   return jsonify({
    'employee':public(row),
    'profile':profile,
    'server_time':stamp(),
    'today':dict(shift) if shift else None,
-   'next_action':'CHECK_OUT' if shift and shift['status']=='OPEN' else 'CHECK_IN',
+   'next_action':next_action,
+   'check_in_allowed':check_in_allowed,
+   'check_in_message':check_in_message,
    'history':[dict(x) for x in history],
    'session':dict(current_session) if current_session else None,
    'last_logout_at':previous_logout,
@@ -292,10 +339,14 @@ def attendance():
     return jsonify({'error':'Face Authentication is not enabled for this company. Ask the administrator to change Attendance Integration settings.'}),403
    duplicate=db.execute('SELECT * FROM employee_attendance_events WHERE employee_account_id=? AND idempotency_key=?',(row['id'],key)).fetchone()
    if duplicate:return jsonify({'ok':True,'duplicate':True,'event':{**dict(duplicate),'face_capture_data':photo_url(duplicate['face_capture_data'])}})
-   date=now().date().isoformat();shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(row['id'],date)).fetchone();event_time=stamp()
+   date=india_now().date().isoformat();shift=db.execute('SELECT * FROM employee_shifts WHERE employee_account_id=? AND work_date=?',(row['id'],date)).fetchone();event_time=stamp()
    if shift and shift['status']=='COMPLETED':return jsonify({'error':'Today’s attendance is already completed.'}),409
    action='CHECK_IN' if not shift else 'CHECK_OUT'
    if expected_action and expected_action!=action:return jsonify({'error':'Attendance status changed before this photo was saved. Refresh and capture a new photo.'}),409
+   if action=='CHECK_IN':
+    workspace,_,_,profile=workspace_profile(db,row)
+    check_in_allowed,check_in_message=check_in_availability(workspace,profile)
+    if not check_in_allowed:return jsonify({'error':check_in_message}),409
    stored_face=store_photo(face,tenant=row['tenant_email'],employee_id=row['employee_id'],category='attendance',event_type=action,captured_at=event_time)
    if not shift:
     sid=uuid4().hex;db.execute('INSERT INTO employee_shifts(id,employee_account_id,company_id,work_date,check_in_at,status) VALUES(?,?,?,?,?,?)',(sid,row['id'],row['company_id'],date,event_time,'OPEN'))

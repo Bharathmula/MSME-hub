@@ -195,8 +195,9 @@ function finalHoursWithSlider(person) {
 }
 
 function fixedPeriodInput(person, field, period, fallback) {
+  const current = person[field] ? clockOnly(person[field], '') : '';
   return `<label class="fixed-time-control">
-    <input class="time-entry" value="${esc(clockOnly(person[field], fallback))}"
+    <input class="time-entry" value="${esc(current)}"
       placeholder="${esc(clockOnly(fallback, fallback))}"
       data-fixed-time-id="${esc(person.id)}" data-fixed-time-field="${field}"
       data-fixed-period="${period}">
@@ -429,13 +430,18 @@ function timingRowV21(person, savedRecord = null, editable = true, serialNumber 
     ...person,
     status: savedRecord.status,
     shift: savedRecord.shift || person.shift,
-    login_time: savedRecord.login || person.login_time || '09:00 AM',
-    logout_time: savedRecord.logout || person.logout_time || '06:00 PM',
-    halftime_time: savedRecord.half_time || person.halftime_time || person.halftime_start || '01:00 PM',
+    login_time: savedRecord.login || '',
+    logout_time: savedRecord.logout || '',
+    halftime_time: savedRecord.half_time || '',
     halftime_period: savedRecord.half_period || person.halftime_period || 'PM',
     overtime_hours: savedRecord.overtime_hours ?? (Number.parseFloat(savedRecord.overtime) || 0),
     overtime_period: savedRecord.overtime_period || String(savedRecord.overtime || '').match(/\b(AM|PM)\b/)?.[1] || 'PM'
-  } : person;
+  } : { ...person };
+  if (source.status !== 'Present') {
+    source.login_time = '';
+    source.logout_time = '';
+    source.halftime_time = '';
+  }
   const calculation = attendanceCalculationV21(source);
   const savedWork = String(savedRecord?.work || '').trim();
   const savedTotal = String(savedRecord?.total || '').trim();
@@ -462,10 +468,10 @@ function timingRowV21(person, savedRecord = null, editable = true, serialNumber 
     </select>` : esc(source.status || 'Not saved')}</td>
     <td>${esc(source.shift || '09:00 AM - 06:00 PM')}</td>
     <td><b>${GRACE_TIME}</b><small class="record-id">15 minutes</small></td>
-    <td>${editable ? fixedPeriodInput(person, 'login_time', 'AM', '09:00 AM') : show12(source.login_time)}</td>
-    <td>${editable ? fixedPeriodInput(person, 'logout_time', 'PM', '06:00 PM') : show12(source.logout_time)}</td>
-    <td>${editable ? halfTimeControlV21(person) : `${esc(halfDisplay)}<small class="record-id">${source.halftime_time ? '30m break' : '-'}</small>`}</td>
-    <td>${editable ? overtimeSliderV21(person) : `${selectedOvertimeHoursV21(source)} hr ${esc(source.overtime_period || 'PM')}`}</td>
+    <td>${editable ? fixedPeriodInput(source, 'login_time', 'AM', '09:00 AM') : show12(source.login_time)}</td>
+    <td>${editable ? fixedPeriodInput(source, 'logout_time', 'PM', '06:00 PM') : show12(source.logout_time)}</td>
+    <td>${editable ? halfTimeControlV21(source) : `${esc(halfDisplay)}<small class="record-id">${source.halftime_time ? '30m break' : '-'}</small>`}</td>
+    <td>${editable ? overtimeSliderV21(source) : `${selectedOvertimeHoursV21(source)} hr ${esc(source.overtime_period || 'PM')}`}</td>
     <td><b>${esc(workedTimeDisplay)}</b></td>
     <td>${durationTextV21(calculation.breakMinutes)}</td>
     <td>${durationTextV21(calculation.overtime)}</td>
@@ -483,7 +489,10 @@ function attendanceTableV21(personList, record, editable = false) {
     ${editable ? '<th>ACTIONS</th>' : ''}
   </tr></thead><tbody>${personList.map((person, index) => {
     const saved = record?.records?.find(item => item.id === person.id) || null;
-    return timingRowV21(person, saved, editable, index + 1);
+    const calendarPerson = typeof view !== 'undefined' && view === 'attendance' && !saved
+      ? { ...person, status: 'Not checked in', login_time: '', logout_time: '', halftime_time: '', halftime_start: '' }
+      : person;
+    return timingRowV21(calendarPerson, saved, editable, index + 1);
   }).join('')}</tbody></table></div>`;
 }
 
@@ -794,8 +803,10 @@ window.attendanceCalendar = function attendanceCalendarWithRoleSections() {
 };
 
 function attendanceRecordsForTodayV21() {
-  return people.map(person => {
-    const calculation = attendanceCalculationV21(person);
+  return [...people, ...temporaryWorkers].map(person => {
+    const present = person.status === 'Present';
+    const source = present ? person : { ...person, login_time: '', logout_time: '', halftime_time: '', halftime_start: '' };
+    const calculation = attendanceCalculationV21(source);
     return {
       id: person.id,
       name: person.name,
@@ -803,9 +814,9 @@ function attendanceRecordsForTodayV21() {
       status: person.status || 'Not checked in',
       shift: person.shift || '09:00 AM - 06:00 PM',
       grace: GRACE_TIME,
-      login: person.login_time || '',
-      logout: person.logout_time || '',
-      half_time: person.halftime_time || person.halftime_start || '',
+      login: present ? person.login_time || '' : '',
+      logout: present ? person.logout_time || '' : '',
+      half_time: present ? person.halftime_time || person.halftime_start || '' : '',
       half_period: person.halftime_period || 'PM',
       half: durationTextV21(calculation.breakMinutes),
       overtime_hours: selectedOvertimeHoursV21(person),

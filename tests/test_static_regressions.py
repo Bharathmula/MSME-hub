@@ -343,6 +343,24 @@ class StaticRegressionTests(unittest.TestCase):
         self.assertIn("missingAutomaticAttendanceV40(person, date)", controls)
         self.assertIn("'Not checked in'", overview)
 
+    def test_attendance_calendar_does_not_invent_login_or_logout_times(self):
+        controls = (ROOT / "static" / "dashboard-attendance-controls.js").read_text(
+            encoding="utf-8"
+        )
+        portal = (ROOT / "static" / "employee-portal" / "employee-portal.js").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("login_time: savedRecord.login || ''", controls)
+        self.assertIn("logout_time: savedRecord.logout || ''", controls)
+        self.assertNotIn("savedRecord.login || person.login_time || '09:00 AM'", controls)
+        self.assertNotIn("savedRecord.logout || person.logout_time || '06:00 PM'", controls)
+        self.assertIn("const current = person[field] ? clockOnly(person[field], '') : '';", controls)
+        self.assertIn("if (source.status !== 'Present')", controls)
+        self.assertIn("status: 'Not checked in', login_time: '', logout_time: ''", controls)
+        self.assertIn("return [...people, ...temporaryWorkers].map", controls)
+        self.assertIn("dashboard.check_in_allowed === false", portal)
+
     def test_settings_has_company_attendance_integrations_and_reports(self):
         index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
         settings = (ROOT / "static" / "settings-attendance-integrations-and-reports.js").read_text(encoding="utf-8")
