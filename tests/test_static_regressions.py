@@ -83,12 +83,33 @@ class StaticRegressionTests(unittest.TestCase):
         authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(
             encoding="utf-8"
         )
+        authentication_styles = (ROOT / "static" / "owned-authentication.css").read_text(
+            encoding="utf-8"
+        )
+        portal = (ROOT / "static" / "employee-portal" / "employee-portal.js").read_text(
+            encoding="utf-8"
+        )
+        portal_styles = (ROOT / "static" / "employee-portal" / "employee-portal.css").read_text(
+            encoding="utf-8"
+        )
+        streamlit = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
 
         self.assertIn("<title>MG BOOK</title>", index)
         self.assertIn('<h1><span>MG BOOK</span></h1>', authentication)
         self.assertIn('<span class="msme-logo-copy"><b>MG BOOK</b>', authentication)
         self.assertIn('aria-label="MG BOOK M logo"', authentication)
         self.assertNotIn('<i>MULTI SKILL</i><i>PLANNER</i>', authentication)
+        self.assertIn("Use the dashboard MG BOOK gradient", authentication_styles)
+        self.assertIn(".landing-title h1 span", authentication_styles)
+        self.assertIn("#login-screen .msme-logo-copy b", authentication_styles)
+        self.assertIn('class="ep-brand" aria-label="MG BOOK"', portal)
+        self.assertIn('<b>MG BOOK</b><small>Track · Manage · Grow</small>', portal)
+        self.assertNotIn('MSME <b>HUB</b>', portal)
+        self.assertNotIn('MSME Hub employee', portal)
+        self.assertIn(".ep-brand-mark path:nth-child(1){stroke:#ef42dc}", portal_styles)
+        self.assertIn(".ep-brand b{background:linear-gradient(90deg,#ef42dc", portal_styles)
+        self.assertIn('page_title="MG BOOK"', streamlit)
+        self.assertNotIn('page_title="MSME Hub Streamlit Project"', streamlit)
 
     def test_dashboard_logout_returns_to_welcome_page(self):
         authentication = (ROOT / "static" / "owned-authentication-login.js").read_text(

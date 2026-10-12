@@ -124,7 +124,7 @@ def bundled_application() -> str:
 
 
 st.set_page_config(
-    page_title="MSME Hub Streamlit Project",
+    page_title="MG BOOK",
     page_icon="M",
     layout="wide",
     initial_sidebar_state="collapsed",

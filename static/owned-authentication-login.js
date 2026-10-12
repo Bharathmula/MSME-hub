@@ -73,7 +73,7 @@ async function request(path,options={}){
     if(d.access_token)sessionStorage.setItem('msme-admin-api-token',d.access_token);
     return d;
   }catch(error){
-    if(error?.name==='AbortError')throw Error('Sign in timed out. Check that the MSME Hub server is running, then try again.');
+    if(error?.name==='AbortError')throw Error('Sign in timed out. Check that the MG BOOK server is running, then try again.');
     throw error;
   }finally{clearTimeout(timeout)}
 }

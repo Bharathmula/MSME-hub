@@ -81,8 +81,8 @@
   }
 
   function invitationShareButtons(invitationUrl, employeeName, employeeEmail) {
-    const subject = 'Your MSME Hub employee invitation';
-    const message = `Hello ${employeeName},\n\nUse this secure invitation to create your MSME Hub employee account:\n${invitationUrl}\n\nThis invitation is valid for 24 hours.`;
+    const subject = 'Your MG BOOK employee invitation';
+    const message = `Hello ${employeeName},\n\nUse this secure invitation to create your MG BOOK employee account:\n${invitationUrl}\n\nThis invitation is valid for 24 hours.`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     const mailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(employeeEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
     const whatsappIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a9.7 9.7 0 0 0-8.4 14.6L2 22l5.5-1.5A9.8 9.8 0 1 0 12 2Zm0 17.8c-1.5 0-3-.4-4.2-1.2l-.3-.2-3.2.9.9-3.1-.2-.3A7.8 7.8 0 1 1 12 19.8Zm4.3-5.8c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.6.1l-.7.9c-.1.2-.3.2-.5.1-1.4-.7-2.4-1.3-3.3-2.9-.2-.3.2-.5.6-1 .1-.2.1-.4 0-.5l-.7-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.8.8-1.1 1.9-.7 3 1 2.9 3.5 5.1 6.5 5.9 1.1.3 2.1.2 2.9-.2.9-.4 1.4-1.4 1.4-2.1 0-.3-.1-.5-.3-.6Z"/></svg>`;
@@ -196,7 +196,7 @@
     root.style.display = 'block';
     root.innerHTML = `<div class="ep-app">
       <aside class="ep-sidebar">
-        <div class="ep-brand">MSME <b>HUB</b></div>
+        <div class="ep-brand" aria-label="MG BOOK"><svg class="ep-brand-mark" viewBox="0 0 120 76" aria-hidden="true"><path d="M20 61 39 15"/><path d="M39 15 59 61"/><path d="M59 61 79 15"/><path d="M79 15 100 61"/></svg><span><b>MG BOOK</b><small>Track · Manage · Grow</small></span></div>
         <div class="ep-person">${profileAvatar(employee)}<strong>${esc(employee.name)}</strong><small>${esc(roleLabel(employee.workforce_role))}</small></div>
         <nav>
           <button data-ep-page="overview" class="${currentPage === 'overview' ? 'active' : ''}">▦ Overview</button>
@@ -307,7 +307,7 @@
     const countOptions = (name) => Array.from({ length: 11 }, (_, value) => `<option value="${value}" ${Number(profile[name] || 0) === value ? 'selected' : ''}>${value}</option>`).join('');
     employeeShell(`<section class="ep-page-heading"><p class="ep-eyebrow">PERSONAL DETAILS</p><h1>My profile</h1><p>Update your personal, family, medical and skill details. Attendance, role, employee ID and salary remain controlled by the administrator.</p></section>
       <section class="ep-card ep-profile-layout"><div class="ep-photo-column">${photo}<label class="ep-upload">Add photo to profile<input id="ep-profile-file" type="file" accept="image/*"></label><p id="ep-profile-message"></p></div>
-        <dl class="ep-profile-details"><div><dt>Employee ID</dt><dd>${esc(employee.employee_id)}</dd></div><div><dt>Role</dt><dd>${esc(roleLabel(employee.workforce_role))}</dd></div><div><dt>Login email</dt><dd>${esc(employee.email)}</dd></div><div><dt>Company account</dt><dd>${esc(employee.tenant_email || 'MSME Hub')}</dd></div><div><dt>Account status</dt><dd>${esc(employee.status)}</dd></div><div><dt>Face attendance</dt><dd>${dashboard.biometric_ready ? 'Enabled' : 'Not enabled'}</dd></div></dl>
+        <dl class="ep-profile-details"><div><dt>Employee ID</dt><dd>${esc(employee.employee_id)}</dd></div><div><dt>Role</dt><dd>${esc(roleLabel(employee.workforce_role))}</dd></div><div><dt>Login email</dt><dd>${esc(employee.email)}</dd></div><div><dt>Company account</dt><dd>${esc(employee.tenant_email || 'MG BOOK')}</dd></div><div><dt>Account status</dt><dd>${esc(employee.status)}</dd></div><div><dt>Face attendance</dt><dd>${dashboard.biometric_ready ? 'Enabled' : 'Not enabled'}</dd></div></dl>
       </section>
       <section class="ep-card ep-editable-profile"><form id="ep-profile-details-form">
         <p class="ep-profile-permission-note"><b>* Important company details</b> are shown from the admin dashboard and cannot be deleted or changed here. Other blank fields can be entered once; later changes must be made by the administrator.</p>

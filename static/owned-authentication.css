@@ -321,6 +321,19 @@ body:has(#login-screen:not(.hidden):not(.entry-hidden)){
   color:transparent;
 }
 
+/* Use the dashboard MG BOOK gradient on the welcome and login brands. */
+.landing-logo b,
+.landing-title h1 span,
+#login-screen .msme-logo-copy b,
+#login-screen .art-copy h2{
+  background:linear-gradient(90deg,#ef42dc 0%,#8c43f2 38%,#19c8ed 72%,#4050ff 100%);
+  background-clip:text;
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  color:#ef42dc!important;
+  text-shadow:none!important;
+}
+
 @media(max-width:760px){
   #login-screen{height:100vh;min-height:100vh;max-height:100vh}
   #login-screen .login-side{min-height:112vh;height:auto;padding-top:58px;padding-bottom:54px}
