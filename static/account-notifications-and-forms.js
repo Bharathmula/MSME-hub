@@ -143,7 +143,7 @@ function addBulkControlsV30(roleName) {
   </section>`);
 
   document.querySelectorAll('.overflow-person-card').forEach(card => {
-    const id = card.dataset.overflowProfile;
+    const id = card.dataset.personCardId;
     card.insertAdjacentHTML('afterbegin', `<label class="bulk-person-select" title="Select this profile">
       <input type="checkbox" data-bulk-person="${esc(id)}"> <span>Select</span></label>`);
   });

@@ -707,7 +707,9 @@ function overviewDateText() {
 }
 
 function roleAttendanceSnapshot(roleName) {
-  const list = people.filter(person => person.role === roleName);
+  const list = typeof workforceCategoryPeopleV43 === 'function'
+    ? workforceCategoryPeopleV43(roleName)
+    : people.filter(person => person.role === roleName);
   const present = list.filter(person => person.status === 'Present').length;
   const leave = list.filter(person => person.status === 'On leave').length;
   const absent = list.filter(person => person.status === 'Absent').length;
@@ -716,9 +718,13 @@ function roleAttendanceSnapshot(roleName) {
 
 function attendanceSector(roleName, viewName, className) {
   const stats = roleAttendanceSnapshot(roleName);
+  const category = typeof workforceCategoryDefinitionsV43 !== 'undefined'
+    ? workforceCategoryDefinitionsV43.find(item => item.role === roleName)
+    : null;
+  const label = category?.title || roleName;
   return `<article class="role-attendance-sector ${className}">
-    <div class="role-attendance-head"><div><span>${esc(roleName)}</span><b>${stats.percentage}% present today</b></div>
-      <button type="button" data-view="${viewName}">Open dashboard →</button></div>
+    <div class="role-attendance-head"><div><span>${esc(label)}</span><b>${stats.percentage}% present today</b></div>
+      <button type="button" data-workforce-overflow-role="${esc(roleName)}">Open records →</button></div>
     <div class="role-attendance-progress-row">
       <div class="role-attendance-progress" role="progressbar" aria-label="${esc(roleName)} total present"
         aria-valuemin="0" aria-valuemax="100" aria-valuenow="${stats.percentage}">
@@ -1251,20 +1257,23 @@ function enhanceOverviewDashboard() {
     const remaining = daysFromToday(item.contract_end);
     return remaining !== null && remaining < 0;
   });
-  const workerRecords = activePeople.filter(person => person.role === 'Worker');
-  const staffRecords = activePeople.filter(person => person.role === 'Staff');
-  const entrepreneurRecords = activePeople.filter(person => person.role === 'Entrepreneur');
+  const categoryDefinitions = typeof enabledWorkforceCategoriesV43 === 'function'
+    ? enabledWorkforceCategoriesV43()
+    : [];
   const riskRecords = [...activePeople, ...temporary.filter(person => !activePeople.some(item => item.id === person.id))];
-  if (health && !health.querySelector('.attendance-health-role-dashboard')) {
-    health.querySelector('.panel-header')?.insertAdjacentHTML('afterend', `
-      <div class="attendance-health-role-heading"><div><span>TODAY</span><b>Total attendance by workforce</b></div></div>
-      <div class="role-attendance-dashboard attendance-health-role-dashboard">${attendanceSector('Worker', 'workers', 'worker-attendance')}${attendanceSector('Staff', 'staff', 'staff-attendance')}${attendanceSector('Entrepreneur', 'entrepreneurs', 'entrepreneur-attendance')}</div>
-    `);
+  if (health) {
+    const importantUpdates = health.querySelector('.important-block');
+    if (importantUpdates) {
+      [...health.children].forEach(child => {
+        if (child !== importantUpdates) child.remove();
+      });
+      health.classList.add('important-updates-only');
+    }
   }
   if (document.getElementById('operations-overview')) return;
   const section = `<section class="operations-overview" id="operations-overview">
     <div class="operations-overview-heading"><div><span>OVERVIEW</span><h2>Attendance status and deadline overflow</h2></div><div class="attendance-overview-legend"><span class="present"><i></i>Present</span><span class="unsure"><i></i>Not sure</span><span class="absent"><i></i>Sure absent</span></div></div>
-    <div class="attendance-overview-grid">${attendanceOverviewCard('Employees / Workers', workerRecords, 'workers')}${attendanceOverviewCard('Staff', staffRecords, 'staff')}${attendanceOverviewCard('Entrepreneurs', entrepreneurRecords, 'entrepreneurs')}${attendanceOverviewCard('Temporary workers', temporary, 'temporary')}</div>
+    <div class="attendance-overview-grid">${categoryDefinitions.map(category => attendanceOverviewCard(category.title, workforceCategoryPeopleV43(category), workforceCategoryClassV43(category))).join('')}</div>
     <div class="overflow-overview-grid">
       <article class="overflow-overview-card temporary-overflow"><div class="overflow-card-head"><h3>Temporary worker overflow</h3><strong>${temporaryOverflow.length}</strong></div>${temporaryOverflow.length ? temporaryOverflow.map(person => { const extra = Math.max(0, elapsed(person) - 180); return overviewDeadlineRow(person.name, `${extra} day${extra === 1 ? '' : 's'} beyond 180-day limit`, 'temporary'); }).join('') : '<p class="overflow-empty">No temporary worker has crossed the 180-day limit.</p>'}</article>
       <article class="overflow-overview-card contractor-overflow"><div class="overflow-card-head"><h3>Contractor overflow</h3><strong>${contractorOverflow.length}</strong></div>${contractorOverflow.length ? contractorOverflow.map(contractor => overviewDeadlineRow(contractor.name || contractor.contract, contractorDeadlineState(contractor).label, 'contractor')).join('') : '<p class="overflow-empty">No contractor has crossed the contract end date.</p>'}</article>
@@ -1357,6 +1366,83 @@ if (document.readyState === 'loading') {
     return `"${String(value ?? '').replaceAll('"', '""')}"`;
   }
 
+  function payrollComplianceKey() {
+    return typeof tenantKey === 'function' ? tenantKey('payroll-compliance-settings') : 'msme-payroll-compliance-settings';
+  }
+
+  function payrollComplianceSettings() {
+    const defaults = {
+      pf_enabled: false,
+      employee_pf_percent: 12,
+      employer_pf_percent: 12,
+      pf_wage_ceiling: 15000,
+      esi_enabled: false,
+      employee_esi_percent: 0.75,
+      employer_esi_percent: 3.25,
+      esi_wage_ceiling: 21000,
+      professional_tax: 0,
+      tds_percent: 0,
+      other_deduction: 0,
+    };
+    try {
+      return { ...defaults, ...(JSON.parse(localStorage.getItem(payrollComplianceKey()) || '{}') || {}) };
+    } catch (_) {
+      return defaults;
+    }
+  }
+
+  function payrollDeductions(grossPay) {
+    const settings = payrollComplianceSettings();
+    const gross = Math.max(0, Number(grossPay || 0));
+    const pfCeiling = Math.max(0, Number(settings.pf_wage_ceiling || 0));
+    const pfBase = pfCeiling ? Math.min(gross, pfCeiling) : gross;
+    const employeePf = settings.pf_enabled ? pfBase * Math.max(0, Number(settings.employee_pf_percent || 0)) / 100 : 0;
+    const employerPf = settings.pf_enabled ? pfBase * Math.max(0, Number(settings.employer_pf_percent || 0)) / 100 : 0;
+    const esiCeiling = Math.max(0, Number(settings.esi_wage_ceiling || 0));
+    const esiApplies = settings.esi_enabled && (!esiCeiling || gross <= esiCeiling);
+    const employeeEsi = esiApplies ? gross * Math.max(0, Number(settings.employee_esi_percent || 0)) / 100 : 0;
+    const employerEsi = esiApplies ? gross * Math.max(0, Number(settings.employer_esi_percent || 0)) / 100 : 0;
+    const professionalTax = Math.min(gross, Math.max(0, Number(settings.professional_tax || 0)));
+    const tds = gross * Math.max(0, Number(settings.tds_percent || 0)) / 100;
+    const otherDeduction = Math.min(gross, Math.max(0, Number(settings.other_deduction || 0)));
+    const totalDeductions = employeePf + employeeEsi + professionalTax + tds + otherDeduction;
+    return {
+      employeePf, employerPf, employeeEsi, employerEsi, professionalTax, tds, otherDeduction,
+      totalDeductions,
+      netPay: Math.max(0, gross - totalDeductions),
+      employerCost: gross + employerPf + employerEsi,
+    };
+  }
+
+  function openPayrollSettings() {
+    const settings = payrollComplianceSettings();
+    const checked = value => value ? ' checked' : '';
+    document.getElementById('modal-root').innerHTML = `<div class="modal-backdrop"><form class="modal payroll-settings-modal" id="payroll-compliance-form">
+      <div class="modal-head"><div><div class="eyebrow">COMPANY PAYROLL SETTINGS</div><h2>PF, ESI and deductions</h2><p>Enable only the items applicable to your establishment and employees. Confirm statutory treatment with your payroll professional.</p></div><button class="close" type="button" data-close>×</button></div>
+      <div class="payroll-compliance-section"><label class="payroll-setting-toggle"><input type="checkbox" name="pf_enabled"${checked(settings.pf_enabled)}><span><b>Provident Fund (PF)</b><small>Add employee and employer PF columns to calculated payroll.</small></span></label>
+        <div class="form-grid"><label>Employee PF (%)<input type="number" min="0" step="0.01" name="employee_pf_percent" value="${Number(settings.employee_pf_percent)}"></label><label>Employer PF (%)<input type="number" min="0" step="0.01" name="employer_pf_percent" value="${Number(settings.employer_pf_percent)}"></label><label>PF calculation ceiling / base cap (₹)<input type="number" min="0" step="1" name="pf_wage_ceiling" value="${Number(settings.pf_wage_ceiling)}"></label></div></div>
+      <div class="payroll-compliance-section"><label class="payroll-setting-toggle"><input type="checkbox" name="esi_enabled"${checked(settings.esi_enabled)}><span><b>Employees' State Insurance (ESI)</b><small>Apply ESI only when enabled and gross pay is within the configured ceiling.</small></span></label>
+        <div class="form-grid"><label>Employee ESI (%)<input type="number" min="0" step="0.01" name="employee_esi_percent" value="${Number(settings.employee_esi_percent)}"></label><label>Employer ESI (%)<input type="number" min="0" step="0.01" name="employer_esi_percent" value="${Number(settings.employer_esi_percent)}"></label><label>ESI gross wage ceiling (₹)<input type="number" min="0" step="1" name="esi_wage_ceiling" value="${Number(settings.esi_wage_ceiling)}"></label></div></div>
+      <div class="payroll-compliance-section"><h3>Other company deductions</h3><div class="form-grid"><label>Professional tax per employee (₹)<input type="number" min="0" step="0.01" name="professional_tax" value="${Number(settings.professional_tax)}"></label><label>TDS from gross pay (%)<input type="number" min="0" step="0.01" name="tds_percent" value="${Number(settings.tds_percent)}"></label><label>Other fixed deduction (₹)<input type="number" min="0" step="0.01" name="other_deduction" value="${Number(settings.other_deduction)}"></label></div></div>
+      <div class="settings-note"><b>Important:</b> these are configurable payroll estimates, not an automatic legal determination. Applicability, wage definitions, ceilings and state professional tax rules can differ.</div>
+      <div class="modal-actions"><button class="secondary" type="button" data-close>Cancel</button><button class="primary">Save payroll settings</button></div></form></div>`;
+    document.querySelectorAll('#modal-root [data-close]').forEach(button => button.onclick = () => { document.getElementById('modal-root').innerHTML = ''; });
+    document.getElementById('payroll-compliance-form').onsubmit = event => {
+      event.preventDefault();
+      const values = Object.fromEntries(new FormData(event.currentTarget));
+      const next = {
+        pf_enabled: event.currentTarget.elements.pf_enabled.checked,
+        employee_pf_percent: Number(values.employee_pf_percent || 0), employer_pf_percent: Number(values.employer_pf_percent || 0), pf_wage_ceiling: Number(values.pf_wage_ceiling || 0),
+        esi_enabled: event.currentTarget.elements.esi_enabled.checked,
+        employee_esi_percent: Number(values.employee_esi_percent || 0), employer_esi_percent: Number(values.employer_esi_percent || 0), esi_wage_ceiling: Number(values.esi_wage_ceiling || 0),
+        professional_tax: Number(values.professional_tax || 0), tds_percent: Number(values.tds_percent || 0), other_deduction: Number(values.other_deduction || 0),
+      };
+      localStorage.setItem(payrollComplianceKey(), JSON.stringify(next));
+      document.getElementById('modal-root').innerHTML = '';
+      payrollPage();
+    };
+  }
+
   function shellForFeature(feature) {
     document.querySelectorAll('.nav-link').forEach(button => {
       button.classList.toggle('active', button.dataset.view === feature);
@@ -1375,10 +1461,13 @@ if (document.readyState === 'loading') {
     const minutes = regularMinutes + overtimeMinutes;
     const dailyRate = Number(person.daily_rate || 0);
     const monthlySalary = Number(person.monthly_salary || 0);
-    const hourlyRate = monthlySalary > 0
-      ? monthlySalary / (26 * 8)
-      : dailyRate > 0 ? dailyRate / 8 : 0;
+    const effectiveDailyRate = monthlySalary > 0 ? monthlySalary / 26 : dailyRate;
+    const hourlyRate = effectiveDailyRate / 8;
     const pay = hourlyRate * (minutes / 60);
+    const dailyBreakdown = records.map(record => {
+      const workedMinutes = parseDuration(record.work) + parseDuration(record.overtime);
+      return { date: record.payroll_date, workedMinutes, amount: hourlyRate * (workedMinutes / 60) };
+    });
     const today = indiaDateKey();
     const todayRecords = (Array.isArray(attendanceLog) ? attendanceLog : [])
       .filter(day => day.date === today)
@@ -1386,6 +1475,7 @@ if (document.readyState === 'loading') {
     const todayMinutes = todayRecords.reduce(
       (sum, record) => sum + parseDuration(record.work) + parseDuration(record.overtime), 0
     );
+    const deductions = payrollDeductions(pay);
     return {
       id: person.id,
       name: person.name || 'Unnamed',
@@ -1394,10 +1484,13 @@ if (document.readyState === 'loading') {
       minutes,
       monthlySalary,
       dailyRate,
+      effectiveDailyRate,
+      dailyBreakdown,
       todayMinutes,
       todayPay: hourlyRate * (todayMinutes / 60),
-      rate: dailyRate ? `₹${dailyRate}/day` : monthlySalary ? `₹${monthlySalary}/month` : 'Set salary in profile',
-      pay
+      rate: effectiveDailyRate ? `₹${effectiveDailyRate.toFixed(2)}/present day` : 'Set salary in profile',
+      pay,
+      ...deductions
     };
   }
 
@@ -1405,22 +1498,29 @@ if (document.readyState === 'loading') {
     shellForFeature('payroll');
     const now = new Date();
     const monthPrefix = indiaDateKey(now).slice(0, 7);
-    const rows = allPayrollPeople().map(person => payrollRow(person, monthPrefix));
-    const payrollSections = [
-      ['Worker', 'Workers'], ['Staff', 'Staff'], ['Temporary Worker', 'Temporary Workers'], ['Entrepreneur', 'Entrepreneurs']
-    ].map(([role, title]) => {
+    const categoryDefinitions = typeof enabledWorkforceCategoriesV43 === 'function'
+      ? enabledWorkforceCategoriesV43()
+      : [
+        { role: 'Worker', title: 'Workers' }, { role: 'Staff', title: 'Staff' },
+        { role: 'Temporary Worker', title: 'Temporary Workers' }, { role: 'Entrepreneur', title: 'Entrepreneurs' }
+      ];
+    const enabledRoles = new Set(categoryDefinitions.map(category => category.role));
+    const rows = allPayrollPeople()
+      .filter(person => enabledRoles.has(person.payroll_role || person.role || 'Worker'))
+      .map(person => payrollRow(person, monthPrefix));
+    const payrollSections = categoryDefinitions.map(({ role, title }) => {
       const roleRows = rows.filter(row => row.role === role);
       const totalPay = roleRows.reduce((total, row) => total + row.pay, 0);
-      return `<section class="panel payroll-panel payroll-role-section"><div class="panel-header"><div><span class="eyebrow">${title.toUpperCase()}</span><h2>${title} monthly salary</h2></div><div class="payroll-role-total"><small>${roleRows.length} people</small><b>₹${totalPay.toFixed(2)}</b></div></div><div class="table-wrap"><table><thead><tr><th>NAME / ID</th><th>TODAY WORKED</th><th>TODAY SALARY</th><th>PRESENT DAYS</th><th>MONTH WORKED</th><th>MONTHLY SALARY</th><th>DAILY RATE (8 HR)</th><th>CALCULATED MONTHLY PAY</th><th>EDIT</th></tr></thead><tbody>${roleRows.map(row => `<tr><td><b>${esc(row.name)}</b><small class="record-id">${esc(row.id)}</small></td><td>${Math.floor(row.todayMinutes / 60)}h ${row.todayMinutes % 60}m</td><td><b>₹${row.todayPay.toFixed(2)}</b></td><td>${row.days}</td><td>${Math.floor(row.minutes / 60)}h ${row.minutes % 60}m</td><td>₹${row.monthlySalary.toFixed(2)}</td><td>₹${row.dailyRate.toFixed(2)}</td><td><b>₹${row.pay.toFixed(2)}</b></td><td><button class="action" data-edit-payroll-salary="${esc(row.id)}">Edit salary</button></td></tr>`).join('') || '<tr><td colspan="9" class="empty">No records in this section.</td></tr>'}</tbody></table></div></section>`;
+      return `<section class="panel payroll-panel payroll-role-section"><div class="panel-header"><div><span class="eyebrow">${title.toUpperCase()}</span><h2>${title} monthly salary</h2></div><div class="payroll-role-total"><small>${roleRows.length} people</small><b>₹${totalPay.toFixed(2)}</b></div></div><div class="table-wrap"><table><thead><tr><th>NAME / ID</th><th>TODAY WORKED</th><th>TODAY SALARY</th><th>PRESENT DAYS</th><th>MONTH WORKED</th><th>MONTHLY SALARY</th><th>PRESENT-DAY RATE (8 HR)</th><th>CALCULATED MONTHLY PAY</th><th>DAILY DETAILS</th><th>EDIT</th></tr></thead><tbody>${roleRows.map(row => `<tr><td><b>${esc(row.name)}</b><small class="record-id">${esc(row.id)}</small></td><td>${Math.floor(row.todayMinutes / 60)}h ${row.todayMinutes % 60}m</td><td><b>₹${row.todayPay.toFixed(2)}</b></td><td>${row.days}</td><td>${Math.floor(row.minutes / 60)}h ${row.minutes % 60}m</td><td>₹${row.monthlySalary.toFixed(2)}</td><td><b>₹${row.effectiveDailyRate.toFixed(2)}</b></td><td><b>₹${row.pay.toFixed(2)}</b></td><td><button class="action" data-payroll-daily="${esc(row.id)}">View daily</button></td><td><button class="action" data-edit-payroll-salary="${esc(row.id)}">Edit salary</button></td></tr>`).join('') || '<tr><td colspan="10" class="empty">No records in this section.</td></tr>'}</tbody></table></div></section>`;
     }).join('');
     root.innerHTML = `<div class="page-heading"><div><div class="eyebrow">PAYROLL</div>
       <h1>Daily and monthly salary calculation.</h1><p>Daily salary is calculated from actual working hours. A daily rate represents eight working hours.</p></div>
-      <button class="primary" id="download-payroll">⇩ Download payroll CSV</button></div>
+      <div class="payroll-page-actions"><button class="secondary" id="payroll-settings">PF & payroll settings</button><button class="primary" id="download-payroll">⇩ Download payroll CSV</button></div></div>
       <section class="payroll-month-banner"><span>PAYROLL MONTH</span><b>${now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</b><strong>${rows.length} people</strong></section>${payrollSections}`;
     document.getElementById('download-payroll').onclick = () => {
       const content = [
-        'Name,Role,Today worked,Today salary,Present days,Month worked,Rate,Calculated monthly pay',
-        ...rows.map(row => [row.name, row.role, `${Math.floor(row.todayMinutes / 60)}h ${row.todayMinutes % 60}m`, row.todayPay.toFixed(2), row.days, `${Math.floor(row.minutes / 60)}h ${row.minutes % 60}m`, row.rate, row.pay.toFixed(2)].map(csvCell).join(','))
+        'Employee ID,Name,Category,Today worked,Today salary,Present days,Month worked,Present-day rate,Gross earned pay,Employee PF,Employer PF,Employee ESI,Employer ESI,Professional tax,TDS,Other deductions,Total deductions,Net pay,Employer cost',
+        ...rows.map(row => [row.id, row.name, row.role, `${Math.floor(row.todayMinutes / 60)}h ${row.todayMinutes % 60}m`, row.todayPay.toFixed(2), row.days, `${Math.floor(row.minutes / 60)}h ${row.minutes % 60}m`, row.effectiveDailyRate.toFixed(2), row.pay.toFixed(2), row.employeePf.toFixed(2), row.employerPf.toFixed(2), row.employeeEsi.toFixed(2), row.employerEsi.toFixed(2), row.professionalTax.toFixed(2), row.tds.toFixed(2), row.otherDeduction.toFixed(2), row.totalDeductions.toFixed(2), row.netPay.toFixed(2), row.employerCost.toFixed(2)].map(csvCell).join(','))
       ].join('\n');
       const anchor = document.createElement('a');
       anchor.href = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' }));
@@ -1428,6 +1528,13 @@ if (document.readyState === 'loading') {
       anchor.click();
       URL.revokeObjectURL(anchor.href);
     };
+    document.getElementById('payroll-settings').onclick = openPayrollSettings;
+    document.querySelectorAll('[data-payroll-daily]').forEach(button => button.onclick = () => {
+      const row = rows.find(item => item.id === button.dataset.payrollDaily);
+      if (!row) return;
+      document.getElementById('modal-root').innerHTML = `<div class="modal-backdrop"><section class="modal payroll-daily-modal"><div class="modal-head"><div><div class="eyebrow">DAILY PAYROLL · ${esc(monthPrefix)}</div><h2>${esc(row.name)}</h2><p>Only saved present days are included. Each amount is calculated from that day's worked time.</p></div><button class="close" type="button" data-close>×</button></div><div class="table-wrap"><table><thead><tr><th>DATE</th><th>WORKED TIME</th><th>PRESENT-DAY RATE</th><th>DAILY AMOUNT</th></tr></thead><tbody>${row.dailyBreakdown.map(day => `<tr><td><b>${esc(day.date)}</b></td><td>${Math.floor(day.workedMinutes / 60)}h ${day.workedMinutes % 60}m</td><td>₹${row.effectiveDailyRate.toFixed(2)}</td><td><b>₹${day.amount.toFixed(2)}</b></td></tr>`).join('') || '<tr><td colspan="4" class="empty">No present days are saved for this month.</td></tr>'}</tbody></table></div></section></div>`;
+      document.querySelector('#modal-root [data-close]').onclick = () => { document.getElementById('modal-root').innerHTML = ''; };
+    });
     document.querySelectorAll('[data-edit-payroll-salary]').forEach(button => button.onclick = () => {
       const person = allPayrollPeople().find(item => item.id === button.dataset.editPayrollSalary);
       const source = (Array.isArray(people) ? people : []).find(item => item.id === person?.id)
@@ -1670,9 +1777,18 @@ if (document.readyState === 'loading') {
   }
 
   window.render = function renderWithPayrollAndTraining(...args) {
-    if (view === 'payroll') return payrollPage();
-    if (view === 'training') return trainingPage();
+    if (view === 'payroll') {
+      const result = payrollPage();
+      if (typeof syncWorkforceCategoryNavigationV43 === 'function') syncWorkforceCategoryNavigationV43();
+      return result;
+    }
+    if (view === 'training') {
+      const result = trainingPage();
+      if (typeof syncWorkforceCategoryNavigationV43 === 'function') syncWorkforceCategoryNavigationV43();
+      return result;
+    }
     const result = previousRender.apply(this, args);
+    if (typeof syncWorkforceCategoryNavigationV43 === 'function') syncWorkforceCategoryNavigationV43();
     refreshAdminGreeting();
     refreshUpdateLabel();
     refreshOperationsEnhancements();

@@ -14,6 +14,8 @@
     "dashboard-visibility",
     "attendance-integration-settings",
     "attendance-import-history",
+    "week-off-assignments",
+    "payroll-compliance-settings",
   ];
   let hydrating = false;
   let saveTimer = null;
@@ -37,6 +39,10 @@
 
   function revisionKey(email) {
     return `msme-workspace-revision-${encodeURIComponent(email)}`;
+  }
+
+  function conflictBackupKey(email) {
+    return `msme-workspace-conflict-backup-${encodeURIComponent(email)}-${Date.now()}`;
   }
 
   function parse(value) {
@@ -160,23 +166,38 @@
     const workspace = await api(`/api/workspace?email=${encodeURIComponent(email)}`);
     const pending = localStorage.getItem(pendingKey(email)) === "1";
     const localRevision = localStorage.getItem(revisionKey(email)) || null;
+    let recoveredConflict = null;
     if (pending) {
       const canRetry = !workspace.exists || !localRevision || localRevision === workspace.updated_at;
       if (!canRetry) {
-        throw new Error("This company workspace changed after an earlier save failed. Your browser copy was kept; contact the administrator before replacing either version.");
+        const backupKey = conflictBackupKey(email);
+        try {
+          originalSetItem.call(localStorage, backupKey, JSON.stringify({
+            created_at: new Date().toISOString(),
+            local_revision: localRevision,
+            server_revision: workspace.updated_at || null,
+            workspace: snapshot(email),
+          }));
+        } catch (_) {
+          throw new Error("A protected browser copy could not be backed up because browser storage is full. No records were replaced.");
+        }
+        originalRemoveItem.call(localStorage, pendingKey(email));
+        recoveredConflict = { backup_key: backupKey, server_revision: workspace.updated_at || null };
+        console.warn("MG BOOK preserved the earlier browser copy and opened the newer database workspace.", recoveredConflict);
+      } else {
+        serverUpdatedAt = workspace.updated_at || null;
+        const recovered = await api(`/api/workspace?email=${encodeURIComponent(email)}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            ...snapshot(email),
+            expected_updated_at: serverUpdatedAt,
+          }),
+        });
+        serverUpdatedAt = recovered.updated_at || serverUpdatedAt;
+        originalSetItem.call(localStorage, revisionKey(email), serverUpdatedAt || "");
+        originalRemoveItem.call(localStorage, pendingKey(email));
+        return { ...snapshot(email), exists: true, updated_at: serverUpdatedAt };
       }
-      serverUpdatedAt = workspace.updated_at || null;
-      const recovered = await api(`/api/workspace?email=${encodeURIComponent(email)}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          ...snapshot(email),
-          expected_updated_at: serverUpdatedAt,
-        }),
-      });
-      serverUpdatedAt = recovered.updated_at || serverUpdatedAt;
-      originalSetItem.call(localStorage, revisionKey(email), serverUpdatedAt || "");
-      originalRemoveItem.call(localStorage, pendingKey(email));
-      return { ...snapshot(email), exists: true, updated_at: serverUpdatedAt };
     }
     if (!workspace.exists) {
       const created = await api(`/api/workspace?email=${encodeURIComponent(email)}`, {
@@ -203,7 +224,7 @@
     } finally {
       hydrating = false;
     }
-    return workspace;
+    return recoveredConflict ? { ...workspace, recovered_conflict: recoveredConflict } : workspace;
   }
 
   const originalSetItem = Storage.prototype.setItem;

@@ -11,6 +11,13 @@
   let reportDate = new Date().toISOString().slice(0, 10);
   let integrationDetailPage = null;
   let modeSelectionMessage = '';
+  let shiftEditorOpen = false;
+  let shiftEditorType = 'Day Shift';
+  let shiftEditorStart = '09:00';
+  let shiftEditorEnd = '18:00';
+  let shiftSaveMessage = '';
+  let companySettingsEditing = false;
+  let companySaveMessage = '';
 
   function settingsKey() {
     return tenantKey('attendance-integration-settings');
@@ -240,14 +247,178 @@
     return `${String(hour).padStart(2, '0')}:${minute}`;
   }
 
+  function displayClock(value) {
+    const parsed = String(value || '').match(/^(\d{2}):(\d{2})$/);
+    if (!parsed) return 'Not set';
+    const date = new Date(`2000-01-01T${value}:00`);
+    return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  }
+
+  function configuredShifts() {
+    const saved = Array.isArray(admin.shifts) ? admin.shifts : [];
+    const valid = saved.filter(shift => shift && shift.type && shift.start && shift.end).map(shift => ({
+      type: String(shift.type),
+      start: String(shift.start).slice(0, 5),
+      end: String(shift.end).slice(0, 5),
+    }));
+    if (valid.length) return valid;
+    return [{
+      type: Array.isArray(admin.shift_types) && admin.shift_types[0] ? admin.shift_types[0] : 'Day Shift',
+      start: String(admin.shift_start || '09:00').slice(0, 5),
+      end: String(admin.shift_end || '18:00').slice(0, 5),
+    }];
+  }
+
+  function shiftTimingDescription(start, end) {
+    const startMinutes = parseClockMinutes(start);
+    const endMinutes = parseClockMinutes(end);
+    if (startMinutes === null || endMinutes === null) return 'Custom working hours';
+    if (endMinutes <= startMinutes) return 'Overnight working hours';
+    if (startMinutes >= 300 && startMinutes < 720) return 'Morning to evening working hours';
+    if (startMinutes >= 720 && startMinutes < 1020) return 'Afternoon to evening working hours';
+    return 'Custom working hours';
+  }
+
+  function setClock24(prefix, value) {
+    const selected = clockParts24(value, '09:00');
+    const hour = document.querySelector(`#${prefix}-hour`);
+    const minute = document.querySelector(`#${prefix}-minute`);
+    const period = document.querySelector(`#${prefix}-period`);
+    if (hour) hour.value = selected.hour;
+    if (minute) minute.value = selected.minute;
+    if (period) period.value = selected.period;
+  }
+
+  function updateShiftEditorHeading() {
+    const heading = document.querySelector('#shift-editor-heading');
+    if (!heading) return;
+    const type = document.querySelector('#company-shift-type')?.value || 'Shift';
+    const start = selectedClock24('company-shift-start');
+    const end = selectedClock24('company-shift-end');
+    heading.textContent = `${type}: ${displayClock(start)} – ${displayClock(end)}`;
+    const description = document.querySelector('#shift-editor-description');
+    if (description) description.textContent = shiftTimingDescription(start, end);
+  }
+
+  function persistCompanyAccount(fields) {
+    Object.assign(admin, fields);
+    const email = String(admin.email || '').toLowerCase();
+    const accountIndex = tenantAccounts.findIndex(item => String(item.email || '').toLowerCase() === email);
+    if (accountIndex >= 0) tenantAccounts[accountIndex] = { ...tenantAccounts[accountIndex], ...admin };
+    else tenantAccounts.push({ ...admin });
+    localStorage.setItem('msme-accounts', JSON.stringify(tenantAccounts));
+    if (typeof save === 'function') save();
+  }
+
+  function workforceCount(category) {
+    const normalized = String(category || '').toLowerCase().replace(/s$/, '');
+    if (normalized === 'temporary worker') return temporaryWorkers.length;
+    return people.filter(person => String(person.role || '').toLowerCase().replace(/s$/, '') === normalized).length;
+  }
+
+  function companyIndustryTemplates() {
+    if (typeof businessIndustryTemplates !== 'undefined') return businessIndustryTemplates;
+    return {
+      'Manufacturing': { subcategories: ['Automotive','Electronics','Food processing','Pharmaceuticals','Textiles and apparel','Metal fabrication','Other manufacturing'], roles: [] },
+      'Software / IT': { subcategories: ['Software development','IT services','SaaS product company','Cybersecurity','Data and AI','BPO and technical support'], roles: [] },
+      'Construction': { subcategories: ['Residential construction','Commercial construction','Civil infrastructure','Electrical contracting','Plumbing and HVAC','Interior and fit-out'], roles: [] },
+      'Retail': { subcategories: ['Grocery and supermarket','Fashion and apparel','Electronics retail','Pharmacy retail','E-commerce','Wholesale and distribution'], roles: [] },
+      'Healthcare': { subcategories: ['Hospital','Clinic','Diagnostic centre','Pharmacy','Home healthcare','Medical equipment'], roles: [] },
+      'Logistics': { subcategories: ['Road transport','Warehousing','Courier and delivery','Freight forwarding','Cold-chain logistics','Fleet services'], roles: [] },
+      'Professional services': { subcategories: ['Accounting and audit','Consulting','Legal services','Marketing agency','Architecture and design','Recruitment services'], roles: [] },
+      'Other': { subcategories: ['Other / Custom'], roles: [] },
+    };
+  }
+
+  function companyWorkforceChoices() {
+    if (typeof onboardingWorkforce !== 'undefined') return onboardingWorkforce;
+    return [['Temporary Workers','Seasonal and short-term workers'],['Employees','General company employees'],['Workers','Production, trade and field workers'],['Staff','Office and support staff'],['Manager','Team and department managers'],['HR','Human resources team'],['Owner','Business owners'],['Entrepreneur','Entrepreneurs and founders']];
+  }
+
+  function companySettingsEditForm(categories, roles) {
+    const templates = companyIndustryTemplates();
+    const category = admin.business_category || 'Other';
+    const template = templates[category] || templates.Other || { subcategories: [], roles: [] };
+    const workforce = new Set(categories);
+    const selectedRoles = new Set(roles);
+    const check = value => workforce.has(value) ? ' checked' : '';
+    const roleCheck = value => selectedRoles.has(value) ? ' checked' : '';
+    return `<form id="company-settings-form" class="company-settings-form">
+      <div class="company-detail-section"><h3>Company details</h3><div class="company-edit-grid">
+        <label>COMPANY NAME<input name="company" value="${esc(admin.company || '')}" required></label>
+        <label>REGISTERED STAFF COUNT<input type="number" min="0" name="staff_count" value="${esc(admin.staff_count || '')}"></label>
+        <label>BUSINESS CATEGORY<select name="business_category" id="company-settings-category">${Object.keys(templates).map(value => `<option value="${esc(value)}" ${value === category ? 'selected' : ''}>${esc(value)}</option>`).join('')}</select></label>
+        <label>BUSINESS SUBCATEGORY<select name="business_subcategory" id="company-settings-subcategory">${template.subcategories.map(value => `<option value="${esc(value)}" ${value === admin.business_subcategory ? 'selected' : ''}>${esc(value)}</option>`).join('')}<option value="Other / Custom" ${admin.business_subcategory === 'Other / Custom' ? 'selected' : ''}>Other / Custom</option></select></label>
+      </div></div>
+      <div class="company-detail-section"><h3>Who works in your company</h3><p class="company-edit-help">These are workforce categories only. Changing them does not change login permissions or employee records.</p>
+        <div class="company-workforce-edit-grid">${companyWorkforceChoices().map(([name, description]) => `<label><input type="checkbox" name="workforce_categories" value="${esc(name)}"${check(name)}><span><b>${esc(name)}</b><small>${esc(description)}</small></span></label>`).join('')}</div>
+      </div>
+      <div class="company-detail-section"><h3>Business roles and operations</h3><p class="company-edit-help">Select the detailed roles that apply to this company.</p>
+        <div class="company-role-edit-grid" id="company-settings-industry-roles">${(template.roles || []).map(role => `<label><input type="checkbox" name="industry_roles" value="${esc(role)}"${roleCheck(role)}><span>${esc(role)}</span></label>`).join('') || roles.map(role => `<label><input type="checkbox" name="industry_roles" value="${esc(role)}" checked><span>${esc(role)}</span></label>`).join('') || '<p>No suggested roles for this category.</p>'}</div>
+      </div>
+      <div class="company-detail-section"><h3>Company address</h3><div class="company-edit-grid">
+        <label>BUILDING / DOOR / PLOT NUMBER<input name="address_number" value="${esc(admin.address_number || '')}"></label>
+        <label class="full">COMPANY ADDRESS<textarea name="company_address" rows="3">${esc(admin.company_address || '')}</textarea></label>
+        <label>PINCODE<input name="pincode" value="${esc(admin.pincode || '')}"></label><label>CITY<input name="city" value="${esc(admin.city || '')}"></label>
+        <label>STATE<input name="state" value="${esc(admin.state || '')}"></label><label>COUNTRY<input name="country" value="${esc(admin.country || 'India')}"></label>
+      </div></div>
+      <div class="company-detail-section"><h3>Administrator details</h3><div class="company-edit-grid">
+        <label>ADMINISTRATOR NAME<input name="name" value="${esc(admin.name || '')}" required></label><label>PHONE<input name="phone" value="${esc(admin.phone || '')}"></label>
+        <label>ADMIN ROLE<select name="role">${['Owner','Entrepreneur','Admin','HR','Manager'].map(value => `<option ${value === admin.role ? 'selected' : ''}>${value}</option>`).join('')}</select></label><label>LOGIN EMAIL<input value="${esc(admin.email || '')}" disabled></label>
+      </div></div>
+      <div class="settings-note"><b>Safe editing:</b> employee profiles, passwords, attendance, payroll records and login permissions are not changed by this form.</div>
+      <div class="company-settings-save-bar"><button type="button" class="secondary" id="cancel-company-settings">Cancel</button><button type="button" class="primary" id="save-company-settings">Save company details</button></div>
+    </form>`;
+  }
+
+  function companySettingsPanel() {
+    const registeredCategories = Array.isArray(admin.workforce_categories) ? admin.workforce_categories.filter(Boolean) : [];
+    const inferredCategories = [...new Set([
+      ...people.map(person => person.role).filter(Boolean),
+      ...(temporaryWorkers.length ? ['Temporary Workers'] : []),
+    ])];
+    const categories = registeredCategories.length ? registeredCategories : inferredCategories;
+    const roles = Array.isArray(admin.industry_roles) ? admin.industry_roles.filter(Boolean) : [];
+    const address = admin.address || [admin.address_number, admin.company_address, admin.city, admin.state, admin.pincode, admin.country].filter(Boolean).join(', ');
+    const detail = (label, value) => `<div class="company-detail-card"><span>${label}</span><b>${esc(value || 'Not provided')}</b></div>`;
+    return `<section class="panel settings-company-panel">
+      <div class="panel-header"><div><h2>Company Settings</h2><p>Registration details for this company workspace.</p></div><span class="tag complete">Company profile</span></div>
+      ${companySettingsEditing ? companySettingsEditForm(categories, roles) : `
+      <div class="company-detail-section"><h3>Company details</h3><div class="company-detail-grid">
+        ${detail('Company name', admin.company)}${detail('Business category', admin.business_category)}${detail('Business subcategory', admin.business_subcategory)}${detail('Registered staff count', admin.staff_count)}
+      </div></div>
+      <div class="company-detail-section"><h3>Administrator</h3><div class="company-detail-grid">
+        ${detail('Administrator name', admin.name)}${detail('Email', admin.email)}${detail('Role', admin.role)}${detail('Phone', admin.phone)}
+      </div></div>
+      <div class="company-detail-section"><h3>Company address</h3><div class="company-detail-grid">
+        ${detail('Full address', address)}${detail('City', admin.city)}${detail('State', admin.state)}${detail('Country', admin.country)}${detail('Pincode', admin.pincode)}${detail('Location coordinates', admin.latitude && admin.longitude ? `${admin.latitude}, ${admin.longitude}` : '')}
+      </div></div>
+      <div class="company-detail-section"><h3>Who works in your company</h3>
+        <div class="company-category-grid">${categories.map(category => `<article><span>${esc(category)}</span><b>${workforceCount(category)}</b><small>Current profile${workforceCount(category) === 1 ? '' : 's'}</small></article>`).join('') || '<p class="settings-empty-detail">No workforce categories were selected during registration.</p>'}</div>
+      </div>
+      <div class="company-detail-section"><h3>${esc(admin.business_category || 'Business')} roles and operations</h3>
+        <div class="company-chip-list">${roles.map(role => `<span>${esc(role)}</span>`).join('') || '<span>No industry-specific roles were selected during registration.</span>'}</div>
+      </div>
+      <div class="settings-note"><b>Data source:</b> these details come from this company's original registration and saved workspace. Employee profiles and login permissions are not changed here.</div>
+      ${companySaveMessage ? `<p class="company-save-message">${esc(companySaveMessage)}</p>` : ''}
+      <div class="company-settings-save-bar"><button type="button" class="primary" id="edit-company-settings">Edit company details</button></div>`}
+    </section>`;
+  }
+
   function companyShiftPanel() {
-    const start = String(admin.shift_start || '09:00').slice(0, 5);
-    const end = String(admin.shift_end || '18:00').slice(0, 5);
+    const shifts = configuredShifts();
+    const editor = shiftEditorOpen ? `<div class="company-shift-editor">
+      <div class="company-shift-editor-heading"><div><span>SHIFT BEING ADDED</span><h3 id="shift-editor-heading">${esc(shiftEditorType)}: ${displayClock(shiftEditorStart)} – ${displayClock(shiftEditorEnd)}</h3><p id="shift-editor-description">${shiftTimingDescription(shiftEditorStart, shiftEditorEnd)}</p></div></div>
+      <label class="shift-type-field">WHICH SHIFT?<select id="company-shift-type">${['Day Shift','Night Shift','Rotational Shift'].map(type => `<option ${type === shiftEditorType ? 'selected' : ''}>${type}</option>`).join('')}</select></label>
+      <div class="shift-clock-grid">${clockSelector('company-shift-start', 'SHIFT START', shiftEditorStart, '09:00')}${clockSelector('company-shift-end', 'SHIFT END', shiftEditorEnd, '18:00')}</div>
+      <div class="settings-actions"><button class="primary" id="save-company-shift">Save shift timing</button><button class="secondary" id="cancel-company-shift">Cancel</button></div>
+    </div>` : '';
     return `<section class="panel settings-shift-panel">
-      <div class="panel-header"><div><h2>Shift Timings</h2><p>Set the standard company shift in 12-hour AM/PM format.</p></div><span class="tag complete">Company-wide</span></div>
-      <div class="shift-clock-grid">${clockSelector('company-shift-start', 'SHIFT START', start, '09:00')}${clockSelector('company-shift-end', 'SHIFT END', end, '18:00')}</div>
-      <div class="settings-note"><b>Company shift:</b> saving applies the timing to every existing workforce profile and becomes the default for newly created employees.</div>
-      <div class="settings-actions"><button class="primary" id="save-company-shift">Save shift timings</button><span id="shift-save-status"></span></div>
+      <div class="panel-header"><div><h2>Shift Timings</h2><p>Add Day, Night or Rotational shift timings for this company.</p></div><button class="primary" id="add-company-shift">+ Add shift timing</button></div>
+      <div class="company-shift-list">${shifts.map(shift => `<article><div><span>${esc(shiftTimingDescription(shift.start, shift.end))}</span><h3>${esc(shift.type)}</h3><p>${displayClock(shift.start)} – ${displayClock(shift.end)}</p></div><button class="secondary" data-edit-company-shift="${esc(shift.type)}">Edit</button></article>`).join('')}</div>
+      ${editor}
+      <div class="settings-note"><b>Shift templates:</b> these timings become available for company workforce profiles. Existing employee attendance and assigned shifts are preserved.</div>
+      <p class="settings-import-status" id="shift-save-status">${esc(shiftSaveMessage)}</p>
     </section>`;
   }
 
@@ -318,9 +489,10 @@
   }
 
   function settingsPage() {
-    root.innerHTML = `<div class="settings-page"><div class="page-heading"><div><div class="eyebrow">COMPANY CONFIGURATION</div><h1>Settings.</h1><p>Manage attendance sources, historical imports and operational reports.</p></div></div>
-      <div class="settings-tabs"><button data-settings-tab="subscription" class="${settingsTab === 'subscription' ? 'active' : ''}">Subscription & Billing</button><button data-settings-tab="integration" class="${settingsTab === 'integration' ? 'active' : ''}">Attendance Integration</button><button data-settings-tab="reports" class="${settingsTab === 'reports' ? 'active' : ''}">Reports</button><button data-settings-tab="shift" class="${settingsTab === 'shift' ? 'active' : ''}">Shift Timings</button></div>
-      ${settingsTab === 'subscription' ? subscriptionPanel() : settingsTab === 'integration' ? integrationPanel() : settingsTab === 'reports' ? reportsPanel() : settingsTab === 'shift' ? companyShiftPanel() : ''}</div>`;
+    if (!settingsTab) settingsTab = 'company';
+    root.innerHTML = `<div class="settings-page"><div class="page-heading"><div><div class="eyebrow">COMPANY CONFIGURATION</div><h1>Settings.</h1><p>Review company details, shifts, attendance sources, billing and reports.</p></div></div>
+      <div class="settings-tabs"><button data-settings-tab="company" class="${settingsTab === 'company' ? 'active' : ''}">Company Settings</button><button data-settings-tab="subscription" class="${settingsTab === 'subscription' ? 'active' : ''}">Subscription & Billing</button><button data-settings-tab="integration" class="${settingsTab === 'integration' ? 'active' : ''}">Attendance Integration</button><button data-settings-tab="reports" class="${settingsTab === 'reports' ? 'active' : ''}">Reports</button><button data-settings-tab="shift" class="${settingsTab === 'shift' ? 'active' : ''}">Shift Timings</button></div>
+      ${settingsTab === 'company' ? companySettingsPanel() : settingsTab === 'subscription' ? subscriptionPanel() : settingsTab === 'integration' ? integrationPanel() : settingsTab === 'reports' ? reportsPanel() : settingsTab === 'shift' ? companyShiftPanel() : ''}</div>`;
     if (settingsTab === 'subscription' && !subscriptionState && !subscriptionLoading) loadSubscription();
   }
 
@@ -476,6 +648,51 @@
       settingsPage();
       return;
     }
+    if (event.target.closest('#edit-company-settings')) {
+      companySettingsEditing = true;
+      companySaveMessage = '';
+      settingsPage();
+      return;
+    }
+    if (event.target.closest('#cancel-company-settings')) {
+      companySettingsEditing = false;
+      settingsPage();
+      return;
+    }
+    if (event.target.closest('#save-company-settings')) {
+      const form = document.querySelector('#company-settings-form');
+      if (!form || !form.reportValidity()) return;
+      const values = Object.fromEntries(new FormData(form));
+      const workforceCategories = [...form.querySelectorAll('[name="workforce_categories"]:checked')].map(input => input.value);
+      const industryRoles = [...form.querySelectorAll('[name="industry_roles"]:checked')].map(input => input.value);
+      if (!workforceCategories.length) {
+        window.alert('Select at least one workforce category used by your company.');
+        return;
+      }
+      const fields = {
+        company: String(values.company || '').trim(),
+        staff_count: String(values.staff_count || '').trim(),
+        business_category: String(values.business_category || '').trim(),
+        business_subcategory: String(values.business_subcategory || '').trim(),
+        workforce_categories: workforceCategories,
+        industry_roles: industryRoles,
+        address_number: String(values.address_number || '').trim(),
+        company_address: String(values.company_address || '').trim(),
+        pincode: String(values.pincode || '').trim(),
+        city: String(values.city || '').trim(),
+        state: String(values.state || '').trim(),
+        country: String(values.country || '').trim(),
+        name: String(values.name || '').trim(),
+        phone: String(values.phone || '').trim(),
+        role: String(values.role || '').trim(),
+      };
+      fields.address = [fields.address_number, fields.company_address, fields.city, fields.state, fields.pincode, fields.country].filter(Boolean).join(', ');
+      persistCompanyAccount(fields);
+      companySettingsEditing = false;
+      companySaveMessage = 'Company details saved for this workspace.';
+      settingsPage();
+      return;
+    }
     if (event.target.closest('#save-attendance-settings')) {
       const current = integrationSettings();
       saveIntegrationSettings({
@@ -498,7 +715,41 @@
       }
       return;
     }
+    if (event.target.closest('#add-company-shift')) {
+      const shifts = configuredShifts();
+      const missingType = ['Day Shift','Night Shift','Rotational Shift'].find(type => !shifts.some(shift => shift.type === type));
+      shiftEditorType = missingType || 'Day Shift';
+      const presets = {
+        'Day Shift': ['09:00','18:00'],
+        'Night Shift': ['21:00','06:00'],
+        'Rotational Shift': ['06:00','14:00'],
+      };
+      [shiftEditorStart, shiftEditorEnd] = presets[shiftEditorType];
+      shiftEditorOpen = true;
+      shiftSaveMessage = '';
+      settingsPage();
+      return;
+    }
+    const editShift = event.target.closest('[data-edit-company-shift]');
+    if (editShift) {
+      const shift = configuredShifts().find(item => item.type === editShift.dataset.editCompanyShift);
+      if (shift) {
+        shiftEditorType = shift.type;
+        shiftEditorStart = shift.start;
+        shiftEditorEnd = shift.end;
+        shiftEditorOpen = true;
+        shiftSaveMessage = '';
+        settingsPage();
+      }
+      return;
+    }
+    if (event.target.closest('#cancel-company-shift')) {
+      shiftEditorOpen = false;
+      settingsPage();
+      return;
+    }
     if (event.target.closest('#save-company-shift')) {
+      const type = document.querySelector('#company-shift-type')?.value || 'Day Shift';
       const start = selectedClock24('company-shift-start');
       const end = selectedClock24('company-shift-end');
       const status = document.querySelector('#shift-save-status');
@@ -506,20 +757,24 @@
         if (status) status.textContent = 'Enter different start and end times.';
         return;
       }
-      const display = value => new Date(`2000-01-01T${value}:00`).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-      const shift = `${display(start)} - ${display(end)}`;
-      admin.shift_start = start;
-      admin.shift_end = end;
-      const accountIndex = tenantAccounts.findIndex(item => String(item.email || '').toLowerCase() === String(admin.email || '').toLowerCase());
-      if (accountIndex >= 0) tenantAccounts[accountIndex] = { ...tenantAccounts[accountIndex], shift_start: start, shift_end: end };
-      else tenantAccounts.push({ ...admin });
-      localStorage.setItem('msme-accounts', JSON.stringify(tenantAccounts));
-      [...people, ...temporaryWorkers].forEach(person => { person.shift = shift; });
-      save();
-      if (status) {
-        status.textContent = `Shift saved permanently: ${shift}`;
-        window.setTimeout(() => { if (status.isConnected) status.textContent = ''; }, 5000);
-      }
+      const shifts = configuredShifts();
+      const existingIndex = shifts.findIndex(shift => shift.type === type);
+      const nextShift = { type, start, end };
+      if (existingIndex >= 0) shifts[existingIndex] = nextShift;
+      else shifts.push(nextShift);
+      const primary = shifts[0];
+      persistCompanyAccount({
+        shifts,
+        shift_types: shifts.map(shift => shift.type),
+        shift_start: primary.start,
+        shift_end: primary.end,
+      });
+      shiftEditorOpen = false;
+      shiftEditorType = type;
+      shiftEditorStart = start;
+      shiftEditorEnd = end;
+      shiftSaveMessage = `${type} saved: ${displayClock(start)} – ${displayClock(end)}.`;
+      settingsPage();
       return;
     }
     if (event.target.closest('#download-attendance-template')) {
@@ -563,6 +818,25 @@
       reportDate = event.target.value;
       settingsPage();
     }
+    if (event.target.matches('#company-shift-type')) {
+      const presets = {
+        'Day Shift': ['09:00','18:00'],
+        'Night Shift': ['21:00','06:00'],
+        'Rotational Shift': ['06:00','14:00'],
+      };
+      const [start, end] = presets[event.target.value] || presets['Day Shift'];
+      setClock24('company-shift-start', start);
+      setClock24('company-shift-end', end);
+      updateShiftEditorHeading();
+    }
+    if (event.target.matches('#company-settings-category')) {
+      const template = companyIndustryTemplates()[event.target.value] || { subcategories: [], roles: [] };
+      const subcategory = document.querySelector('#company-settings-subcategory');
+      if (subcategory) subcategory.innerHTML = `${template.subcategories.map(value => `<option value="${esc(value)}">${esc(value)}</option>`).join('')}<option value="Other / Custom">Other / Custom</option>`;
+      const roles = document.querySelector('#company-settings-industry-roles');
+      if (roles) roles.innerHTML = (template.roles || []).map(role => `<label><input type="checkbox" name="industry_roles" value="${esc(role)}"><span>${esc(role)}</span></label>`).join('') || '<p>No suggested roles for this category.</p>';
+    }
+    if (event.target.matches('[id^="company-shift-start-"], [id^="company-shift-end-"]')) updateShiftEditorHeading();
   });
 
   const previousRender = window.render;

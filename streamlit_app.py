@@ -7,6 +7,8 @@ import json
 import os
 import socket
 import threading
+import time
+import urllib.request
 from pathlib import Path
 
 import streamlit as st
@@ -22,19 +24,46 @@ def start_local_employee_api() -> str:
     if configured:
         return configured
 
-    host = "127.0.0.1"
-    port = int(os.environ.get("MSME_PORT", "5051"))
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-        if probe.connect_ex((host, port)) == 0:
-            return f"http://{host}:{port}"
+    bind_host = "127.0.0.1"
+    browser_host = "localhost"
+    preferred_port = int(os.environ.get("MSME_PORT", "5051"))
+
+    def healthy(url: str) -> bool:
+        try:
+            with urllib.request.urlopen(f"{url}/api/health", timeout=0.4) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            return response.status == 200 and payload.get("service") == "msme-employee-api"
+        except Exception:
+            return False
 
     from werkzeug.serving import make_server
     from backend import app as employee_api
 
-    server = make_server(host, port, employee_api, threaded=True)
-    thread = threading.Thread(target=server.serve_forever, name="msme-employee-api", daemon=True)
-    thread.start()
-    return f"http://{host}:{port}"
+    for port in range(preferred_port, preferred_port + 10):
+        health_url = f"http://{bind_host}:{port}"
+        browser_url = f"http://{browser_host}:{port}"
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            occupied = probe.connect_ex((bind_host, port)) == 0
+        if occupied:
+            if healthy(health_url):
+                return browser_url
+            continue
+
+        server = make_server(bind_host, port, employee_api, threaded=True)
+        thread = threading.Thread(
+            target=server.serve_forever,
+            name=f"msme-employee-api-{port}",
+            daemon=True,
+        )
+        thread.start()
+        for _ in range(50):
+            if healthy(health_url):
+                return browser_url
+            time.sleep(0.05)
+        server.shutdown()
+        raise RuntimeError("The local MG BOOK database API did not become ready.")
+
+    raise RuntimeError("Ports 5051-5060 are already in use; MG BOOK could not start its local database API.")
 
 
 def bundled_application() -> str:

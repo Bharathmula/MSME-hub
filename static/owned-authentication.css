@@ -268,6 +268,9 @@ html:has(#login-screen:not(.hidden)),body:has(#login-screen:not(.hidden)){height
 #login-screen .login-art .login-benefits span{display:flex;flex-direction:column;align-items:center;gap:9px;width:100%;text-align:center;font-size:15px;font-weight:800;line-height:1.2;text-transform:none}
 #login-screen .login-art .login-benefits b{width:52px;height:52px;border-radius:14px;font-size:23px}
 
+/* The sign-in card already carries the MG BOOK identity; avoid repeating it on the art panel. */
+#login-screen .login-art>.os-logo{display:none!important}
+
 /* Slight welcome-page travel and refined hero typography. */
 .msme-landing{scroll-behavior:smooth}
 .msme-landing .landing-copy{min-height:106vh;padding-bottom:calc(34px + 6vh)}
@@ -430,4 +433,32 @@ body:has(#login-screen:not(.hidden):not(.entry-hidden)){
 @media(max-width:620px){
  .onboarding-choice-grid,.industry-role-grid,.shift-choice-grid,.shift-timing-card,.shift-time-inputs{grid-template-columns:1fr}
  .shift-timing-card{gap:12px}
+}
+
+/* Keep the welcome/login identity identical to the dashboard wordmark. */
+.landing-logo b,
+#login-screen .msme-logo-copy b,
+#login-screen .login-card-brand b{
+ background:linear-gradient(90deg,#ef42dc 0%,#8c43f2 38%,#19c8ed 72%,#4050ff 100%)!important;
+ background-clip:text!important;
+ -webkit-background-clip:text!important;
+ -webkit-text-fill-color:transparent!important;
+ color:#ef42dc!important;
+ text-shadow:none!important;
+}
+.landing-title{margin-top:clamp(58px,12vh,122px)}
+.landing-title h1,.landing-title em{display:none!important}
+#login-screen .login-card-brand{display:flex;align-items:center;gap:10px;margin:0 0 18px}
+#login-screen .login-card-brand .msme-mark{width:62px;height:auto;overflow:visible;filter:drop-shadow(0 0 7px rgba(89,56,234,.25))}
+#login-screen .login-card-brand span{display:grid;line-height:1}
+#login-screen .login-card-brand b{font-size:24px;letter-spacing:.025em}
+#login-screen .login-card-brand small{margin-top:5px;color:#4b6483;font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+
+@media(max-width:760px){
+ /* A single translucent wash prevents a visible horizontal overlay seam while scrolling. */
+ .msme-landing:after{background:rgba(1,10,35,.58)!important}
+ .landing-title{margin-top:38vh}
+ #login-screen .login-card-brand{margin-bottom:14px}
+ #login-screen .login-card-brand .msme-mark{width:52px}
+ #login-screen .login-card-brand b{font-size:21px}
 }

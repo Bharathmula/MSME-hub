@@ -3,6 +3,7 @@ from unittest.mock import patch
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
 from urllib.parse import parse_qs,urlparse
+from zoneinfo import ZoneInfo
 TMP=tempfile.TemporaryDirectory();os.environ.pop('DATABASE_URL',None);os.environ['MSME_EMPLOYEE_DB']=str(Path(TMP.name)/'employees.db');os.environ['MSME_SECRET_KEY']='tests-only'
 from backend import app,token_signer
 from employee_portal.security import token
@@ -17,6 +18,9 @@ class EmployeePortalTests(unittest.TestCase):
  def test_health_reports_photo_api_schema(self):
   response=self.c.get('/api/health');self.assertEqual(response.status_code,200,response.text)
   self.assertTrue(response.json['attendance_photo_api']);self.assertGreaterEqual(response.json['schema_version'],7);self.assertEqual(response.json['database'],'sqlite');self.assertEqual(response.json['photo_storage'],'database_fallback')
+ def test_local_browser_preflight_allows_loopback_and_private_network(self):
+  response=self.c.options('/api/auth/login',headers={'Origin':'http://127.0.0.1:8501','Access-Control-Request-Method':'POST','Access-Control-Request-Private-Network':'true'})
+  self.assertEqual(response.status_code,200,response.text);self.assertEqual(response.headers.get('Access-Control-Allow-Origin'),'http://127.0.0.1:8501');self.assertEqual(response.headers.get('Access-Control-Allow-Private-Network'),'true')
  def test_platform_owner_dashboard_controls_company_without_deleting_data(self):
   tenant='owner-controlled-company@example.com';password='CompanyOwner123!'
   captcha=self.c.get('/api/auth/captcha').json
@@ -180,14 +184,15 @@ class EmployeePortalTests(unittest.TestCase):
   company_workspace['storage']['attendance-integration-settings']={'modes':['face']}
   company_workspace['expected_updated_at']=company_workspace.get('updated_at')
   self.assertEqual(self.c.put('/api/workspace',json=company_workspace,headers=self.headers(self.admin)).status_code,200)
-  detail=self.c.get('/api/employee/attendance-detail',query_string={'date':datetime.now(timezone.utc).date().isoformat()},headers=self.headers(employee));self.assertEqual(detail.status_code,200,detail.text);self.assertEqual(detail.json['check_in_photo'],face);self.assertEqual(detail.json['check_out_photo'],face)
+  india_now=datetime.now(ZoneInfo('Asia/Kolkata'))
+  detail=self.c.get('/api/employee/attendance-detail',query_string={'date':india_now.date().isoformat()},headers=self.headers(employee));self.assertEqual(detail.status_code,200,detail.text);self.assertEqual(detail.json['check_in_photo'],face);self.assertEqual(detail.json['check_out_photo'],face)
   admin_attendance=self.c.get('/api/admin/employee-attendance',headers=self.headers(self.admin));self.assertEqual(admin_attendance.status_code,200,admin_attendance.text);self.assertEqual(admin_attendance.json['attendance'][0]['employee_id'],'W-100')
   self.assertEqual(admin_attendance.json['attendance'][0]['profile_details']['child_name_2'],'Arun')
   self.assertEqual(admin_attendance.json['attendance'][0]['email'],'worker100@gmail.com')
   self.assertEqual(admin_attendance.json['attendance'][0]['checkin_face_captured'],1);self.assertEqual(admin_attendance.json['attendance'][0]['checkout_face_captured'],1)
-  month=datetime.now(timezone.utc).strftime('%Y-%m')
+  month=india_now.strftime('%Y-%m')
   admin_month=self.c.get('/api/admin/employee-attendance-month',query_string={'employee_id':'W-100','month':month},headers=self.headers(self.admin));self.assertEqual(admin_month.status_code,200,admin_month.text);self.assertEqual(len(admin_month.json['attendance']),1)
-  admin_detail=self.c.get('/api/admin/employee-attendance-detail',query_string={'employee_id':'W-100','date':datetime.now(timezone.utc).date().isoformat()},headers=self.headers(self.admin));self.assertEqual(admin_detail.status_code,200,admin_detail.text);self.assertEqual(admin_detail.json['check_in_photo'],face);self.assertEqual(admin_detail.json['check_out_photo'],face)
+  admin_detail=self.c.get('/api/admin/employee-attendance-detail',query_string={'employee_id':'W-100','date':india_now.date().isoformat()},headers=self.headers(self.admin));self.assertEqual(admin_detail.status_code,200,admin_detail.text);self.assertEqual(admin_detail.json['check_in_photo'],face);self.assertEqual(admin_detail.json['check_out_photo'],face)
   photo=self.c.patch('/api/employee/profile-photo',json={'profile_photo':face},headers=self.headers(employee));self.assertEqual(photo.status_code,200,photo.text)
   dash=self.c.get('/api/employee/dashboard',headers=self.headers(employee));self.assertEqual(dash.json['today']['status'],'COMPLETED');self.assertEqual(dash.json['employee']['employee_id'],'W-100')
   self.assertEqual(dash.json['employee']['phone'],'9876543210');self.assertTrue(dash.json['employee']['profile_photo_data'].startswith('data:image/'))
@@ -202,7 +207,7 @@ class EmployeePortalTests(unittest.TestCase):
   accounts=self.c.get('/api/admin/employee-accounts',headers=self.headers(self.admin)).json['employees'];account_id=next(item['id'] for item in accounts if item['employee_id']=='W-100')
   removed=self.c.delete(f'/api/admin/employee-accounts/{account_id}',headers=self.headers(self.admin));self.assertEqual(removed.status_code,200,removed.text);self.assertTrue(removed.json['attendance_history_preserved'])
   self.assertEqual(self.c.post('/api/employee/login',json={'email':'worker100@gmail.com','password':'Reset123!'}).status_code,401)
-  preserved=self.c.get('/api/admin/employee-attendance-detail',query_string={'employee_id':'W-100','date':datetime.now(timezone.utc).date().isoformat()},headers=self.headers(self.admin));self.assertEqual(preserved.status_code,200,preserved.text);self.assertEqual(preserved.json['check_in_photo'],face);self.assertEqual(preserved.json['check_out_photo'],face)
+  preserved=self.c.get('/api/admin/employee-attendance-detail',query_string={'employee_id':'W-100','date':datetime.now(ZoneInfo('Asia/Kolkata')).date().isoformat()},headers=self.headers(self.admin));self.assertEqual(preserved.status_code,200,preserved.text);self.assertEqual(preserved.json['check_in_photo'],face);self.assertEqual(preserved.json['check_out_photo'],face)
 
  def test_check_in_is_rejected_after_assigned_shift_ends(self):
   tenant='shift-window@example.com'

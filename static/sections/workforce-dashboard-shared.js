@@ -146,6 +146,39 @@
     return `${text(actualValue)} · ${label}`;
   }
 
+  function clockLabel(totalMinutes) {
+    if (!Number.isFinite(totalMinutes)) return '—';
+    const normalized = ((totalMinutes % 1440) + 1440) % 1440;
+    const hour24 = Math.floor(normalized / 60);
+    const minute = normalized % 60;
+    const period = hour24 >= 12 ? 'PM' : 'AM';
+    const hour = hour24 % 12 || 12;
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} ${period}`;
+  }
+
+  function gracePeriodDisplay(person) {
+    const duration = graceMinutes(person);
+    const shiftStart = shiftBoundaryMinutes(person.shift, 'start');
+    return `${duration} minutes · until ${clockLabel(shiftStart === null ? null : shiftStart + duration)}`;
+  }
+
+  function checkInGraceStatus(person, attendance) {
+    if (attendance.status === 'On leave') return 'On leave';
+    if (attendance.status === 'Absent') return 'Absent';
+    const actual = clockMinutes(attendance.login || attendance.login_time);
+    const shiftStart = shiftBoundaryMinutes(person.shift, 'start');
+    if (actual !== null && shiftStart !== null) {
+      return actual <= shiftStart + graceMinutes(person)
+        ? 'Checked in within grace'
+        : 'Checked in after grace';
+    }
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    return shiftStart !== null && currentMinutes > shiftStart + graceMinutes(person)
+      ? 'Not checked in after grace'
+      : 'Not checked in yet';
+  }
+
   function workforceRows(records) {
     const monthPrefix = currentMonthPrefix();
 
@@ -164,6 +197,8 @@
           </td>
           <td>${esc(text(person.phone))}</td>
           <td>${esc(text(person.shift, "09:00 AM - 06:00 PM"))}</td>
+          <td>${esc(gracePeriodDisplay(person))}</td>
+          <td><span class="grace-checkin-status ${clockMinutes(today.login || today.login_time) === null ? 'missing' : 'recorded'}">${esc(checkInGraceStatus(person, today))}</span></td>
           <td>${esc(text(today.login || today.login_time))}</td>
           <td>${esc(text(today.logout || today.logout_time))}</td>
           <td><span class="attendance-variance ${varianceDisplay(person, today.login || today.login_time, 'late').includes(' late') ? 'warning' : 'ok'}">${esc(varianceDisplay(person, today.login || today.login_time, 'late'))}</span></td>
@@ -180,6 +215,7 @@
           </td>
           <td>${money(salary.monthlySalary)}</td>
           <td><button class="secondary workforce-shift-edit" data-workforce-id="${esc(person.id)}">Edit shift</button></td>
+          <td>${esc(text(today.source, 'No attendance source'))}</td>
         </tr>
       `;
     }).join("");
@@ -258,6 +294,8 @@
               <th>NAME</th>
               <th>PHONE NO.</th>
               <th>SHIFT TIMINGS</th>
+              <th>GRACE PERIOD</th>
+              <th>STATUS</th>
               <th>CHECK-IN TIME</th>
               <th>CHECK-OUT TIME</th>
               <th>LATE JOIN</th>
@@ -271,12 +309,13 @@
               <th>TOTAL SALARY</th>
               <th>MONTHLY SALARY</th>
               <th>ACTIONS</th>
+              <th>SOURCE</th>
             </tr>
           </thead>
           <tbody>
             ${workforceRows(records) || `
               <tr>
-                <td colspan="17" class="empty">No ${esc(label.toLowerCase())} records.</td>
+                <td colspan="20" class="empty">No ${esc(label.toLowerCase())} records.</td>
               </tr>
             `}
           </tbody>

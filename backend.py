@@ -202,12 +202,22 @@ def disable_development_cache(response):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-    origin=request.headers.get('Origin','')
-    allowed={x.strip() for x in os.environ.get('MSME_ALLOWED_ORIGINS','http://localhost:8501,http://localhost:5050').split(',')}
-    if origin in allowed:
+    origin = request.headers.get("Origin", "")
+    allowed = {
+        value.strip()
+        for value in os.environ.get(
+            "MSME_ALLOWED_ORIGINS",
+            "http://localhost:8501,http://127.0.0.1:8501,http://localhost:5050,http://127.0.0.1:5050",
+        ).split(",")
+    }
+    loopback_request = request.host.split(":", 1)[0] in {"localhost", "127.0.0.1", "[::1]"}
+    loopback_origin = bool(re.fullmatch(r"http://(?:localhost|127\.0\.0\.1)(?::\d+)?", origin))
+    if origin in allowed or (loopback_request and (loopback_origin or origin == "null")):
         response.headers['Access-Control-Allow-Origin']=origin;response.headers['Vary']='Origin'
         response.headers['Access-Control-Allow-Headers']='Authorization,Content-Type,Idempotency-Key'
         response.headers['Access-Control-Allow-Methods']='GET,POST,PUT,PATCH,DELETE,OPTIONS'
+        if loopback_request and request.headers.get("Access-Control-Request-Private-Network") == "true":
+            response.headers["Access-Control-Allow-Private-Network"] = "true"
     return response
 
 

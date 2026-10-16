@@ -5,7 +5,7 @@
 const screen=document.querySelector('#login-screen');if(!screen)return;
 const landing=document.createElement('section');
 landing.className='msme-landing';
-landing.innerHTML=`<div class="landing-copy"><div class="landing-header"><div class="landing-logo"><svg viewBox="0 0 120 76" role="img" aria-label="MG BOOK M logo"><path d="M12 61 35 15"/><path d="M35 15 59 61"/><path d="M59 61 83 15"/><path d="M83 15 108 61"/></svg><span><b>MG BOOK</b><small>Track · Manage · Grow</small></span></div><button type="button" class="landing-login">Login</button></div><div class="landing-title"><h1><span>MG BOOK</span></h1><em></em><p>A smart workforce management system for Indian MSMEs to plan, manage and optimize employee skills, attendance and efficiency.</p></div><button type="button" class="landing-enter">Create Your Workspace <span>→</span></button><p class="landing-assurance">✓ Secure company workspace • Your company data stays private</p><div class="landing-benefits"><span><b>♙</b>Manage<br>Workforce</span><span><b>▥</b>Track<br>Attendance</span><span><b>⚙</b>Grow<br>Together</span></div></div><p class="landing-progress">PEOPLE&nbsp;&nbsp; | &nbsp;&nbsp;PRODUCTIVITY&nbsp;&nbsp; | &nbsp;&nbsp;PROGRESS</p><div class="landing-visual" aria-hidden="true"><div class="landing-sync">● REAL-TIME SYNC</div><div class="landing-glass landing-people">♟♟</div><div class="landing-glass landing-calendar">▦</div><div class="landing-glass landing-chart">↗<i></i><i></i><i></i><i></i></div><div class="landing-glass landing-check">✓</div><div class="landing-desk"></div><div class="landing-laptop"><div><svg viewBox="0 0 120 76"><path d="M12 61 35 15"/><path d="M35 15 59 61"/><path d="M59 61 83 15"/><path d="M83 15 108 61"/></svg></div><i></i></div><div class="landing-pot"><i></i><i></i><i></i><b></b></div><div class="landing-mug">Ideas<br>Build<br>Business</div><div class="landing-tag">PEOPLE &nbsp; | &nbsp; PRODUCTIVITY &nbsp; | &nbsp; PROGRESS</div></div>`;
+landing.innerHTML=`<div class="landing-copy"><div class="landing-header"><div class="landing-logo"><svg viewBox="0 0 120 76" role="img" aria-label="MG BOOK M logo"><path d="M12 61 35 15"/><path d="M35 15 59 61"/><path d="M59 61 83 15"/><path d="M83 15 108 61"/></svg><span><b>MG BOOK</b><small>Track · Manage · Grow</small></span></div><button type="button" class="landing-login">Login</button></div><div class="landing-title"><em></em><p>A smart workforce management system for Indian MSMEs to plan, manage and optimize employee skills, attendance and efficiency.</p></div><button type="button" class="landing-enter">Create Your Workspace <span>→</span></button><p class="landing-assurance">✓ Secure company workspace • Your company data stays private</p><div class="landing-benefits"><span><b>♙</b>Manage<br>Workforce</span><span><b>▥</b>Track<br>Attendance</span><span><b>⚙</b>Grow<br>Together</span></div></div><p class="landing-progress">PEOPLE&nbsp;&nbsp; | &nbsp;&nbsp;PRODUCTIVITY&nbsp;&nbsp; | &nbsp;&nbsp;PROGRESS</p><div class="landing-visual" aria-hidden="true"><div class="landing-sync">● REAL-TIME SYNC</div><div class="landing-glass landing-people">♟♟</div><div class="landing-glass landing-calendar">▦</div><div class="landing-glass landing-chart">↗<i></i><i></i><i></i><i></i></div><div class="landing-glass landing-check">✓</div><div class="landing-desk"></div><div class="landing-laptop"><div><svg viewBox="0 0 120 76"><path d="M12 61 35 15"/><path d="M35 15 59 61"/><path d="M59 61 83 15"/><path d="M83 15 108 61"/></svg></div><i></i></div><div class="landing-pot"><i></i><i></i><i></i><b></b></div><div class="landing-mug">Ideas<br>Build<br>Business</div><div class="landing-tag">PEOPLE &nbsp; | &nbsp; PRODUCTIVITY &nbsp; | &nbsp; PROGRESS</div></div>`;
 screen.parentNode.insertBefore(landing,screen);
 landing.querySelector('.landing-login').textContent='Go to Workspace';
 const landingActions=document.createElement('div');
@@ -31,7 +31,7 @@ if(!inviteOnArrival&&!returningSession){
 function openLandingAuth(nextTab){landing.classList.add('hidden');screen.classList.remove('entry-hidden');mode='workspace';tab=nextTab;screen.querySelectorAll('[data-access]').forEach(x=>x.classList.toggle('active',x.dataset.access==='workspace'));screen.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===nextTab));show()}
 landing.querySelector('.landing-enter').addEventListener('click',()=>openLandingAuth('signup'));
 landing.querySelector('.landing-login').addEventListener('click',()=>openLandingAuth('signin'));
-screen.innerHTML=`<button type="button" class="back-to-workspace">← Back to Workspace</button><div class="login-art"><div class="os-logo"><svg class="msme-mark" viewBox="0 0 120 76" role="img" aria-label="MG BOOK M logo"><defs><linearGradient id="msme-pink" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff49cf"/><stop offset=".58" stop-color="#d22df0"/><stop offset="1" stop-color="#6848ff"/></linearGradient><linearGradient id="msme-fold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b2be5"/><stop offset=".52" stop-color="#253eea"/><stop offset="1" stop-color="#087fff"/></linearGradient><linearGradient id="msme-cyan" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#18d4e8"/><stop offset=".52" stop-color="#0a9ef2"/><stop offset="1" stop-color="#4350ff"/></linearGradient><linearGradient id="msme-blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#165df7"/><stop offset="1" stop-color="#4f3dff"/></linearGradient></defs><path d="M12 61 35 15" fill="none" stroke="url(#msme-pink)" stroke-width="19" stroke-linecap="round"/><path d="M35 15 59 61" fill="none" stroke="url(#msme-fold)" stroke-width="19" stroke-linecap="round"/><path d="M59 61 83 15" fill="none" stroke="url(#msme-cyan)" stroke-width="19" stroke-linecap="round"/><path d="M83 15 108 61" fill="none" stroke="url(#msme-blue)" stroke-width="19" stroke-linecap="round"/></svg><span class="msme-logo-copy"><b>MG BOOK</b><small>Track · Manage · Grow</small></span></div><div class="art-copy"><h2>MG BOOK</h2><span></span><p>A smart workforce management system for Indian MSMEs to plan, manage and optimize employee skills, attendance and efficiency.</p></div><div class="login-benefits"><span><b>♙</b>Manage<br>Workforce</span><span><b>◷</b>Track<br>Attendance</span><span><b>✦</b>Grow<br>Together</span></div></div><div class="login-side"><div class="login-card"><button type="button" class="back-to-signin" hidden>← Back to Sign In</button><p class="eyebrow">WELCOME BACK</p><h1>Welcome to your workspace</h1><p class="login-copy">Sign in or create a private MSME account.</p><div class="access-switch"><button data-access="workspace" class="active">Workspace - Admin</button><button data-access="worker">Workspace - E / S / W / TW</button></div><div id="owned-auth-panel"></div><div class="auth-tabs"><button data-tab="signin" class="active">← Back to sign in</button><button data-tab="signup">Create profile</button></div></div><div class="login-scene" aria-hidden="true"><div class="scene-user">●</div><div class="scene-checklist"><i></i><i></i><i></i></div><div class="scene-plant"><i></i><i></i><i></i><b></b></div><div class="scene-shelf"><span></span><span></span><span></span></div><div class="scene-laptop"><div class="laptop-screen"><svg viewBox="0 0 120 76"><path d="M12 61 35 15"/><path d="M35 15 59 61"/><path d="M59 61 83 15"/><path d="M83 15 108 61"/></svg></div><div class="laptop-base"></div></div><div class="scene-plaque">SKILLS<br>PEOPLE<br>GROWTH</div></div></div>`;
+screen.innerHTML=`<button type="button" class="back-to-workspace">← Back to Workspace</button><div class="login-art"><div class="os-logo"><svg class="msme-mark" viewBox="0 0 120 76" role="img" aria-label="MG BOOK M logo"><defs><linearGradient id="msme-pink" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff49cf"/><stop offset=".58" stop-color="#d22df0"/><stop offset="1" stop-color="#6848ff"/></linearGradient><linearGradient id="msme-fold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b2be5"/><stop offset=".52" stop-color="#253eea"/><stop offset="1" stop-color="#087fff"/></linearGradient><linearGradient id="msme-cyan" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#18d4e8"/><stop offset=".52" stop-color="#0a9ef2"/><stop offset="1" stop-color="#4350ff"/></linearGradient><linearGradient id="msme-blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#165df7"/><stop offset="1" stop-color="#4f3dff"/></linearGradient></defs><path d="M12 61 35 15" fill="none" stroke="url(#msme-pink)" stroke-width="19" stroke-linecap="round"/><path d="M35 15 59 61" fill="none" stroke="url(#msme-fold)" stroke-width="19" stroke-linecap="round"/><path d="M59 61 83 15" fill="none" stroke="url(#msme-cyan)" stroke-width="19" stroke-linecap="round"/><path d="M83 15 108 61" fill="none" stroke="url(#msme-blue)" stroke-width="19" stroke-linecap="round"/></svg><span class="msme-logo-copy"><b>MG BOOK</b><small>Track · Manage · Grow</small></span></div><div class="art-copy"><h2>MG BOOK</h2><span></span><p>A smart workforce management system for Indian MSMEs to plan, manage and optimize employee skills, attendance and efficiency.</p></div><div class="login-benefits"><span><b>♙</b>Manage<br>Workforce</span><span><b>◷</b>Track<br>Attendance</span><span><b>✦</b>Grow<br>Together</span></div></div><div class="login-side"><div class="login-card"><div class="login-card-brand"><svg class="msme-mark" viewBox="0 0 120 76" role="img" aria-label="MG BOOK M logo"><path d="M12 61 35 15"/><path d="M35 15 59 61"/><path d="M59 61 83 15"/><path d="M83 15 108 61"/></svg><span><b>MG BOOK</b><small>Track · Manage · Grow</small></span></div><button type="button" class="back-to-signin" hidden>← Back to Sign In</button><p class="eyebrow">WELCOME BACK</p><h1>Welcome to your workspace</h1><p class="login-copy">Sign in or create a private MSME account.</p><div class="access-switch"><button data-access="workspace" class="active">Workspace - Admin</button><button data-access="worker">Workspace - E / S / W / TW</button></div><div id="owned-auth-panel"></div><div class="auth-tabs"><button data-tab="signin" class="active">← Back to sign in</button><button data-tab="signup">Create profile</button></div></div><div class="login-scene" aria-hidden="true"><div class="scene-user">●</div><div class="scene-checklist"><i></i><i></i><i></i></div><div class="scene-plant"><i></i><i></i><i></i><b></b></div><div class="scene-shelf"><span></span><span></span><span></span></div><div class="scene-laptop"><div class="laptop-screen"><svg viewBox="0 0 120 76"><path d="M12 61 35 15"/><path d="M35 15 59 61"/><path d="M59 61 83 15"/><path d="M83 15 108 61"/></svg></div><div class="laptop-base"></div></div><div class="scene-plaque">SKILLS<br>PEOPLE<br>GROWTH</div></div></div>`;
 function applyRibbonMark(svg,prefix){
  if(!svg)return;
  const namespace='http://www.w3.org/2000/svg',defs=document.createElementNS(namespace,'defs');
@@ -51,6 +51,7 @@ function applyRibbonMark(svg,prefix){
 }
 applyRibbonMark(landing.querySelector('.landing-logo svg'),'landing-ribbon');
 applyRibbonMark(screen.querySelector('.os-logo .msme-mark'),'login-ribbon');
+applyRibbonMark(screen.querySelector('.login-card-brand .msme-mark'),'login-card-ribbon');
 const panel=screen.querySelector('#owned-auth-panel'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));let mode='workspace',tab='signin',captcha={},signup={};
 screen.querySelector('.login-copy').textContent='Existing customers can sign in. New companies can create a private workspace.';
 const trialTabButton=screen.querySelector('[data-tab="signup"]');
@@ -74,6 +75,7 @@ async function request(path,options={}){
     return d;
   }catch(error){
     if(error?.name==='AbortError')throw Error('Sign in timed out. Check that the MG BOOK server is running, then try again.');
+    if(/failed to fetch|networkerror|network request failed/i.test(String(error?.message||error)))throw Error('MG BOOK could not reach the local database server. Wait a moment, refresh the page, and try again.');
     throw error;
   }finally{clearTimeout(timeout)}
 }
@@ -105,28 +107,35 @@ async function enter(account,password=''){
   }else{
     Object.assign(a,account,password?{password}:{});
   }
-  try{localStorage.setItem('msme-accounts',JSON.stringify(tenantAccounts))}catch(_){}
-  admin=a;
+  const appShell=document.querySelector('#app-shell');
+  appShell?.classList.remove('visible');
   sessionStorage.setItem('msme-admin-auth',email);
+  let workspace=null;
   try{
-    if(window.MSMEWorkspaceDatabase)await window.MSMEWorkspaceDatabase.load(email);
+    if(window.MSMEWorkspaceDatabase)workspace=await window.MSMEWorkspaceDatabase.load(email);
   }catch(error){
     console.error('MSME database sync unavailable; refusing to replace saved data with a browser fallback.',error);
     sessionStorage.removeItem('msme-admin-auth');
-    throw Error('Your saved company database could not be loaded. No demo data was opened or saved. Check the Render database connection and try again.');
+    throw Error(`Your saved company database could not be loaded safely. ${error?.message||'Restart the local MG BOOK server and try again.'} No demo data was opened or saved.`);
   }
+  const savedCompany=workspace&&workspace.account&&typeof workspace.account==='object'?workspace.account:{};
+  const authenticatedAccount=password?account:{};
+  Object.assign(a,savedCompany,authenticatedAccount,{email},password?{password}:{});
+  admin=a;
+  try{localStorage.setItem('msme-accounts',JSON.stringify(tenantAccounts))}catch(_){}
   const savedView=sessionStorage.getItem('msme-active-view');
   const safeViews=['dashboard','reminders','temporary','workers','staff','entrepreneurs','coverage','attendance','payroll','training','contractors','exemployees','recycle'];
   view=safeViews.includes(savedView)?savedView:'dashboard';
-  document.querySelector('#login-screen')?.classList.add('hidden');
-  document.querySelector('#app-shell')?.classList.add('visible');
-  sessionRestoreOverlay?.remove();
-  sessionRestoreOverlay=null;
   await new Promise(resolve=>requestAnimationFrame(resolve));
   try{
     if(typeof loadTenant==='function')loadTenant(a);
     if(typeof refreshAdmin==='function')refreshAdmin();
     if(typeof render==='function')render();
+    if(workspace?.recovered_conflict)console.info('MG BOOK opened the newer database copy. The earlier browser copy remains stored as',workspace.recovered_conflict.backup_key);
+    document.querySelector('#login-screen')?.classList.add('hidden');
+    appShell?.classList.add('visible');
+    sessionRestoreOverlay?.remove();
+    sessionRestoreOverlay=null;
   }catch(error){
     console.error('MSME dashboard startup failed',error);
     sessionRestoreOverlay?.remove();
