@@ -394,6 +394,16 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.metrics.dynamic-workforce-metrics,
+.role-attendance-dashboard,
+.attendance-overview-grid {
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.metrics.dynamic-workforce-metrics .metric-group {
+  min-width: 0;
+}
+
 @media(max-width:1200px) {
   .metrics.four-role-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -456,9 +466,14 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
   box-shadow: 0 8px 20px rgba(9, 42, 93, .12);
 }
 
-.worker-attendance { background: linear-gradient(135deg, #092a5d, #0b4f9a); }
-.staff-attendance { background: linear-gradient(135deg, #174f78, #267ca8); }
-.entrepreneur-attendance { background: linear-gradient(135deg, #4b356e, #76559d); }
+.temporary-worker-attendance { background: #145a54; }
+.employee-attendance { background: #0f6070; }
+.worker-attendance { background: #092a5d; }
+.staff-attendance { background: #174f78; }
+.manager-attendance { background: #7a243d; }
+.hr-attendance { background: #7b245c; }
+.owner-attendance { background: #3d357c; }
+.entrepreneur-attendance { background: #4b356e; }
 
 .role-attendance-head {
   display: flex;
@@ -466,7 +481,7 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
   justify-content: space-between;
   gap: 10px;
   padding: 15px 17px;
-  border-bottom: 1px solid rgba(255, 255, 255, .2);
+  border-bottom: 1px solid rgba(255, 255, 255, .86);
 }
 
 .role-attendance-head span,
@@ -475,13 +490,14 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
 }
 
 .role-attendance-head span {
+  color: #ffffff;
   font-size: 14px;
   font-weight: 800;
 }
 
 .role-attendance-head b {
   margin-top: 3px;
-  color: rgba(255, 255, 255, .78);
+  color: #dceaf3;
   font-size: 10px;
 }
 
@@ -498,15 +514,15 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
   margin: 0;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(255, 255, 255, .25);
+  background: rgba(255, 255, 255, .72);
 }
 
 .role-attendance-progress i {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #ffffff;
-  box-shadow: 0 0 10px rgba(255, 255, 255, .42);
+  background: #31d46b;
+  box-shadow: 0 0 10px rgba(49, 212, 107, .52);
   transition: width .35s ease;
 }
 
@@ -522,14 +538,14 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
   display: flex;
   align-items: center;
   gap: 9px;
-  color: rgba(255, 255, 255, .82);
+  color: #ffffff;
   font-size: 8px;
   white-space: nowrap;
 }
 
 .role-attendance-progress-counts span,
 .role-attendance-progress-counts b { display: inline; }
-.role-attendance-progress-counts b { color: #ffffff; font-size: 10px; }
+.role-attendance-progress-counts b { color: #173e5c; font-size: 10px; }
 
 .role-attendance-values {
   display: grid;
@@ -538,7 +554,7 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
 
 .role-attendance-values div {
   padding: 14px 7px;
-  border-right: 1px solid rgba(255, 255, 255, .16);
+  border-right: 1px solid rgba(255, 255, 255, .8);
   text-align: center;
 }
 
@@ -546,7 +562,11 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
 .role-attendance-values b,
 .role-attendance-values span { display: block; }
 .role-attendance-values b { font-size: 19px; }
-.role-attendance-values span { margin-top: 4px; color: rgba(255, 255, 255, .75); font-size: 9px; }
+.role-attendance-values span { margin-top: 4px; color: inherit; font-size: 9px; }
+.role-attendance-values div:nth-child(1){background:#f3dfc0;color:#573a22;box-shadow:inset 0 0 0 1px #fff}
+.role-attendance-values div:nth-child(2){background:#31d46b;color:#fff}
+.role-attendance-values div:nth-child(3){background:#ff8a2a;color:#fff}
+.role-attendance-values div:nth-child(4){background:#a80f22;color:#fff}
 
 /* Monthly and three-month habitual leave report. */
 .habitual-leave-panel {
@@ -650,22 +670,27 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
 .attendance-overview-legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 10px; }
 .attendance-overview-legend span,.attendance-color { display: inline-flex; align-items: center; gap: 5px; }
 .attendance-overview-legend i,.attendance-color i { width: 9px; height: 9px; border-radius: 50%; }
-.present i { background: #24a148; }.unsure i { background: #f2b701; }.absent i { background: #d93025; }
+.present i { background: #31d46b; }.unsure i { background: #ff8a2a; }.absent i { background: #a80f22; }
 .attendance-overview-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-top: 15px; }
 .attendance-overview-card,.overflow-overview-card { padding: 14px; border: 1px solid #dbe5ec; border-radius: 10px; background: #fff; }
-.attendance-overview-card.overview-role-workers { background: linear-gradient(135deg,#092a5d,#0b4f9a); }
-.attendance-overview-card.overview-role-staff { background: linear-gradient(135deg,#174f78,#267ca8); }
-.attendance-overview-card.overview-role-entrepreneurs { background: linear-gradient(135deg,#4b356e,#76559d); }
-.attendance-overview-card.overview-role-temporary { background: linear-gradient(135deg,#145a54,#23877d); }
+.attendance-overview-card[class*="overview-role-"] { background: #203e5c; }
+.attendance-overview-card.overview-role-temporary-worker { background: #145a54; }
+.attendance-overview-card.overview-role-employee { background: #0f6070; }
+.attendance-overview-card.overview-role-worker { background: #092a5d; }
+.attendance-overview-card.overview-role-staff { background: #174f78; }
+.attendance-overview-card.overview-role-manager { background: #7a243d; }
+.attendance-overview-card.overview-role-hr { background: #7b245c; }
+.attendance-overview-card.overview-role-owner { background: #3d357c; }
+.attendance-overview-card.overview-role-entrepreneur { background: #4b356e; }
 .attendance-overview-card[class*="overview-role-"] { border-color: transparent; box-shadow: 0 8px 20px rgba(9,42,93,.14); }
 .attendance-overview-card[class*="overview-role-"] { position: relative; transition: transform .22s ease, box-shadow .22s ease; transform-origin: center; }
 .attendance-overview-card[class*="overview-role-"]:hover { z-index: 2; transform: scale(1.035); box-shadow: 0 14px 30px rgba(9,42,93,.25); }
-.attendance-overview-card[class*="overview-role-"] h3,.attendance-overview-card[class*="overview-role-"] .text-button { color: #fff; }
-.attendance-overview-card[class*="overview-role-"]>p { color: rgba(255,255,255,.76); }
+.attendance-overview-card[class*="overview-role-"] h3,.attendance-overview-card[class*="overview-role-"] .text-button { color: #ffffff; }
+.attendance-overview-card[class*="overview-role-"]>p { padding:7px 9px;border-radius:6px;background:#f3dfc0;color:#573a22;box-shadow:inset 0 0 0 1px #fff; }
 .attendance-overview-card>p { margin: 4px 0 11px; color: #6b7f8f; font-size: 10px; }
 .attendance-color-counts { display: grid; gap: 7px; }
 .attendance-color { padding: 7px 9px; border-radius: 6px; font-size: 10px; font-weight: 600; }
-.attendance-color.present { color: #176b31; background: #e6f6ea; }.attendance-color.unsure { color: #765b00; background: #fff6cc; }.attendance-color.absent { color: #9f241d; background: #fde9e7; }
+.attendance-color.present { color: #fff; background: #31d46b; }.attendance-color.unsure { color: #fff; background: #ff8a2a; }.attendance-color.absent { color: #fff; background: #a80f22; }
 .attendance-color b { min-width: 18px; font-size: 13px; }
 .overflow-overview-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin-top: 12px; }
 .overflow-card-head { margin-bottom: 9px; }.overflow-card-head strong { min-width: 28px; padding: 5px 8px; border-radius: 999px; color: #fff; background: #b42318; text-align: center; }
@@ -695,3 +720,88 @@ body:has(.nav-link[data-view="reminders"].active) #view-root .empty {
 @media(max-width:1200px){.attendance-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:900px){.attendance-overview-grid{grid-template-columns:1fr}}
 @media(max-width:650px){.operations-overview-heading,.overview-subsection-head{align-items:flex-start;flex-direction:column}.overflow-overview-grid{grid-template-columns:1fr}.absence-estimate-row{grid-template-columns:1fr}.absence-estimate-row strong{text-align:left}}
+
+/* Company registration controls how many workforce category panels appear. */
+.role-attendance-dashboard.attendance-health-role-dashboard,
+.attendance-overview-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+/* Premium photographic workforce cards, matched to the MG BOOK overview reference. */
+#side-nav .nav-link[hidden]{display:none!important}
+#view-root .metrics.dynamic-workforce-metrics{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+#view-root .metric-group[class*="overview-metric-"]{--card-rgb:0,125,104;--card-deep:#006d5b;position:relative;isolation:isolate;min-width:0;min-height:178px;border:2px solid rgba(var(--card-rgb),.9)!important;border-radius:14px!important;background:linear-gradient(135deg,rgba(var(--card-rgb),.98),var(--card-deep))!important;box-shadow:0 0 0 2px rgba(255,255,255,.92),0 0 17px rgba(var(--card-rgb),.72),0 12px 23px rgba(9,25,50,.25)!important;color:#fff!important;overflow:hidden}
+#view-root .metric-group.overview-metric-temporary-worker{--card-rgb:0,164,119;--card-deep:#007960}
+#view-root .metric-group.overview-metric-employee{--card-rgb:0,119,255;--card-deep:#005bd7}
+#view-root .metric-group.overview-metric-worker{--card-rgb:139,25,255;--card-deep:#6500c9}
+#view-root .metric-group.overview-metric-staff{--card-rgb:255,92,0;--card-deep:#c44200}
+#view-root .metric-group.overview-metric-manager{--card-rgb:239,0,86;--card-deep:#af004c}
+#view-root .metric-group.overview-metric-hr{--card-rgb:123,40,255;--card-deep:#3921b8}
+#view-root .metric-group.overview-metric-owner{--card-rgb:0,133,255;--card-deep:#004fc1}
+#view-root .metric-group.overview-metric-entrepreneur{--card-rgb:0,164,75;--card-deep:#04752e}
+#view-root .metric-scene{position:absolute;z-index:-2;inset:0;background-image:url("assets/workforce-card-scenes-v2.png");background-repeat:no-repeat;background-size:400% 200%;filter:saturate(1.2) contrast(1.08)}
+#view-root .metric-group.overview-metric-temporary-worker .metric-scene{background-position:0 0}
+#view-root .metric-group.overview-metric-employee .metric-scene{background-position:33.333% 0}
+#view-root .metric-group.overview-metric-worker .metric-scene{background-position:66.666% 0}
+#view-root .metric-group.overview-metric-staff .metric-scene{background-position:100% 0}
+#view-root .metric-group.overview-metric-manager .metric-scene{background-position:0 100%}
+#view-root .metric-group.overview-metric-hr .metric-scene{background-position:33.333% 100%}
+#view-root .metric-group.overview-metric-owner .metric-scene{background-position:66.666% 100%}
+#view-root .metric-group.overview-metric-entrepreneur .metric-scene{background-position:100% 100%}
+#view-root .metric-group[class*="overview-metric-"]::before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(90deg,rgba(255,255,255,.97) 0%,rgba(255,255,255,.88) 34%,rgba(255,255,255,.18) 67%,rgba(var(--card-rgb),.08) 100%)}
+#view-root .metric-group[class*="overview-metric-"]::after{content:"";position:absolute;z-index:-1;inset:0;border-radius:inherit;box-shadow:inset 0 1px 0 rgba(255,255,255,.95),inset 0 -22px 30px rgba(var(--card-rgb),.16);pointer-events:none}
+#view-root .metric-card-content{display:flex;min-height:174px;flex-direction:column}
+#view-root .metric-group[class*="overview-metric-"] .metric-head{min-height:59px;padding:9px 9px 5px;gap:7px}
+#view-root .metric-group[class*="overview-metric-"] .metric-head>div{min-width:0}
+#view-root .metric-group[class*="overview-metric-"] .metric-head b{display:block;overflow:hidden;color:#071d51!important;font-size:12px;font-weight:900;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 0 rgba(255,255,255,.7)}
+#view-root .metric-group[class*="overview-metric-"] .metric-head small{display:block;margin-top:1px;color:#31547a!important;font-size:8px;font-weight:700;opacity:1;white-space:nowrap}
+#view-root .metric-group[class*="overview-metric-"] .metric-icon{display:grid;width:38px;height:38px;flex:0 0 38px;place-items:center;border:1px solid rgba(255,255,255,.72)!important;border-radius:11px;background-color:rgba(var(--card-rgb),.9)!important;background-image:url("assets/workforce-category-icons-3d-v1.png")!important;background-repeat:no-repeat!important;background-size:400% 200%!important;color:#fff!important;box-shadow:0 5px 12px rgba(var(--card-rgb),.55),inset 0 1px 0 rgba(255,255,255,.48);filter:drop-shadow(0 2px 2px rgba(0,0,0,.18))}
+#view-root .metric-group[class*="overview-metric-"] .metric-icon svg{display:none}
+#view-root .metric-group.overview-metric-temporary-worker .metric-icon{background-position:0 0!important}
+#view-root .metric-group.overview-metric-employee .metric-icon{background-position:33.333% 0!important}
+#view-root .metric-group.overview-metric-worker .metric-icon{background-position:66.666% 0!important}
+#view-root .metric-group.overview-metric-staff .metric-icon{background-position:100% 0!important}
+#view-root .metric-group.overview-metric-manager .metric-icon{background-position:0 100%!important}
+#view-root .metric-group.overview-metric-hr .metric-icon{background-position:33.333% 100%!important}
+#view-root .metric-group.overview-metric-owner .metric-icon{background-position:66.666% 100%!important}
+#view-root .metric-group.overview-metric-entrepreneur .metric-icon{background-position:100% 100%!important}
+#view-root .metric-growth{margin-left:auto;padding:4px 5px;border-radius:8px;background:rgba(219,255,235,.96);color:#087844;font-size:7px;font-style:normal;font-weight:900;white-space:nowrap;box-shadow:0 2px 8px rgba(0,80,48,.15)}
+#view-root .metric-group[class*="overview-metric-"] .metric-body{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;margin:0 5px 5px;border:0!important;background:none}
+#view-root .metric-group[class*="overview-metric-"] .metric{min-width:0;padding:5px 1px 6px;border:1px solid rgba(255,255,255,.9)!important;border-radius:7px;box-shadow:0 3px 9px rgba(17,39,75,.2),inset 0 1px 0 rgba(255,255,255,.72);text-align:center}
+#view-root .metric-group[class*="overview-metric-"] .metric:nth-child(1){background:linear-gradient(145deg,#fffdf7,#f4ead5)!important;color:#7d351d!important}
+#view-root .metric-group[class*="overview-metric-"] .metric:nth-child(2){background:linear-gradient(145deg,#b9ffe4,#3ce6a9)!important;color:#006642!important}
+#view-root .metric-group[class*="overview-metric-"] .metric:nth-child(3){background:linear-gradient(145deg,#ffe9a9,#ffb457)!important;color:#d63713!important}
+#view-root .metric-group[class*="overview-metric-"] .metric:nth-child(4){background:linear-gradient(145deg,#ffd2df,#ff83ab)!important;color:#b80035!important}
+#view-root .metric-group[class*="overview-metric-"] .metric b{display:block;color:inherit!important;font-size:15px;line-height:1}
+#view-root .metric-group[class*="overview-metric-"] .metric span{display:block;margin-top:2px;color:inherit!important;font-size:7px;font-weight:900;white-space:nowrap}
+#view-root .metric-group[class*="overview-metric-"] .metric-state-icon{display:grid!important;width:16px;height:16px;margin:0 auto 2px!important;place-items:center;line-height:1}
+#view-root .metric-group[class*="overview-metric-"] .metric-state-icon svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+#view-root .metric-group[class*="overview-metric-"] .overview-overflow-button{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;min-height:29px;margin-top:auto;padding:4px 6px 4px 10px;border:0!important;border-top:1px solid rgba(255,255,255,.5)!important;background:linear-gradient(90deg,var(--card-deep),rgba(var(--card-rgb),.9))!important;color:#fff!important;font-size:8px;font-weight:900;text-align:left;text-shadow:0 1px 2px rgba(0,0,0,.32)}
+#view-root .metric-group[class*="overview-metric-"] .overview-overflow-button i{display:grid;width:21px;height:21px;place-items:center;border-radius:50%;background:rgba(255,255,255,.92);color:var(--card-deep);font-size:18px;font-style:normal;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+#view-root .metric-group[class*="overview-metric-"]:hover{transform:translateY(-3px) scale(1.005);box-shadow:0 0 0 2px #fff,0 0 24px rgba(var(--card-rgb),.82),0 16px 30px rgba(9,25,50,.26)!important}
+@media(max-width:1180px){#view-root .metrics.dynamic-workforce-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){#view-root .metrics.dynamic-workforce-metrics{grid-template-columns:1fr}#view-root .metric-group[class*="overview-metric-"]{min-height:180px}#view-root .metric-group[class*="overview-metric-"] .metric-head{padding-inline:10px}#view-root .metric-group[class*="overview-metric-"] .metric-head b{font-size:13px}#view-root .metric-growth{font-size:8px}#view-root .metric-group[class*="overview-metric-"] .metric-body{gap:3px;margin-inline:5px}#view-root .metric-group[class*="overview-metric-"] .metric span{font-size:8px}}
+
+.overflow-person-card{cursor:default!important}
+.overflow-person-details .overflow-stat-box{display:block;min-width:0;padding:9px;border:1px solid #496c88!important;border-radius:7px;background:#173b5c!important;color:#fff8e9!important;text-align:left}
+.overflow-person-details button.overflow-stat-box{width:100%;font:inherit;cursor:pointer;transition:background .16s,border-color .16s,box-shadow .16s,transform .16s}
+.overflow-person-details button.overflow-stat-box:hover,.overflow-person-details button.overflow-stat-box:focus-visible{border-color:#fff!important;background:#24557d!important;box-shadow:0 6px 16px rgba(5,24,43,.24);outline:0;transform:translateY(-1px)}
+.overflow-person-details .overflow-stat-box span,.overflow-person-details .overflow-stat-box b{display:block}
+.overflow-person-details .overflow-stat-box b{font-size:11px}
+.individual-status-month-nav{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;margin:0 0 16px}
+.individual-status-month-nav>b{text-align:center;color:#102a43}
+.individual-status-days-modal,.payroll-daily-modal,.individual-shift-modal{width:min(920px,calc(100vw - 30px))}
+.individual-shift-summary{display:grid;gap:6px;margin-bottom:18px;padding:18px;border-radius:14px;background:linear-gradient(135deg,#102a43,#174f78);color:#fff}
+.individual-shift-summary span{font-size:9px;font-weight:900;letter-spacing:.09em}.individual-shift-summary b{font-size:21px}.individual-shift-summary small{color:#d8e7f3}
+.week-off-overview-card{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:15px;width:100%;margin:14px 0 18px;padding:17px 20px;border:1px solid #c8d8e8;border-radius:14px;background:linear-gradient(135deg,#f8fbff,#eaf3fb);color:#153653;text-align:left;cursor:pointer;box-shadow:0 7px 18px rgba(9,42,93,.08)}
+.week-off-overview-card:hover,.week-off-overview-card:focus-visible{border-color:#397bb5;box-shadow:0 10px 24px rgba(9,42,93,.14);outline:0}.week-off-icon{display:grid;place-items:center;width:42px;height:42px;border-radius:11px;background:#174f78;color:#fff;font-size:20px}.week-off-overview-card small,.week-off-overview-card b,.week-off-overview-card em{display:block}.week-off-overview-card small{color:#678097;font-size:9px;font-weight:900;letter-spacing:.08em}.week-off-overview-card b{margin:3px 0;font-size:18px}.week-off-overview-card em{color:#60758a;font-size:11px;font-style:normal}.week-off-overview-card strong{color:#0b4f91;font-size:12px}
+.week-off-calendar-modal{width:min(1080px,calc(100vw - 28px))}.week-off-toolbar{display:grid;grid-template-columns:auto minmax(180px,1fr) auto;gap:10px;align-items:center;margin-bottom:15px}.week-off-toolbar input{min-height:42px;padding:8px 12px;border:1px solid #c5d5e5;border-radius:9px;background:#fff;color:#17324d;font-weight:800}.week-off-layout{display:grid;grid-template-columns:minmax(420px,1.35fr) minmax(280px,.8fr);gap:18px}.week-off-weekdays,.week-off-calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}.week-off-weekdays span{padding:6px;text-align:center;color:#60768c;font-size:9px;font-weight:900}.week-off-day{display:grid;align-content:center;gap:3px;min-height:62px;padding:7px;border:1px solid #d3e0ec;border-radius:9px;background:#fff;color:#17324d;cursor:pointer}.week-off-day:hover{border-color:#3982c1;background:#eef7ff}.week-off-day.selected{border-color:#0b4f91;background:#0b4f91;color:#fff}.week-off-day.assigned:not(.selected){background:#e8f6ec;border-color:#8fca9e}.week-off-day small{font-size:8px}.week-off-day.empty{border:0;background:transparent}.week-off-people{padding:15px;border-radius:13px;background:#f2f7fb}.week-off-selected-date span,.week-off-selected-date b{display:block}.week-off-selected-date span{color:#60768c;font-size:9px;font-weight:900}.week-off-selected-date b{margin-top:4px;color:#17324d;font-size:17px}.week-off-bulk-actions{display:flex;gap:7px;margin:12px 0}.week-off-person-list{display:grid;gap:6px;max-height:310px;margin-bottom:13px;overflow:auto}.week-off-person-list label{display:flex;align-items:center;gap:9px;padding:9px;border:1px solid #d6e2ed;border-radius:9px;background:#fff;cursor:pointer}.week-off-person-list input{width:17px;height:17px;accent-color:#0b4f91}.week-off-person-list span b,.week-off-person-list span small{display:block}.week-off-person-list span b{color:#17324d;font-size:11px}.week-off-person-list span small{margin-top:2px;color:#718398;font-size:9px}.week-off-people>.primary{width:100%}.week-off-save-status{min-height:18px;margin:8px 0 0;color:#237044;font-size:10px;font-weight:800}
+.grace-checkin-status{display:inline-flex;min-width:155px;padding:6px 8px;border-radius:999px;background:#e6f6ea;color:#176b31;font-size:10px;font-weight:800;line-height:1.3}
+.grace-checkin-status.missing{background:#fff1dd;color:#9b5700}
+
+@media(max-width:650px){
+ .individual-status-month-nav{grid-template-columns:1fr 1fr}
+ .individual-status-month-nav>b{grid-column:1/-1;grid-row:1}
+ .week-off-overview-card{grid-template-columns:auto 1fr}.week-off-overview-card strong{grid-column:1/-1}
+ .week-off-toolbar{grid-template-columns:1fr 1fr}.week-off-toolbar input{grid-column:1/-1;grid-row:1}.week-off-layout{grid-template-columns:1fr}.week-off-calendar-grid{gap:4px}.week-off-day{min-height:48px;padding:4px}
+}

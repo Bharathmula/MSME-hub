@@ -49,30 +49,121 @@ function updateSectorV22(title, icon, items, emptyText) {
       `<p class="update-empty">${emptyText}</p>`}</section>`;
 }
 
+const workforceIconV44 = kind => {
+  const paths = {
+    people: '<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><circle cx="12" cy="6" r="3.2"/><path d="M3 19c0-3 2-5 5-5m13 5c0-3-2-5-5-5m-9 5c0-4 2-6 5-6s5 2 5 6"/>',
+    worker: '<path d="M4 13h16M6 13v-1a6 6 0 0 1 12 0v1M9 11V7m6 4V7M5 16h14v3H5z"/>',
+    briefcase: '<rect x="3" y="7" width="18" height="12" rx="2"/><path d="M9 7V4h6v3M3 12h18M10 12v2h4v-2"/>',
+    crown: '<path d="M3 8l4 4 5-7 5 7 4-4-2 11H5L3 8z"/><path d="M6 19h12"/>',
+    owner: '<circle cx="10" cy="8" r="3"/><path d="M4 19c0-4 2-6 6-6 2 0 3 .4 4 1.1M18 13l.8 1.8 2 .2-1.5 1.4.4 2-1.7-1-1.7 1 .4-2-1.5-1.4 2-.2L18 13z"/>',
+    rocket: '<path d="M14 4c3-1 5-1 6-1 0 1 0 3-1 6l-6 6-4-4 5-7z"/><path d="M9 11l-4 1-2 3 5 1m5-1 1 5 3-2 1-4M8 16l-2 3"/><circle cx="16" cy="7" r="1.5"/>'
+  };
+  return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[kind] || paths.people}</svg>`;
+};
+
+const workforceMetricIconV44 = kind => {
+  const paths = {
+    people: '<circle cx="9" cy="8" r="3"/><circle cx="16" cy="9" r="2.4"/><path d="M3.5 19c0-4 2-6 5.5-6s5.5 2 5.5 6m0-5c3 0 5 1.7 5 5"/>',
+    person: '<circle cx="12" cy="7.5" r="3.2"/><path d="M5.5 20c0-4.6 2.4-7 6.5-7s6.5 2.4 6.5 7"/>',
+    clock: '<circle cx="12" cy="12" r="8"/><path d="M12 7v5l3.5 2"/>',
+    absent: '<circle cx="12" cy="12" r="8"/><path d="M8.5 12h7"/>'
+  };
+  return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[kind] || paths.person}</svg>`;
+};
+
+const workforceCategoryDefinitionsV43 = [
+  { saved: 'Temporary Workers', role: 'Temporary Worker', title: 'Temporary Workers', singular: 'Temporary Worker', icon: workforceIconV44('people'), growth: 12, view: 'temporary' },
+  { saved: 'Employees', role: 'Employee', title: 'Employees', singular: 'Employee', icon: workforceIconV44('people'), growth: 8, view: '' },
+  { saved: 'Workers', role: 'Worker', title: 'Workers', singular: 'Worker', icon: workforceIconV44('worker'), growth: 15, view: 'workers' },
+  { saved: 'Staff', role: 'Staff', title: 'Staff', singular: 'Staff', icon: workforceIconV44('briefcase'), growth: 5, view: 'staff' },
+  { saved: 'Manager', role: 'Manager', title: 'Managers', singular: 'Manager', icon: workforceIconV44('crown'), growth: 7, view: '' },
+  { saved: 'HR', role: 'HR', title: 'HR', singular: 'HR', icon: workforceIconV44('people'), growth: 9, view: '' },
+  { saved: 'Owner', role: 'Owner', title: 'Owners', singular: 'Owner', icon: workforceIconV44('owner'), growth: 4, view: '' },
+  { saved: 'Entrepreneur', role: 'Entrepreneur', title: 'Entrepreneurs', singular: 'Entrepreneur', icon: workforceIconV44('rocket'), growth: 11, view: 'entrepreneurs' }
+];
+
+function enabledWorkforceCategoriesV43() {
+  const selected = Array.isArray(admin?.workforce_categories)
+    ? admin.workforce_categories.map(value => String(value || '').trim()).filter(Boolean)
+    : [];
+  if (!selected.length) {
+    return workforceCategoryDefinitionsV43.filter(category =>
+      ['Temporary Workers', 'Workers', 'Staff', 'Entrepreneur'].includes(category.saved));
+  }
+  const selectedSet = new Set(selected.map(value => value.toLowerCase()));
+  return workforceCategoryDefinitionsV43.filter(category => selectedSet.has(category.saved.toLowerCase()));
+}
+
+function workforceCategoryPeopleV43(categoryOrRole) {
+  const category = typeof categoryOrRole === 'string'
+    ? workforceCategoryDefinitionsV43.find(item => item.role === categoryOrRole || item.saved === categoryOrRole)
+    : categoryOrRole;
+  if (!category) return [];
+  if (category.role === 'Temporary Worker') return [...temporaryWorkers].sort(compareWorkforceIds);
+  return group(category.role);
+}
+
+function workforceCategoryClassV43(category) {
+  return category.role.toLowerCase().replaceAll(' ', '-');
+}
+
+function workforceMetricCardV43(category) {
+  const records = workforceCategoryPeopleV43(category);
+  const present = records.filter(person => person.status === 'Present').length;
+  const leave = records.filter(person => person.status === 'On leave').length;
+  const absent = records.filter(person => person.status === 'Absent').length;
+  return `<article class="metric-group overview-metric-${workforceCategoryClassV43(category)}" data-overflow-role="${esc(category.role)}" role="button" tabindex="0" aria-label="Open ${esc(category.title)} individual records">
+    <div class="metric-scene" aria-hidden="true"></div>
+    <div class="metric-card-content"><div class="metric-head"><span class="metric-icon">${category.icon}</span><div><b>${esc(category.title)}</b><small>Live workforce snapshot</small></div><em class="metric-growth">↗ +${category.growth}%</em></div>
+    <div class="metric-body"><div class="metric"><span class="metric-state-icon">${workforceMetricIconV44('people')}</span><b>${records.length}</b><span>Total</span></div><div class="metric"><span class="metric-state-icon">${workforceMetricIconV44('person')}</span><b>${present}</b><span>Present</span></div><div class="metric"><span class="metric-state-icon">${workforceMetricIconV44('clock')}</span><b>${leave}</b><span>On leave</span></div><div class="metric"><span class="metric-state-icon">${workforceMetricIconV44('absent')}</span><b>${absent}</b><span>Absent</span></div></div>
+    <button class="overview-overflow-button" type="button"><span>Open ${esc(category.singular)} records</span><i aria-hidden="true">›</i></button></div></article>`;
+}
+
+function syncWorkforceCategoryNavigationV43() {
+  const enabled = enabledWorkforceCategoriesV43();
+  const enabledRoles = new Set(enabled.map(category => category.role));
+  const fixedViews = { temporary: 'Temporary Worker', workers: 'Worker', staff: 'Staff', entrepreneurs: 'Entrepreneur' };
+  Object.entries(fixedViews).forEach(([viewName, roleName]) => {
+    const button = document.querySelector(`#side-nav [data-view="${viewName}"]`);
+    if (button) button.hidden = !enabledRoles.has(roleName);
+  });
+  document.querySelectorAll('#side-nav [data-dynamic-workforce-category]').forEach(button => button.remove());
+  const anchor = document.querySelector('#side-nav [data-view="entrepreneurs"]');
+  if (!anchor) return;
+  let insertionPoint = anchor;
+  enabled.filter(category => !category.view).forEach(category => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'nav-link';
+    button.dataset.dynamicWorkforceCategory = category.role;
+    button.dataset.workforceOverflowRole = category.role;
+    button.innerHTML = `<span>${category.icon}</span> ${esc(category.title)} <em>${workforceCategoryPeopleV43(category).length}</em>`;
+    insertionPoint.insertAdjacentElement('afterend', button);
+    insertionPoint = button;
+  });
+}
+
 window.dashboard = function dashboardWithRoleOverflows() {
   dashboardBeforeRoleOverflows();
 
   const metrics = document.querySelector('#view-root .metrics');
-  if (metrics && !metrics.querySelector('[data-temporary-overview-card]')) {
-    const total = temporaryWorkers.length;
-    const present = temporaryWorkers.filter(person => person.status === 'Present').length;
-    const leave = temporaryWorkers.filter(person => person.status === 'On leave').length;
-    const absent = temporaryWorkers.filter(person => person.status === 'Absent').length;
-    metrics.insertAdjacentHTML('beforeend', `<article class="metric-group" data-temporary-overview-card="true"><div class="metric-head"><span class="metric-icon">◷</span><div><b>Temporary Workers</b><small>Live workforce snapshot</small></div></div><div class="metric-body"><div class="metric"><b>${total}</b><span>Total</span></div><div class="metric"><b>${present}</b><span>Present</span></div><div class="metric"><b>${leave}</b><span>On leave</span></div><div class="metric"><b>${absent}</b><span>Absent</span></div></div></article>`);
-    metrics.classList.add('four-role-overview');
+  if (metrics) {
+    metrics.innerHTML = enabledWorkforceCategoriesV43().map(workforceMetricCardV43).join('');
+    metrics.classList.add('four-role-overview', 'dynamic-workforce-metrics');
   }
+  syncWorkforceCategoryNavigationV43();
 
-  const roleNames = ['Worker', 'Staff', 'Entrepreneur', 'Temporary Worker'];
-  document.querySelectorAll('#view-root .metric-group').forEach((cardElement, index) => {
-    const roleName = roleNames[index];
-    if (!roleName) return;
-    cardElement.dataset.overflowRole = roleName;
-    cardElement.setAttribute('role', 'button');
-    cardElement.setAttribute('tabindex', '0');
-    cardElement.setAttribute('aria-label', `Open ${roleName} overflow`);
-    cardElement.insertAdjacentHTML('beforeend', `<button class="overview-overflow-button" type="button">
-      Open ${roleName} overflow →</button>`);
-  });
+  if (metrics && !document.querySelector('[data-week-off-overview]')) {
+    const assignments = readWeekOffAssignmentsV42();
+    const month = new Date().toISOString().slice(0, 7);
+    const assignedDays = Object.entries(assignments)
+      .filter(([date, ids]) => date.startsWith(month) && Array.isArray(ids) && ids.length)
+      .length;
+    metrics.insertAdjacentHTML('afterend', `<button type="button" class="week-off-overview-card" data-week-off-overview>
+      <span class="week-off-icon" aria-hidden="true">▦</span><span><small>WORKFORCE SCHEDULE</small><b>Week Off</b>
+      <em>Assign weekly offs to one person, selected people, or everyone.</em></span><strong>${assignedDays} assigned day${assignedDays === 1 ? '' : 's'} →</strong>
+    </button>`);
+  }
 
   const updates = currentMonthUpdatesV22();
   const importantBlock = document.querySelector('#view-root .important-block');
@@ -109,7 +200,9 @@ async function hydrateMonthlyPresentV35(rolePeople) {
     const records = Array.isArray(payload.attendance) ? payload.attendance : [];
     const button = document.querySelector(`[data-person-attendance="${CSS.escape(String(person.id))}"]`);
     if (!button) return;
-    button.textContent = String(records.length);
+    const value = button.querySelector('b');
+    if (value) value.textContent = String(records.length);
+    else button.innerHTML = `<span>Monthly present</span><b>${records.length}</b>`;
     button.title = `${records.length} permanently stored present day${records.length === 1 ? '' : 's'} in ${month}`;
     button.dataset.databaseCount = 'true';
   }));
@@ -245,8 +338,119 @@ async function openIndividualAttendanceCalendarV33(person, monthValue = new Date
   }
 }
 
+function openIndividualStatusDaysV39(person, status, monthValue = new Date().toISOString().slice(0, 7)) {
+  const modalRoot = document.getElementById('modal-root');
+  const [year, monthNumber] = monthValue.split('-').map(Number);
+  const selectedMonth = new Date(year, monthNumber - 1, 1);
+  const monthKey = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}`;
+  const previous = monthKey(new Date(year, monthNumber - 2, 1));
+  const next = monthKey(new Date(year, monthNumber, 1));
+  const records = (Array.isArray(attendanceLog) ? attendanceLog : [])
+    .filter(day => String(day.date || '').startsWith(`${monthValue}-`))
+    .map(day => ({ date: day.date, record: (day.records || []).find(item => item.id === person.id) }))
+    .filter(item => item.record && item.record.status === status)
+    .sort((left, right) => right.date.localeCompare(left.date));
+  const label = status === 'On leave' ? 'leave' : status.toLowerCase();
+  modalRoot.innerHTML = `<div class="modal-backdrop"><section class="modal individual-status-days-modal">
+    <div class="modal-head"><div><div class="eyebrow">MONTHLY ${esc(label.toUpperCase())} DAYS</div><h2>${esc(person.name)}</h2>
+      <p>Only ${esc(label)} attendance days for the selected month are shown.</p></div><button class="close" type="button" data-close>×</button></div>
+    <div class="individual-status-month-nav"><button type="button" class="secondary" data-status-month="${previous}">← Previous</button>
+      <b>${esc(selectedMonth.toLocaleString('en-IN', { month: 'long', year: 'numeric' }))}</b>
+      <button type="button" class="secondary" data-status-month="${next}">Next →</button></div>
+    <div class="table-wrap"><table><thead><tr><th>DATE</th><th>STATUS</th><th>CHECK-IN</th><th>CHECK-OUT</th><th>WORK TOTAL</th><th>SOURCE</th></tr></thead>
+      <tbody>${records.map(item => `<tr><td><b>${esc(item.date)}</b></td><td><span class="tag ${cls(item.record.status)}">${esc(item.record.status)}</span></td><td>${esc(item.record.login || item.record.login_time || '—')}</td><td>${esc(item.record.logout || item.record.logout_time || '—')}</td><td>${esc(item.record.work || item.record.total || '—')}</td><td>${esc(item.record.source || 'Saved attendance')}</td></tr>`).join('') || `<tr><td colspan="6" class="empty">No ${esc(label)} days were saved for this month.</td></tr>`}</tbody></table></div>
+  </section></div>`;
+  modalRoot.querySelector('[data-close]').onclick = () => { modalRoot.innerHTML = ''; };
+  modalRoot.querySelectorAll('[data-status-month]').forEach(button => {
+    button.onclick = () => openIndividualStatusDaysV39(person, status, button.dataset.statusMonth);
+  });
+}
+
+function openIndividualShiftDetailsV42(person) {
+  const modalRoot = document.getElementById('modal-root');
+  const companyShifts = Array.isArray(admin.shifts) ? admin.shifts : [];
+  const assigned = person.shift || `${admin.shift_start || '09:00'} - ${admin.shift_end || '18:00'}`;
+  const rows = companyShifts.map(shift => `<tr><td><b>${esc(shift.type || 'Company shift')}</b></td><td>${esc(shift.start || '—')}</td><td>${esc(shift.end || '—')}</td></tr>`).join('');
+  modalRoot.innerHTML = `<div class="modal-backdrop"><section class="modal individual-shift-modal">
+    <div class="modal-head"><div><div class="eyebrow">ASSIGNED SHIFT TIMINGS</div><h2>${esc(person.name)}</h2>
+      <p>The assigned shift and the company's available shift timings are shown below.</p></div><button class="close" type="button" data-close>×</button></div>
+    <div class="individual-shift-summary"><span>ASSIGNED SHIFT</span><b>${esc(assigned)}</b><small>Grace period: ${esc(person.grace_period || 'Not set')}</small></div>
+    <div class="table-wrap"><table><thead><tr><th>COMPANY SHIFT</th><th>START</th><th>END</th></tr></thead><tbody>
+      ${rows || `<tr><td colspan="3" class="empty">No additional company shift templates are configured.</td></tr>`}
+    </tbody></table></div></section></div>`;
+  modalRoot.querySelector('[data-close]').onclick = () => { modalRoot.innerHTML = ''; };
+}
+
+function weekOffKeyV42() {
+  return typeof tenantKey === 'function' ? tenantKey('week-off-assignments') : 'msme-week-off-assignments';
+}
+
+function readWeekOffAssignmentsV42() {
+  try {
+    const value = JSON.parse(localStorage.getItem(weekOffKeyV42()) || '{}');
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function weekOffMonthKeyV42(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function openWeekOffCalendarV42(monthValue = new Date().toISOString().slice(0, 7), selectedDate = '') {
+  const modalRoot = document.getElementById('modal-root');
+  const assignments = readWeekOffAssignmentsV42();
+  const [year, monthNumber] = monthValue.split('-').map(Number);
+  const first = new Date(year, monthNumber - 1, 1);
+  const daysInMonth = new Date(year, monthNumber, 0).getDate();
+  const leading = first.getDay();
+  const defaultDate = selectedDate || `${monthValue}-${String(new Date().getDate()).padStart(2, '0')}`;
+  const activeDate = defaultDate.startsWith(`${monthValue}-`) ? defaultDate : `${monthValue}-01`;
+  const allPeople = [...people, ...temporaryWorkers].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  const selectedIds = new Set(Array.isArray(assignments[activeDate]) ? assignments[activeDate] : []);
+  const dateCells = [
+    ...Array.from({ length: leading }, () => '<span class="week-off-day empty" aria-hidden="true"></span>'),
+    ...Array.from({ length: daysInMonth }, (_, index) => {
+      const day = index + 1;
+      const date = `${monthValue}-${String(day).padStart(2, '0')}`;
+      const total = Array.isArray(assignments[date]) ? assignments[date].length : 0;
+      return `<button type="button" class="week-off-day ${date === activeDate ? 'selected' : ''} ${total ? 'assigned' : ''}" data-week-off-date="${date}"><b>${day}</b>${total ? `<small>${total} off</small>` : ''}</button>`;
+    }),
+  ].join('');
+  modalRoot.innerHTML = `<div class="modal-backdrop"><section class="modal week-off-calendar-modal">
+    <div class="modal-head"><div><div class="eyebrow">WEEK OFF CALENDAR</div><h2>Assign workforce week off</h2>
+      <p>Choose a date, then select one person, multiple people, or everyone.</p></div><button class="close" type="button" data-close>×</button></div>
+    <div class="week-off-toolbar"><button type="button" class="secondary" data-week-off-month="${weekOffMonthKeyV42(new Date(year, monthNumber - 2, 1))}">← Previous</button>
+      <input type="month" id="week-off-month" value="${monthValue}" aria-label="Week off month"><button type="button" class="secondary" data-week-off-month="${weekOffMonthKeyV42(new Date(year, monthNumber, 1))}">Next →</button></div>
+    <div class="week-off-layout"><div><div class="week-off-weekdays">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(day => `<span>${day}</span>`).join('')}</div>
+      <div class="week-off-calendar-grid">${dateCells}</div></div>
+      <div class="week-off-people"><div class="week-off-selected-date"><span>SELECTED DATE</span><b>${esc(activeDate)}</b></div>
+        <div class="week-off-bulk-actions"><button type="button" class="secondary" data-week-off-select-all>Select everyone</button><button type="button" class="secondary" data-week-off-clear>Clear</button></div>
+        <div class="week-off-person-list">${allPeople.map(person => `<label><input type="checkbox" data-week-off-person value="${esc(person.id)}" ${selectedIds.has(person.id) ? 'checked' : ''}><span><b>${esc(person.name)}</b><small>${esc(person.id)} · ${esc(person.role || 'Temporary Worker')}</small></span></label>`).join('') || '<p class="empty">No workforce profiles are available.</p>'}</div>
+        <button type="button" class="primary" data-save-week-off="${activeDate}">Save week off</button><p class="week-off-save-status" aria-live="polite"></p>
+      </div></div></section></div>`;
+  modalRoot.querySelector('[data-close]').onclick = () => { modalRoot.innerHTML = ''; };
+  modalRoot.querySelector('#week-off-month').onchange = event => openWeekOffCalendarV42(event.target.value);
+  modalRoot.querySelectorAll('[data-week-off-month]').forEach(button => button.onclick = () => openWeekOffCalendarV42(button.dataset.weekOffMonth));
+  modalRoot.querySelectorAll('[data-week-off-date]').forEach(button => button.onclick = () => openWeekOffCalendarV42(monthValue, button.dataset.weekOffDate));
+  modalRoot.querySelector('[data-week-off-select-all]').onclick = () => modalRoot.querySelectorAll('[data-week-off-person]').forEach(input => { input.checked = true; });
+  modalRoot.querySelector('[data-week-off-clear]').onclick = () => modalRoot.querySelectorAll('[data-week-off-person]').forEach(input => { input.checked = false; });
+  modalRoot.querySelector('[data-save-week-off]').onclick = event => {
+    const date = event.currentTarget.dataset.saveWeekOff;
+    const ids = [...modalRoot.querySelectorAll('[data-week-off-person]:checked')].map(input => input.value);
+    if (ids.length) assignments[date] = ids;
+    else delete assignments[date];
+    localStorage.setItem(weekOffKeyV42(), JSON.stringify(assignments));
+    const status = modalRoot.querySelector('.week-off-save-status');
+    status.textContent = ids.length ? `Week off saved for ${ids.length} profile${ids.length === 1 ? '' : 's'}.` : 'Week off assignment removed for this date.';
+    window.setTimeout(() => openWeekOffCalendarV42(monthValue, date), 450);
+  };
+}
+
 function roleOverflowV22(roleName) {
-  const rolePeople = group(roleName);
+  const category = workforceCategoryDefinitionsV43.find(item => item.role === roleName);
+  const rolePeople = category ? workforceCategoryPeopleV43(category) : group(roleName);
   const present = rolePeople.filter(person => person.status === 'Present').length;
   const absent = rolePeople.filter(person => person.status === 'Absent').length;
   const leave = rolePeople.filter(person => person.status === 'On leave').length;
@@ -272,37 +476,63 @@ function roleOverflowV22(roleName) {
         const currentWorkTotal = person.login_time && !person.logout_time
           ? 'In progress'
           : durationTextV21(calculation.total);
-        return `<article class="overflow-person-card" data-overflow-profile="${esc(person.id)}" tabindex="0" role="button"
-          aria-label="Open complete profile for ${esc(person.name)}">
+        return `<article class="overflow-person-card" data-person-card-id="${esc(person.id)}">
           <div class="overflow-person-head"><span class="avatar">${ini(person.name)}</span><div>
             <h3>${esc(person.name)}</h3><small>${esc(person.id)} · ${esc(person.dept || 'Department not entered')}</small></div>
             <span class="tag ${cls(person.status || 'Absent')}">${esc(person.status || 'Absent')}</span></div>
           <div class="overflow-person-details">
-            <div><span>Shift</span><b>${esc(person.shift || '09:00 AM - 06:00 PM')}</b></div>
-            <div><span>Current work total</span><b>${currentWorkTotal}</b></div>
-            <div><span>Monthly present</span><button type="button" class="monthly-present-button" data-person-attendance="${esc(person.id)}">${stats.present}</button></div>
-            <div><span>Monthly absent</span><b>${stats.absent}</b></div>
-            <div><span>Monthly leave</span><b>${stats.leave}</b></div>
-            <div><span>Days stored</span><b>${stats.stored}</b></div>
+            <button type="button" class="overflow-stat-box clickable" data-person-shift="${esc(person.id)}"><span>Shift</span><b>${esc(person.shift || '09:00 AM - 06:00 PM')}</b></button>
+            <div class="overflow-stat-box"><span>Current work total</span><b>${currentWorkTotal}</b></div>
+            <button type="button" class="overflow-stat-box clickable" data-person-attendance="${esc(person.id)}"><span>Monthly present</span><b>${stats.present}</b></button>
+            <button type="button" class="overflow-stat-box clickable" data-person-status="Absent" data-person-id="${esc(person.id)}"><span>Monthly absent</span><b>${stats.absent}</b></button>
+            <button type="button" class="overflow-stat-box clickable" data-person-status="On leave" data-person-id="${esc(person.id)}"><span>Monthly leave</span><b>${stats.leave}</b></button>
+            <div class="overflow-stat-box"><span>Days stored</span><b>${stats.stored}</b></div>
           </div>
           <div class="overflow-skills"><span>Skills</span><div class="skills">${(person.skills || []).slice(0, 5)
             .map(skill => `<span class="skill">${esc(skill)}</span>`).join('') || '<small>No skills entered</small>'}</div></div>
-          <button class="primary overflow-open-profile" type="button">View complete details →</button>
+          <button class="primary overflow-open-profile" type="button" data-view-complete-profile="${esc(person.id)}">View complete details →</button>
         </article>`;
       }).join('') || `<p class="empty">No ${singular} profiles are stored.</p>`}</div>
     </section>`;
   hydrateMonthlyPresentV35(rolePeople);
 }
 
-document.addEventListener('click', event => {
-  const roleCard = event.target.closest('#view-root .metric-group[data-overflow-role]');
-  const profileCard = event.target.closest('[data-overflow-profile]');
-  const attendanceButton = event.target.closest('[data-person-attendance]');
-  const backButton = event.target.closest('#back-to-overview');
-  if (!roleCard && !profileCard && !attendanceButton && !backButton) return;
+function addWorkforceCategoryPersonV43(roleName) {
+  if (roleName === 'Temporary Worker') {
+    tempEditor();
+    return;
+  }
+  if (['Worker', 'Staff', 'Entrepreneur'].includes(roleName)) {
+    add(roleName);
+    return;
+  }
+  const prefixes = { Employee: 'EM', Manager: 'MG', HR: 'HR', Owner: 'OW' };
+  const start = admin.shift_start || '09:00';
+  const end = admin.shift_end || '18:00';
+  const clock = value => new Date(`2000-01-01T${value}:00`).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const person = fix({
+    id: `${prefixes[roleName] || 'PF'}-${Math.floor(1000 + Math.random() * 8999)}`,
+    name: `New ${roleName.toLowerCase()}`,
+    role: roleName,
+    dept: 'Unassigned',
+    status: 'Not checked in',
+    shift: `${clock(start)} - ${clock(end)}`,
+    skills: []
+  });
+  people.push(person);
+  save();
+  editor(person.id);
+}
 
-  /* Bulk-selection controls inside a profile card must not open its editor. */
-  if (profileCard && event.target.closest('input, label, [data-bulk-action]')) return;
+document.addEventListener('click', event => {
+  const roleCard = event.target.closest('#view-root .metric-group[data-overflow-role], [data-workforce-overflow-role]');
+  const weekOffButton = event.target.closest('[data-week-off-overview]');
+  const attendanceButton = event.target.closest('[data-person-attendance]');
+  const shiftButton = event.target.closest('[data-person-shift]');
+  const statusButton = event.target.closest('[data-person-status]');
+  const profileButton = event.target.closest('[data-view-complete-profile]');
+  const backButton = event.target.closest('#back-to-overview');
+  if (!roleCard && !weekOffButton && !attendanceButton && !shiftButton && !statusButton && !profileButton && !backButton) return;
 
   event.preventDefault();
   event.stopImmediatePropagation();
@@ -311,8 +541,25 @@ document.addEventListener('click', event => {
     if (person) openIndividualAttendanceCalendarV33(person);
     return;
   }
-  if (roleCard) roleOverflowV22(roleCard.dataset.overflowRole);
-  if (profileCard) editor(profileCard.dataset.overflowProfile);
+  if (weekOffButton) {
+    openWeekOffCalendarV42();
+    return;
+  }
+  if (shiftButton) {
+    const person = [...people, ...temporaryWorkers].find(item => item.id === shiftButton.dataset.personShift);
+    if (person) openIndividualShiftDetailsV42(person);
+    return;
+  }
+  if (statusButton) {
+    const person = [...people, ...temporaryWorkers].find(item => item.id === statusButton.dataset.personId);
+    if (person) openIndividualStatusDaysV39(person, statusButton.dataset.personStatus);
+    return;
+  }
+  if (profileButton) {
+    editor(profileButton.dataset.viewCompleteProfile);
+    return;
+  }
+  if (roleCard) roleOverflowV22(roleCard.dataset.overflowRole || roleCard.dataset.workforceOverflowRole);
   if (backButton) {
     view = 'dashboard';
     render();
@@ -321,7 +568,7 @@ document.addEventListener('click', event => {
 
 document.addEventListener('keydown', event => {
   if (event.key !== 'Enter' && event.key !== ' ') return;
-  const target = event.target.closest('[data-overflow-role], [data-overflow-profile]');
+  const target = event.target.closest('[data-overflow-role]');
   if (!target) return;
   event.preventDefault();
   target.click();
@@ -573,7 +820,7 @@ document.addEventListener('click', event => {
   event.stopImmediatePropagation();
   if (addOverflow) {
     const roleName = addOverflow.dataset.overflowAdd;
-    add(roleName);
+    addWorkforceCategoryPersonV43(roleName);
   }
   if (saveTemp) {
     save();
@@ -734,10 +981,9 @@ window.attendanceCalendar = function advancedAttendanceCalendarV25() {
         <label class="enter-manually-button" title="Turn manual attendance on or off"><input type="checkbox" id="manual-attendance-toggle" ${manualAttendanceEnabledV21 ? 'checked' : ''}><i></i><b>Enter manually: ${manualAttendanceEnabledV21 ? 'ON' : 'OFF'}</b></label></div>
     </section>
     <div class="calendar-role-sections">
-      ${calendarTemporarySectionV21(record)}
-      ${calendarRoleSectionV21('Workers', 'Worker', record)}
-      ${calendarRoleSectionV21('Staff', 'Staff', record)}
-      ${calendarRoleSectionV21('Entrepreneurs', 'Entrepreneur', record)}
+      ${enabledWorkforceCategoriesV43().map(category => category.role === 'Temporary Worker'
+        ? calendarTemporarySectionV21(record)
+        : calendarRoleSectionV21(category.title, category.role, record)).join('')}
     </div>`;
   if (typeof syncAutomaticAttendanceV21 === 'function') syncAutomaticAttendanceV21(calendarDay);
 };
